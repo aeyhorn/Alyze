@@ -29,7 +29,13 @@ class DocumentationConfig:
     src_dir: Path = field(init=False)
     docs_dir: Path = field(init=False)
     readme: Path = field(init=False)
-    required_docs: tuple[str, ...] = ("ARCHITECTURE.md", "PROJECT_STATUS.md", "SAP_MAPPING.md")
+    required_docs: tuple[str, ...] = (
+        "ARCHITECTURE.md",
+        "PROJECT_STATUS.md",
+        "PROJECT_GOALS.md",
+        "REQUIREMENTS.md",
+        "SAP_MAPPING.md",
+    )
     max_status_age_days: int = 90
     """``PROJECT_STATUS.md`` must have been touched within this window."""
 

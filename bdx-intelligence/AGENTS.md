@@ -150,6 +150,27 @@ See `docs/ARCHITECTURE.md` and `docs/PROJECT_STATUS.md` for details.
 - Neue Endpunkte, Env-Vars und Events werden zusätzlich in
   `docs/ARCHITECTURE.md` bzw. `docs/SAP_MAPPING.md` gepflegt (die Agents
   prüfen Konsistenz automatisch).
+- `docs/PROJECT_GOALS.md` und `docs/REQUIREMENTS.md` sind Pflicht-Dokumente
+  (`DocumentationAgent`, `required_docs`).
+
+## Dev-Sync
+
+Desktop und mobile Cloud-Entwicklung sehen denselben Stand nur über Git.
+Jede Sitzung folgt `.cursor/rules/dev-sync.mdc`:
+
+1. Zu Beginn `git fetch` und die drei Dokumente lesen. Einen zurückliegenden
+   Branch integrieren, bevor etwas geändert wird.
+2. Neue Anforderungen, ob vom Desktop oder aus der Cloud, als neue Zeile in
+   `docs/REQUIREMENTS.md` anhängen.
+3. Den betroffenen Abschnitt in `PROJECT_STATUS.md` und den Zielstatus in
+   `PROJECT_GOALS.md` im selben Commit nachziehen. Beide Zeitstempel setzen.
+4. Committen und `git push -u origin HEAD`. Ohne Push ist die Arbeit auf dem
+   anderen Gerät nicht da.
+
+Der Koordinator-Lauf (`.cursor/skills/dev-sync/SKILL.md`, Prompt
+`.cursor/prompts/sync-coordinator.mdc`) ändert keinen Produktcode. Er gleicht
+die drei Dokumente mit Git ab, pusht, und öffnet von `main` aus einen
+Doku-PR `sync/status-<datum>`. Diesen PR mergt er nicht.
 
 ## Never
 
