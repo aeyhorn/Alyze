@@ -1,5 +1,8 @@
 ﻿# BDX Intelligence – Project Status
 
+> **Zuletzt aktualisiert:** 2026-11-07 19:51 (UTC+1)
+> _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
+
 | Sprint | Scope | Status |
 |---|---|---|
 | 001 | SAP read-only collector, event store, REST/CLI | ✅ complete (operational on DEV) |
