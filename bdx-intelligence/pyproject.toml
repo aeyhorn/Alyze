@@ -53,7 +53,12 @@ packages = ["src/bdx"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not integration'"
+markers = [
+    "integration: end-to-end tests against DEV systems (skipped by default; run via nightly cron)",
+    "sap_read: integration test that reads from real SAP SQL Server",
+    "sl: integration test that calls the Service Layer (always DRY_RUN)",
+]
 
 [tool.coverage.run]
 source = ["src/bdx"]

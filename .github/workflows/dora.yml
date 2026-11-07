@@ -1,0 +1,51 @@
+name: DORA Metrics
+
+# Weekly DORA metrics for BDX-Intelligence. Computes cycle time, deploy
+# frequency, MTTR, change failure rate and CI flakiness from GitHub data and
+# commits the result to bdx-intelligence/docs/dora-metrics.md.
+
+on:
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: dora-metrics
+  cancel-in-progress: false
+
+jobs:
+  metrics:
+    name: Compute + commit DORA metrics
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    defaults:
+      run:
+        working-directory: bdx-intelligence
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compute metrics
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/dora_metrics.py --repo "${{ github.repository }}" --out docs/dora-metrics.md --days 30
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/dora-metrics.md
+          if git diff --cached --quiet; then
+            echo "No metric changes — skipping commit."
+          else
+            git commit -m "docs(dora): weekly metrics snapshot"
+            git push
+          fi

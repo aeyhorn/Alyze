@@ -1,0 +1,43 @@
+---
+description: Triage a new GitHub issue — analyze, label, suggest branch + first task
+argument: issue_url_or_number
+---
+
+# Issue Triage (HOTL)
+
+You are triaging a new GitHub issue for BDX-Intelligence so the next agent
+can pick it up without human analysis.
+
+**Issue:** $ARGUMENTS
+
+## Workflow
+
+1. **Fetch the issue** via `gh issue view <number>` (or the API). Read title,
+   body, comments, linked PRs, author.
+
+2. **Reproduce / locate.** Launch an `explore` subagent (quick) to find the
+   relevant module under `bdx-intelligence/src/bdx/` and confirm whether the
+   issue describes a real bug, a missing feature, or a doc gap.
+
+3. **Classify** and apply labels via `gh issue edit <number> --add-label`:
+   - `bug` / `feature` / `docs` / `question`
+   - `trivial` if it is tests/docs/refactor only (auto-merge eligible)
+   - `sap-safety` if it touches `sap_sl/`, `db/`, or `alembic/` (needs CODEOWNER)
+   - `priority:low|medium|high`
+
+4. **Post a triage comment** with:
+   - One-sentence root cause / scope summary
+   - Suggested branch name (`feat/<slug>` or `fix/<slug>`)
+   - Suggested first task (file + behavior)
+   - Risk tag (`trivial` / `feature` / `fix` / `sap-safety`)
+   - Acceptance criteria bullet list
+
+5. **If trivial and low-risk**, optionally start implementation immediately
+   using the `feature` or `bugfix` prompt. Otherwise stop and wait for a
+   human to assign.
+
+## Hard rules
+
+- Never close an issue without a fixing PR merged.
+- Never label `trivial` if the issue touches `sap_sl/`, `db/`, or `alembic/`.
+- Never set `SL_DRY_RUN=false` in any suggested fix.

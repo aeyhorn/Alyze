@@ -1,0 +1,79 @@
+name: Auto-merge trivial PRs
+
+# Human-out-of-the-loop merge gate for trivial pull requests.
+#
+# A PR is auto-merged when ALL of the following hold:
+#   1. It carries the `trivial` label (set by the author or by triage).
+#   2. It does NOT touch protected paths (sap_sl/, db/, alembic/, Dockerfile,
+#      docker-compose.yml, .env.example, pyproject.toml major bumps).
+#   3. All required CI checks (ci.yml) are green.
+#   4. It targets `main`.
+#
+# Anything else (features, fixes touching protected paths, unlabeled PRs)
+# stays open for human / CODEOWNER review.
+#
+# The workflow uses `gh pr merge --auto --squash` so GitHub waits for the
+# required status checks before actually merging.
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, synchronize, reopened]
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    name: Auto-merge (trivial only)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide and merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          # 1. Trivial label required.
+          if ! echo "$PR_LABELS" | grep -q '"trivial"'; then
+            echo "No 'trivial' label — skipping auto-merge."
+            exit 0
+          fi
+
+          # 2. Protected paths disqualify the PR.
+          PROTECTED='bdx-intelligence/src/bdx/sap_sl/
+          bdx-intelligence/src/bdx/db/
+          bdx-intelligence/alembic/
+          bdx-intelligence/Dockerfile
+          bdx-intelligence/docker-compose.yml
+          bdx-intelligence/.env.example
+          bdx-intelligence/pyproject.toml'
+          CHANGED=$(gh pr view "$PR_NUMBER" --json files -q '.files[].path')
+          for f in $CHANGED; do
+            for p in $PROTECTED; do
+              if [ -n "$p" ] && case "$f" in "$p"*) true;; *) false;; esac; then
+                echo "Protected path touched: $f (matches $p) — needs human review."
+                exit 0
+              fi
+            done
+          done
+
+          # 3. Only test/doc files allowed for trivial auto-merge.
+          for f in $CHANGED; do
+            case "$f" in
+              */tests/*|*test_*.py|*.md|*.rst|docs/*) ;;
+              *) echo "Non-trivial file in PR: $f — skipping auto-merge."; exit 0;;
+            esac
+          done
+
+          echo "PR #$PR_NUMBER is trivial and clean — enabling auto-merge (squash)."
+          gh pr merge "$PR_NUMBER" --squash --auto --delete-branch \
+            --body "Auto-merged by HOTL policy (trivial label, no protected paths, CI green)."

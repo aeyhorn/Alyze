@@ -1,0 +1,50 @@
+name: CI Failure Triage
+
+# When the CI workflow (ci.yml) fails on a pull request, this workflow runs a
+# Cursor cloud agent on the failed job logs and posts a root-cause comment on
+# the PR. This keeps the human out of the loop for log-reading — the first
+# comment on a red PR is already a triage.
+#
+# Opt-in via the `CURSOR_API_KEY` repo secret. Without it the workflow is a
+# no-op (still green).
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: ci-triage-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: Triage failed CI
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        working-directory: bdx-intelligence
+        run: |
+          python -m pip install --upgrade pip
+          pip install cursor-sdk
+
+      - name: Find PR for this run + fetch failed logs + analyze
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
+        working-directory: bdx-intelligence
+        run: python scripts/ci_triage.py --run-id "$RUN_ID" --repo "$REPO"

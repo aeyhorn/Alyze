@@ -58,6 +58,6 @@ repos:
     hooks:
       - id: no-secrets-in-env
         name: block real .env from being committed
-        entry: bash -c 'if git diff --cached --name-only | grep -E "^bdx-intelligence/\.env$"; then echo "ERROR: .env is gitignored and must not be committed"; exit 1; fi'
+        entry: bash -c 'if git diff --cached --name-only | grep -E "^bdx-intelligence/\.env$"; then echo "ERROR - .env is gitignored and must not be committed"; exit 1; fi'
         language: system
         pass_filenames: false

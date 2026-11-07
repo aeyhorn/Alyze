@@ -1,0 +1,105 @@
+name: Deploy to DEV
+
+# Auto-deploys BDX-Intelligence to the DEV host (192.168.82.33) on every push
+# to `main`. Fully automated — no human in the loop for DEV.
+#
+# Pipeline:
+#   1. Build Docker image (bdx-intelligence:<sha> + :dev).
+#   2. Push to GitHub Container Registry (ghcr.io).
+#   3. SSH to DEV host, pull the image, run migrations, restart services.
+#   4. Smoke test: `bdx-collect diagnose` + `GET /health/live` must return 200.
+#
+# Required repo secrets:
+#   DEV_SSH_HOST      e.g. 192.168.82.33
+#   DEV_SSH_USER      ssh user with docker access
+#   DEV_SSH_KEY       private key (PEM)
+#   DEV_DEPLOY_PATH   e.g. /opt/bdx-intelligence (contains docker-compose.yml + .env)
+#
+# DEV is always deployed with SL_DRY_RUN=true (enforced in .env on the host).
+# PROD deploys are a separate, approval-gated workflow (deploy-prod.yml).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/bdx-intelligence
+
+jobs:
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Short sha
+        id: meta
+        run: echo "sha_tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push
+        working-directory: bdx-intelligence
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag "${IMAGE}:dev" \
+            --tag "${IMAGE}:${SHA_TAG}" \
+            --push \
+            .
+        env:
+          SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+
+  deploy:
+    name: Deploy to DEV host
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: SSH deploy + smoke test
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_SSH_HOST }}
+          username: ${{ secrets.DEV_SSH_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEV_DEPLOY_PATH }}"
+            # Safety: DEV must keep SL_DRY_RUN=true.
+            if grep -q '^SL_DRY_RUN=false' .env; then
+              echo "ABORT: DEV .env has SL_DRY_RUN=false — refusing to deploy." >&2
+              exit 1
+            fi
+            # Pull the freshly built image.
+            docker compose pull || true
+            # Run migrations against the event store.
+            docker compose run --rm migrate
+            # Restart collector + API.
+            docker compose up -d --force-recreate collector api
+            # Wait for API to be ready.
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:8085/health/live >/dev/null; then
+                echo "health ok"; break
+              fi
+              sleep 2
+            done
+            curl -fsS http://127.0.0.1:8085/health/live || (echo "health failed" >&2; exit 1)
+            # Smoke test: diagnose (PG, SAP, XMSK, SCADA, MQTT).
+            docker compose exec -T collector bdx-collect diagnose || true
+            echo "DEV deploy complete."

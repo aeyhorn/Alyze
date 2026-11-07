@@ -1,0 +1,58 @@
+---
+description: Take a Notion spec URL, break it into tasks, and start implementing the first one
+argument: notion_spec_url
+---
+
+# From Notion Spec → Implementation
+
+You are turning a Notion spec into implemented, tested, PR-ready code for
+BDX-Intelligence — with the human out of the loop except for approvals.
+
+**Spec URL:** $ARGUMENTS
+
+## Workflow
+
+1. **Read the spec.** Use the Notion `find` / `search` skill (or
+   `database-query`) to fetch the spec page at the URL. Extract: goal,
+   acceptance criteria, constraints, out-of-scope.
+
+2. **Plan tasks.** Use the Notion `tasks-plan` skill to break the spec into
+   ordered implementation tasks. Each task gets:
+   - A short title
+   - Acceptance criteria (copied from the spec where applicable)
+   - A file-scope hint (which module under `bdx-intelligence/src/bdx/`)
+   - A risk tag: `trivial` (tests/docs/refactor) or `feature`/`fix`
+   Store the tasks in the Notion tasks database and link them to the spec.
+
+3. **Pick the first task** that has no unmet dependency. Use the Notion
+   `tasks-build` skill to mark it `In Progress` and start implementing.
+
+4. **Implement** following `bdx-intelligence/AGENTS.md` and the SAP safety
+   rules. Use the `explore` subagent (quick) to find the relevant module and
+   existing patterns before writing code.
+
+5. **Test** on SQLite in-memory fixtures. Run the local gates:
+   ```
+   ruff check . && ruff format --check . && mypy src/bdx && pytest -v --cov=bdx --cov-fail-under=80
+   ```
+
+6. **Open a PR** using `bdx-intelligence/scripts/create_pr.py`:
+   ```
+   python scripts/create_pr.py --base main --head <branch> --title "<conventional title>" [--label trivial]
+   ```
+   Add the `trivial` label only if the task was tagged `trivial` and touches
+   no protected paths. Otherwise leave it for human/CODEOWNER review.
+
+7. **Update Notion**: mark the task `Done` (or `Blocked` if the PR needs
+   review), link the PR URL into the task.
+
+8. **Continue** with the next task. Stop only when all tasks are Done, in
+   review, or blocked on a human.
+
+## Hard rules
+
+- Never set `SL_DRY_RUN=false` in any committed file.
+- Never add a write method to the MSSQL channel.
+- Never change SAP status code mappings without verifying against OWOR.
+- Never skip the test step; every code task ships with a test.
+- Never auto-merge a PR that touches `sap_sl/`, `db/`, or `alembic/`.

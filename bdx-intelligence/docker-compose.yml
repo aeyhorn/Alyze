@@ -12,8 +12,10 @@
 # All runtime configuration comes from .env (never committed).
 
 x-common: &common
+  # Local builds use `build: .`; DEV/PROD pull the prebuilt image from GHCR.
+  # Override with: BDX_IMAGE=ghcr.io/aeyhorn/alyze/bdx-intelligence:dev
+  image: ${BDX_IMAGE:-bdx-intelligence:latest}
   build: .
-  image: bdx-intelligence:latest
   env_file: .env
   environment:
     LOG_FORMAT: json

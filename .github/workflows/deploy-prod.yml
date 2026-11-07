@@ -1,0 +1,94 @@
+name: Deploy to PROD
+
+# Approval-gated production deploy for BDX-Intelligence.
+#
+# Trigger: manual (workflow_dispatch) only. The `prod` environment has required
+# reviewers configured in GitHub repo settings — a human must approve before
+# any step runs.
+#
+# Hard safety:
+#   * The workflow refuses to deploy if the PROD .env on the host has
+#     SL_DRY_RUN=false UNLESS the run was explicitly started with
+#     `confirm_sl_write=true`. This prevents accidental real SAP writes.
+#   * Migrations against the PROD event store require an extra approval input.
+#
+# Required repo secrets:
+#   PROD_SSH_HOST, PROD_SSH_USER, PROD_SSH_KEY, PROD_DEPLOY_PATH
+# Required environment `prod` with required reviewers (repo settings).
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g. sha-abcdef1 or prod)"
+        required: true
+        default: "prod"
+      run_migrations:
+        description: "Run alembic upgrade head against PROD event store"
+        type: boolean
+        required: false
+        default: false
+      confirm_sl_write:
+        description: "Acknowledge SL_DRY_RUN=false will be respected on PROD"
+        type: boolean
+        required: true
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/bdx-intelligence
+
+jobs:
+  approve:
+    name: Approval gate
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Confirm inputs
+        run: |
+          echo "Deploying tag: ${{ inputs.image_tag }}"
+          echo "Run migrations: ${{ inputs.run_migrations }}"
+          echo "Confirm SL write: ${{ inputs.confirm_sl_write }}"
+          if [ "${{ inputs.confirm_sl_write }}" != "true" ]; then
+            echo "You must acknowledge the SL_DRY_RUN handling." >&2
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy to PROD host
+    needs: approve
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: SSH deploy + smoke test
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.PROD_DEPLOY_PATH }}"
+            # Pull the chosen tag.
+            export BDX_IMAGE="${IMAGE}:${{ inputs.image_tag }}"
+            docker compose pull
+            # Optional migrations (extra approval input).
+            if [ "${{ inputs.run_migrations }}" = "true" ]; then
+              docker compose run --rm migrate
+            fi
+            # Recreate services.
+            docker compose up -d --force-recreate collector api
+            # Wait for API.
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:8085/health/live >/dev/null; then
+                echo "health ok"; break
+              fi
+              sleep 2
+            done
+            curl -fsS http://127.0.0.1:8085/health/live || (echo "health failed" >&2; exit 1)
+            echo "PROD deploy complete. tag=${{ inputs.image_tag }}"
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/bdx-intelligence
