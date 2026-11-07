@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
-from bdx.api.routes import health, machines, orders, service_layer
+from bdx.api.routes import analytics, health, machines, orders, service_layer
 from bdx.config import (
     load_app_settings,
     load_bde_settings,
@@ -97,6 +97,7 @@ def create_app(
     app.include_router(orders.router, prefix="/api/v1")
     app.include_router(machines.router, prefix="/api/v1")
     app.include_router(service_layer.router, prefix="/api/v1")
+    app.include_router(analytics.router, prefix="/api/v1")
 
     @app.get("/", include_in_schema=False)
     def _root():
@@ -105,6 +106,10 @@ def create_app(
     @app.get("/dashboard", include_in_schema=False)
     def _dashboard():
         return FileResponse(_STATIC_DIR / "dashboard.html", media_type="text/html")
+
+    @app.get("/analytics", include_in_schema=False)
+    def _analytics():
+        return FileResponse(_STATIC_DIR / "analytics.html", media_type="text/html")
 
     logger.info("app.ready", host=app_cfg.api_host, port=app_cfg.api_port, api_key_enabled=bool(app.state.api_key))
     return app
