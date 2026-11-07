@@ -34,6 +34,27 @@ detect production order changes idempotently, and expose results via REST API an
 | docs/SAP_MAPPING.md | ✅ | |
 | README.md | ✅ | |
 
+### Delivered beyond Sprint 001 scope (Service Layer foundation)
+
+| Feature | Status | Notes |
+|---|---|---|
+| Service Layer client (`sap_sl/client.py`) | ✅ | Login/session, CSRF fetch, 401 re-login, DRY_RUN guard |
+| Dev/Prod mode registry (`sap_sl/mode.py`) | ✅ | Persisted in `app_setting.sapMode` |
+| `GET /api/v1/service-layer`, `PUT /api/v1/service-layer/mode` | ✅ | |
+| Actual write-back to SAP (release, confirmations) | ⬜ | Not implemented – write channel is prepared only |
+
+### Operational status (DEV, verified 2026-11-07)
+
+| Check | Result |
+|---|---|
+| Service Layer login DEV / PROD | ✅ `DEV_SBO_LEISINGER` ("DEV Bidirex GmbH"), `SBO_LEISINGER` – read calls OK |
+| MSSQL read channel | ✅ via Windows integrated auth (`SAP_DB_TRUSTED_CONNECTION=yes`); SQL login `bdx_readonly` does not exist yet on LDSAP |
+| ODBC driver | Driver 17 installed → `SAP_DB_ODBC_DRIVER=ODBC Driver 17 for SQL Server` |
+| PostgreSQL event store | ✅ container `bdx-intelligence-postgres` (postgres:16-alpine) on Docker host 192.168.82.33:5437, schema `001` applied |
+| `bdx-collect diagnose` | ✅ both datastores connected, 37 368 open orders |
+| `bdx-collect collect --once` | ✅ 38 561 orders / 47 s; first run → 38 561 `ORDER_CREATED`, second run → 0 events (idempotent) |
+| API `/health`, `/api/v1/orders`, `/api/v1/events`, `/api/v1/service-layer` | ✅ |
+
 ### Not in Sprint 001 (Planned)
 
 | Feature | Sprint |

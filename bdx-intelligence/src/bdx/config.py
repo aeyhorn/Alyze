@@ -6,8 +6,13 @@ from __future__ import annotations
 
 import enum
 
-from pydantic import Field, field_validator, model_validator
+from dotenv import load_dotenv
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Load ./.env (searched upwards from this file) into the process environment.
+# Variables that are already set in the real environment take precedence.
+load_dotenv()
 
 
 class SAPSettings(BaseSettings):
@@ -18,31 +23,45 @@ class SAPSettings(BaseSettings):
     host: str = Field(..., description="SQL Server hostname or IP")
     port: int = Field(1433, ge=1, le=65535)
     name: str = Field(..., description="SAP company database name")
-    user: str = Field(..., description="Read-only SQL login")
-    password: str = Field(..., description="SQL login password – from env only")
+    user: str = Field("", description="Read-only SQL login (not needed with trusted_connection)")
+    password: str = Field("", description="SQL login password – from env only")
+    trusted_connection: str = Field(
+        "no",
+        pattern=r"^(yes|no)$",
+        description="Use Windows integrated authentication (current user) instead of UID/PWD",
+    )
     tls: str = Field("yes", pattern=r"^(yes|no)$")
     tls_ca_cert: str = Field("", description="Path to CA cert bundle (optional)")
     connect_timeout: int = Field(10, ge=1, le=300)
     query_timeout: int = Field(30, ge=1, le=600)
+    odbc_driver: str = Field(
+        "ODBC Driver 18 for SQL Server",
+        description="Installed ODBC driver name, e.g. 'ODBC Driver 17 for SQL Server'",
+    )
 
-    @field_validator("password", mode="before")
-    @classmethod
-    def _password_not_empty(cls, v: str) -> str:
-        if not v:
-            raise ValueError("SAP_DB_PASSWORD must not be empty")
-        return v
+    @model_validator(mode="after")
+    def _credentials_present(self) -> "SAPSettings":
+        if self.trusted_connection != "yes":
+            if not self.user:
+                raise ValueError("SAP_DB_USER must be set (or SAP_DB_TRUSTED_CONNECTION=yes)")
+            if not self.password:
+                raise ValueError("SAP_DB_PASSWORD must not be empty (or SAP_DB_TRUSTED_CONNECTION=yes)")
+        return self
 
     def odbc_connection_string(self) -> str:
         """Build an ODBC connection string.  TLS is enforced when tls='yes'."""
         encrypt = "yes" if self.tls == "yes" else "no"
         trust_cert = "no" if self.tls_ca_cert else "yes"
         ca_part = f";TrustServerCertificate=no;ServerCertificate={self.tls_ca_cert}" if self.tls_ca_cert else ""
+        if self.trusted_connection == "yes":
+            auth_part = "Trusted_Connection=yes;"
+        else:
+            auth_part = f"UID={self.user};PWD={self.password};"
         return (
-            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"DRIVER={{{self.odbc_driver}}};"
             f"SERVER={self.host},{self.port};"
             f"DATABASE={self.name};"
-            f"UID={self.user};"
-            f"PWD={self.password};"
+            f"{auth_part}"
             f"Encrypt={encrypt};"
             f"TrustServerCertificate={trust_cert};"
             f"ConnectTimeout={self.connect_timeout};"

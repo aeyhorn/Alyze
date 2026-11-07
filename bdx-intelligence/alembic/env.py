@@ -6,10 +6,14 @@ import sys
 from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
 # Ensure the src package is on sys.path when running via alembic CLI
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+# Load <project>/.env so POSTGRES_DSN does not have to be exported manually
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from bdx.db.postgres import Base  # noqa: E402  – after sys.path adjustment
 import bdx.models.events  # noqa: F401,E402  – register ORM models with metadata

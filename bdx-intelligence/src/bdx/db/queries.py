@@ -10,6 +10,10 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+# NOTE: The custom fields U_Type / U_Priority (OWOR) and U_BDX_Machine (OITM)
+# from docs/SAP_MAPPING.md do not exist in the Leisinger company databases
+# (verified against DEV_SBO_LEISINGER, 2026-11-07).  They are selected as NULL
+# placeholders so the model shape stays stable until the UDFs are created in SAP.
 
 # ── OWOR – Production/Work Orders ────────────────────────────────────────────
 
@@ -26,8 +30,8 @@ OWOR_OPEN_ORDERS_SQL = text(
         wo.DueDate           AS due_date,
         wo.StartDate         AS start_date,
         wo.PostDate          AS post_date,
-        wo.U_Type            AS u_type,
-        wo.U_Priority        AS u_priority,
+        CAST(NULL AS NVARCHAR(50)) AS u_type,
+        CAST(NULL AS NVARCHAR(50)) AS u_priority,
         wo.Comments          AS comments,
         wo.UpdateDate        AS update_date,
         wo.UpdateTS          AS update_ts
@@ -50,8 +54,8 @@ OWOR_SNAPSHOT_SQL = text(
         wo.DueDate           AS due_date,
         wo.StartDate         AS start_date,
         wo.PostDate          AS post_date,
-        wo.U_Type            AS u_type,
-        wo.U_Priority        AS u_priority,
+        CAST(NULL AS NVARCHAR(50)) AS u_type,
+        CAST(NULL AS NVARCHAR(50)) AS u_priority,
         wo.Comments          AS comments,
         wo.UpdateDate        AS update_date,
         wo.UpdateTS          AS update_ts
@@ -66,8 +70,9 @@ OWOR_BY_DOCENTRY_SQL = text(
         wo.DocEntry, wo.DocNum, wo.Status, wo.ItemCode,
         wo.PlannedQty, wo.CmpltQty, wo.RjctQty,
         wo.DueDate, wo.StartDate, wo.PostDate,
-        wo.U_Type, wo.U_Priority, wo.Comments,
-        wo.UpdateDate, wo.UpdateTS
+        CAST(NULL AS NVARCHAR(50)) AS U_Type,
+        CAST(NULL AS NVARCHAR(50)) AS U_Priority,
+        wo.Comments, wo.UpdateDate, wo.UpdateTS
     FROM dbo.OWOR wo
     WHERE wo.DocEntry = :doc_entry
     """
@@ -83,7 +88,7 @@ OITM_FOR_ORDERS_SQL = text(
         it.ItmsGrpCod        AS item_group_code,
         it.InvntItem         AS inventory_item,
         it.PrfrmMrpStep      AS mrp_item,
-        it.U_BDX_Machine     AS machine_id
+        CAST(NULL AS NVARCHAR(50)) AS machine_id
     FROM dbo.OITM it
     WHERE it.ItemCode IN (
         SELECT DISTINCT wo.ItemCode FROM dbo.OWOR wo WHERE wo.Status NOT IN ('C', 'X')
@@ -95,7 +100,8 @@ OITM_BY_ITEMCODE_SQL = text(
     """
     SELECT
         it.ItemCode, it.ItemName, it.ItmsGrpCod,
-        it.InvntItem, it.PrfrmMrpStep, it.U_BDX_Machine
+        it.InvntItem, it.PrfrmMrpStep,
+        CAST(NULL AS NVARCHAR(50)) AS U_BDX_Machine
     FROM dbo.OITM it
     WHERE it.ItemCode = :item_code
     """

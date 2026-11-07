@@ -75,6 +75,8 @@ Both the Service Layer client and the MSSQL read pool use the same active mode. 
 
 All configuration is loaded **exclusively from environment variables** via `pydantic-settings`.  No secrets appear in source code or configuration files committed to the repository.
 
+On import, `config.py` (and `alembic/env.py`) call `python-dotenv`'s `load_dotenv()`, so a `.env` file in the project root is picked up automatically.  Variables already present in the real environment take precedence over `.env`.
+
 | Prefix | Purpose |
 |---|---|
 | `SAP_DB_*` | SQL Server connection (host, port, user, password, TLS) |
@@ -144,14 +146,16 @@ Sprint 001 ships only abstract base classes and null implementations:
 | `SL_COMPANY_DB_DEV` | – | Company DB in dev mode |
 | `SL_COMPANY_DB_PROD` | – | Company DB in prod mode |
 | `SL_USERNAME` / `SL_PASSWORD` | – | SAP credentials |
-| `SL_ALLOW_INVALID_CERT` | false | Self-signed TLS (internal only) |
-| `SL_TIMEOUT_MS` | 20000 | Per-request timeout |
+| `SL_ALLOW_INVALID_CERT` | false | Self-signed TLS (internal only; required for LDSAP) |
+| `SL_TIMEOUT_MS` | 20000 | Per-request timeout (use ≥120000 – SL cold start after idle takes >30 s) |
 | `SL_DRY_RUN` | false | Block all writes to SAP |
 | `SAP_MODE` | dev | Active mode (overridden by DB) |
 | `SAP_DB_HOST` | – | MSSQL hostname |
 | `SAP_DB_NAME` | – | MSSQL company database |
-| `SAP_DB_USER` / `SAP_DB_PASSWORD` | – | MSSQL read-only credentials |
+| `SAP_DB_TRUSTED_CONNECTION` | no | `yes` = Windows integrated auth (USER/PASSWORD ignored) |
+| `SAP_DB_USER` / `SAP_DB_PASSWORD` | – | MSSQL read-only credentials (when not trusted) |
 | `SAP_DB_TLS` | yes | TLS for MSSQL |
+| `SAP_DB_ODBC_DRIVER` | ODBC Driver 18 for SQL Server | Installed ODBC driver name |
 | `POSTGRES_DSN` | – | PostgreSQL event store |
 | `POLL_INTERVAL_SECONDS` | 60 | Collector poll frequency |
 
