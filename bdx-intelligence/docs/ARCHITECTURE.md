@@ -2,39 +2,59 @@
 
 ## Overview
 
-BDX Intelligence is a **read-only data collector and event engine** that bridges SAP Business One (SQL Server) with a local PostgreSQL event store.  It exposes a FastAPI REST API and a CLI for reporting and diagnostics.
+BDX Intelligence bridges SAP Business One with a local PostgreSQL event store via two separate channels:
+
+| Channel | Protocol | Direction | Used for |
+|---|---|---|---|
+| **Read** | MSSQL / pyodbc | SAP → BDX | Snapshots, change detection (OWOR, OITM) |
+| **Write** | Service Layer OData v4 | BDX → SAP | Future write-back (releases, confirmations) |
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     BDX Intelligence                            │
-│                                                                 │
-│  ┌────────────┐    SQL (read-only)    ┌─────────────────────┐  │
-│  │  Collector │◄──────────────────────│  SAP Business One   │  │
-│  │  Polling   │   pyodbc / SQLAlchemy │  SQL Server (OWOR,  │  │
-│  │  Loop 60s  │                       │  OITM tables)       │  │
-│  └─────┬──────┘                       └─────────────────────┘  │
-│        │                                                        │
-│        │ persist snapshots + domain events                      │
-│        ▼                                                        │
-│  ┌─────────────┐                                               │
-│  │  PostgreSQL │                                               │
-│  │  Event Store│  order_snapshots, domain_events tables        │
-│  └──────┬──────┘                                               │
-│         │                                                       │
-│         ▼                                                       │
-│  ┌─────────────┐                                               │
-│  │  FastAPI    │  GET /health, /api/v1/orders, /api/v1/events  │
-│  │  REST API   │                                               │
-│  └─────────────┘                                               │
-│                                                                 │
-│  ┌─────────────┐  ┌──────────────┐                            │
-│  │ BDE Adapter │  │Machine Adapt.│  (stubs – Sprint 002+)     │
-│  │   (stub)    │  │   (stub)     │                            │
-│  └─────────────┘  └──────────────┘                            │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           BDX Intelligence                                   │
+│                                                                              │
+│         READ CHANNEL (MSSQL, read-only)                                      │
+│  ┌────────────┐  SQL SELECT only   ┌──────────────────────────────────────┐  │
+│  │  Collector │◄───────────────────│  SAP Business One SQL Server         │  │
+│  │  60s poll  │  pyodbc/SQLAlchemy │  DEV_SBO_LEISINGER / SBO_LEISINGER   │  │
+│  └─────┬──────┘                    │  Tables: OWOR, OITM                  │  │
+│        │                           └──────────────────────────────────────┘  │
+│        │ snapshots + events                                                   │
+│        ▼                                                                      │
+│  ┌─────────────┐           WRITE CHANNEL (Service Layer, OData v4)           │
+│  │  PostgreSQL │    ┌────────────────┐    ┌──────────────────────────────┐   │
+│  │  Event Store│    │  SL Client     │───►│  SAP Service Layer           │   │
+│  │  app_setting│    │  (httpx)       │    │  https://…:50000/b1s/v2      │   │
+│  │  order_snap.│    │  Session+CSRF  │    │  dev: DEV_SBO_LEISINGER      │   │
+│  │  domain_ev. │    │  DRY_RUN guard │    │  prod: SBO_LEISINGER         │   │
+│  └──────┬──────┘    └────────────────┘    └──────────────────────────────┘   │
+│         │                                                                     │
+│         ▼                                                                     │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │  FastAPI REST API                                                     │    │
+│  │  GET  /health                     GET  /api/v1/orders                │    │
+│  │  GET  /api/v1/events              GET  /api/v1/service-layer         │    │
+│  │  PUT  /api/v1/service-layer/mode                                     │    │
+│  └──────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────┐  ┌──────────────┐                                          │
+│  │ BDE Adapter │  │Machine Adapt.│  (stubs – Sprint 002+)                   │
+│  │   (stub)    │  │   (stub)     │                                          │
+│  └─────────────┘  └──────────────┘                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Components
+
+### 0. SAP Mode Registry (`src/bdx/sap_sl/mode.py`)
+
+Tracks the active SAP mode (`dev` | `prod`).  Resolution order:
+
+1. Persisted in `app_setting.sapMode` (PostgreSQL)
+2. `SAP_MODE` environment variable
+3. Default: `dev`
+
+Both the Service Layer client and the MSSQL read pool use the same active mode.  Mode switch via `PUT /api/v1/service-layer/mode` → clears SL session, sets new company DB.
 
 ### 1. Collector (`src/bdx/collector/`)
 
@@ -69,6 +89,20 @@ All configuration is loaded **exclusively from environment variables** via `pyda
 - **`queries.py`**: Fixed, parameterized `text()` queries for OWOR and OITM.  No string interpolation; all parameters use `:name` placeholders.
 - **`postgres.py`**: PostgreSQL engine and session factory for the event store.
 
+### 3b. Service Layer Client (`src/bdx/sap_sl/client.py`)
+
+Thread-safe HTTP client for the SAP B1 Service Layer (write channel):
+
+| Feature | Detail |
+|---|---|
+| Login | `POST /Login` with CompanyDB + credentials → `B1SESSION`, `ROUTEID` cookies |
+| Session TTL | 20 min (SAP internal); renewed 30 s before expiry |
+| CSRF | `GET CompanyService_GetCompanyInfo` with `X-CSRF-Token: Fetch` after login |
+| 401 handling | Discard session, re-login, retry request once |
+| DRY_RUN | `SL_DRY_RUN=true` raises `DryRunError` on any write; GET/Login unaffected |
+| TLS | `SL_ALLOW_INVALID_CERT=true` for self-signed internal certs |
+| OData errors | `error.message.value` extracted and surfaced as `ServiceLayerError` |
+
 ### 4. API (`src/bdx/api/`)
 
 FastAPI application with:
@@ -76,6 +110,8 @@ FastAPI application with:
 - `GET /health/live` – Kubernetes-compatible liveness probe
 - `GET /api/v1/orders` – latest snapshot of production orders (filterable)
 - `GET /api/v1/events` – domain events (filterable, paginated)
+- `GET /api/v1/service-layer` – SL connection status (mode, companyDb, configured, dryRun)
+- `PUT /api/v1/service-layer/mode` – switch dev/prod (body: `{"mode":"dev"}|{"mode":"prod"}`)
 
 ### 5. CLI (`src/bdx/cli/report.py`)
 
@@ -94,10 +130,30 @@ Sprint 001 ships only abstract base classes and null implementations:
 
 ## Security Constraints
 
-- No write operations to SAP (enforced at both DB-user and application level)
+- **MSSQL read channel**: DB user has `SELECT` only; application write-guard blocks DML/DDL
+- **Service Layer write channel**: guarded by `SL_DRY_RUN`; no writes without explicit enable
 - No machine control commands (adapters are read-only by interface contract)
 - All secrets from environment variables only; `.env` is in `.gitignore`
-- TLS enforced for SAP SQL Server connections (`SAP_DB_TLS=yes`)
+- TLS enforced for MSSQL (`SAP_DB_TLS=yes`); SL TLS skip only with `SL_ALLOW_INVALID_CERT=true`
+
+## Configuration Reference
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SL_BASE_URL` | – | Service Layer base URL |
+| `SL_COMPANY_DB_DEV` | – | Company DB in dev mode |
+| `SL_COMPANY_DB_PROD` | – | Company DB in prod mode |
+| `SL_USERNAME` / `SL_PASSWORD` | – | SAP credentials |
+| `SL_ALLOW_INVALID_CERT` | false | Self-signed TLS (internal only) |
+| `SL_TIMEOUT_MS` | 20000 | Per-request timeout |
+| `SL_DRY_RUN` | false | Block all writes to SAP |
+| `SAP_MODE` | dev | Active mode (overridden by DB) |
+| `SAP_DB_HOST` | – | MSSQL hostname |
+| `SAP_DB_NAME` | – | MSSQL company database |
+| `SAP_DB_USER` / `SAP_DB_PASSWORD` | – | MSSQL read-only credentials |
+| `SAP_DB_TLS` | yes | TLS for MSSQL |
+| `POSTGRES_DSN` | – | PostgreSQL event store |
+| `POLL_INTERVAL_SECONDS` | 60 | Collector poll frequency |
 
 ## Data Flow – Domain Events
 

@@ -17,6 +17,12 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table(
+        "app_setting",
+        sa.Column("key", sa.String(64), primary_key=True),
+        sa.Column("value", sa.String(256), nullable=False),
+    )
+
+    op.create_table(
         "order_snapshots",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("source_key", sa.String(64), nullable=False, index=True),
@@ -69,3 +75,4 @@ def downgrade() -> None:
     op.drop_table("domain_events")
     op.execute("DROP TYPE IF EXISTS event_type_enum")
     op.drop_table("order_snapshots")
+    op.drop_table("app_setting")

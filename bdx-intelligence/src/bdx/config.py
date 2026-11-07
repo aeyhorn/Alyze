@@ -4,7 +4,9 @@ No production credentials must ever appear in this file or anywhere in the repos
 """
 from __future__ import annotations
 
-from pydantic import Field, field_validator
+import enum
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -95,3 +97,73 @@ def load_collector_settings() -> CollectorSettings:
 
 def load_app_settings() -> AppSettings:
     return AppSettings()
+
+
+class SapMode(str, enum.Enum):
+    DEV = "dev"
+    PROD = "prod"
+
+
+class ServiceLayerSettings(BaseSettings):
+    """SAP Business One Service Layer – write channel (OData v4 / REST).
+
+    Read channel is MSSQL (SAPSettings above).
+    Session management, CSRF and DRY_RUN are handled in sap_sl/client.py.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="SL_", case_sensitive=False)
+
+    base_url: str = Field(
+        "",
+        description="e.g. https://ldsap.leisinger.local:50000/b1s/v2 (no trailing slash)",
+    )
+    company_db_dev: str = Field("", description="Company DB for dev mode")
+    company_db_prod: str = Field("", description="Company DB for prod mode")
+    company_db: str = Field("", description="Fallback company DB")
+    username: str = Field("", description="SAP login user")
+    password: str = Field("", description="SAP login password – from env only")
+    allow_invalid_cert: bool = Field(
+        False, description="Disable TLS verification (self-signed certs only)"
+    )
+    timeout_ms: int = Field(20_000, ge=1_000, description="Per-request timeout in ms")
+    dry_run: bool = Field(
+        False,
+        description="Block all writes to SAP (GET and Login still work)",
+    )
+
+    # SAP_MODE lives in the top-level namespace (no SL_ prefix)
+    model_config = SettingsConfigDict(env_prefix="SL_", case_sensitive=False)
+
+    @property
+    def timeout_seconds(self) -> float:
+        return self.timeout_ms / 1000.0
+
+    def company_db_for_mode(self, mode: "SapMode") -> str:
+        """Return the correct company DB for the given mode."""
+        if mode == SapMode.DEV:
+            return self.company_db_dev or self.company_db
+        return self.company_db_prod or self.company_db
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.base_url and self.username)
+
+    @property
+    def write_enabled(self) -> bool:
+        return self.configured and not self.dry_run
+
+
+class SapModeSettings(BaseSettings):
+    """Top-level SAP mode from environment (overridden by DB-persisted value)."""
+
+    model_config = SettingsConfigDict(env_prefix="", case_sensitive=False)
+
+    sap_mode: SapMode = Field(SapMode.DEV, description="'dev' or 'prod'")
+
+
+def load_service_layer_settings() -> ServiceLayerSettings:
+    return ServiceLayerSettings()  # type: ignore[call-arg]
+
+
+def load_sap_mode_settings() -> SapModeSettings:
+    return SapModeSettings()
