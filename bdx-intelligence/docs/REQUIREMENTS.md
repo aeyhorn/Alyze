@@ -11,4 +11,4 @@ Quellen: `desktop` oder `cloud`. Status: `open`, `in-progress`, `done`.
 
 Nächste freie ID: `R001`.
 
-Abgleich 2026-11-07 22:36 (UTC+1): keine Anforderungszeilen auf `origin/main`. Nächste ID bleibt `R001`.
+Abgleich 2026-11-07 22:40 (UTC+1): keine Anforderungszeilen auf `origin/main`. Nächste ID bleibt `R001`.

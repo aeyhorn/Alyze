@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-07 22:36 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-07 22:40 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 > Git-Abgleich gegen `origin/main` `2f13c3f` (2026-11-07 21:17 UTC). Ziele: `docs/PROJECT_GOALS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 
@@ -63,7 +63,7 @@ detect production order changes idempotently, and expose results via REST API an
 | REST: `/orders` (state, open-only default, `/summary`, `/{doc_entry}` with history), `/events` (+`/summary`), `/machines` (+`/{id}`, `/{id}/live`), `/bde/records`, `/runs` | ✅ | |
 | Optional API key (`API_KEY`, `X-API-Key` header or `?api_key=`) | ✅ | empty = open (LAN only) |
 | `/health` reports collector freshness, machine feed, publisher | ✅ | |
-| **SAP Service Layer write-back** (release / close / cancel / report-production) | ✅ | `sap_sl/operations.py` with `sl_operations` audit table (migration 003); CLI `release`/`close`/`cancel`/`report-production`/`sl-operations`; REST `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` + `GET /service-layer/operations`. **DRY_RUN-verified against DEV** (no real writes). Real writes stay off until an operator disables dry-run on the host. Committed files do not disable it. |
+| **SAP Service Layer write-back** (release / close / cancel / report-production) | ✅ | `sap_sl/operations.py` with `sl_operations` audit table (migration 003); CLI `release`/`close`/`cancel`/`report-production`/`sl-operations`; REST `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` + `GET /service-layer/operations`. **DRY_RUN-verified against DEV** (no real writes). Gap: `ServiceLayerSettings.dry_run` defaults to off, and `.env.example` does the same. `deploy.ps1` and `deploy-dev.yml` still refuse a DEV deploy unless the host env keeps dry-run enabled. This sync does not change that code. |
 | Dockerfile + docker-compose.yml | ✅ written, ⬜ **not deployed** | needs SQL login `bdx_readonly` (script in `docs/sql/create_bdx_readonly.sql`) |
 
 ## Sprint 004 – CI/CD pipeline, quality-gate agents, HOTL workflow  ✅ On main
@@ -124,7 +124,7 @@ These rows are the last hands-on check recorded in this file. This sync did not 
 | Check | Result |
 |---|---|
 | Service Layer login DEV / PROD | ✅ `DEV_SBO_LEISINGER`, `SBO_LEISINGER` – read calls OK (`SL_TIMEOUT_MS=120000` for cold start) |
-| MSSQL read channel | ✅ Windows integrated auth (`SAP_DB_TRUSTED_CONNECTION=yes`, ODBC Driver 17); SQL login `bdx_readonly` does not exist yet on LDSAP |
+| MSSQL read channel | ✅ Windows integrated auth on the workstation (`SAP_DB_TRUSTED_CONNECTION=yes`, ODBC Driver 17). Superseded for the container by `12fa8cf`: `bdx_readonly` read 871 open orders from inside the DEV container. Not re-checked in this sync. |
 | PostgreSQL event store | ✅ container `bdx-intelligence-postgres` on Docker host 192.168.82.33:5437, schema **002** applied |
 | `bdx-collect diagnose` | ✅ PG, SAP (871 open orders), XMSK (10 machines), SCADA API; MQTT disabled |
 | `bdx-collect collect --once` (incremental) | ✅ 871 orders / **2.2 s**, 0 events on unchanged data (idempotent) |
@@ -147,11 +147,11 @@ These rows are the last hands-on check recorded in this file. This sync did not 
 | **Fix `pr-review.yml` startup** | push of `2f13c3f` failed the workflow in 0s with no jobs; duplicate `env:` on the diff step |
 | **Branch protection** | not readable with this token. `ci.yml` is the intended required check; confirm in repo settings. |
 | **Ruff / mypy / coverage ratchet** | both linters advisory; coverage gate is 68 %, not 80 %. `AGENTS.md` still tells operators to pass `--cov-fail-under=80`. |
-| SQL login `bdx_readonly` on LDSAP | script ready in `docs/sql/create_bdx_readonly.sql`. Last manual check: login did not exist. Not re-checked this sync. `reset_bdx_readonly.sql` is also in tree (`7d0fb2f` removed `DENY CONTROL`, which had blocked `CONNECT`). |
-| DEV compose on 192.168.82.33 | Deploy workflow for `2f13c3f` succeeded, including `/health/live`. Host `.env` and SQL login were not inspected here. Postgres container was already on the host at the last manual check. |
+| SQL login `bdx_readonly` on LDSAP | `docs/sql/create_bdx_readonly.sql` no longer denies CONTROL (`7d0fb2f`). `12fa8cf` records that the login worked from the DEV container (871 open orders). PROD company DB was not shown. Not re-checked this sync. |
+| DEV compose on 192.168.82.33 | `12fa8cf` records collector + api up at sha `1480f5c` (2026-11-07 19:55 +0100). Actions deploy [42415113477](https://github.com/aeyhorn/Alyze/actions/runs/42415113477) for `2f13c3f` is `success` (`/health/live`). The committed marker is still `1480f5c`. Host env was not opened in this sync. |
 | MQTT / Kafka broker | publishers exist; `MQTT_ENABLED=false`; no broker recorded |
 | Run collector against PROD | read-only; needs a separate Postgres database or a mode-prefixed `source_key`. Only single-order probes at the last manual check. |
-| SAP write-back for real | stays dry-run until an operator changes the host env. This repo does not store that switch. |
+| SAP write-back guard | `ServiceLayerSettings.dry_run` defaults to off, and `.env.example` matches that. DEV deploy scripts refuse to roll out unless the host env keeps dry-run enabled. Code was not changed in this sync. |
 | Multi-company SAP, SSO/SCIM | TBD (goal G9) |
 | Machine `User`/operator and `LastProdEnd` are empty in the feed | needs MDE-side configuration |
 | **Dev-sync skill** | `.cursor/skills/dev-sync/SKILL.md` is not on `main`. It lives on open PR #3. |

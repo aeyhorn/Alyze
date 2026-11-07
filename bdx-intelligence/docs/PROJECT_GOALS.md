@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 22:36 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-07 22:40 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Abgleich gegen `origin/main` `2f13c3f`. IDs bleiben stabil. Neue Ziele nur, wenn gelieferte Arbeit keinem bestehenden Ziel entspricht.
 
@@ -13,26 +13,11 @@
 - **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `main`. Ruff und mypy sind in `ci.yml` nur beratend. Das Coverage-Gate ist 68 %, nicht 80 %. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. Branch Protection war mit diesem Token nicht lesbar (HTTP 403). `pr-review.yml` ist beim Push von `2f13c3f` in 0 s ohne Jobs fehlgeschlagen.
 - **Akzeptanz:** Sprint-004-Baum ist committet und auf `main` — erfüllt. Offen: nächtliche Integrations-Secrets, bestätigte Reviewer auf `prod`, Branch Protection mit dem Check aus `ci.yml`, Ruff/mypy wieder blockierend, Coverage-Ratchet.
 
-### G5 – SQL-Login `bdx_readonly`
-
-- **Status:** offen
-- **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** `docs/sql/create_bdx_readonly.sql` und `docs/sql/reset_bdx_readonly.sql` sind auf `main`. `DENY CONTROL` ist entfernt, weil es `CONNECT` blockiert hat. Der letzte manuelle Check hat den Login auf LDSAP nicht gesehen. Dieser Abgleich hat LDSAP nicht erneut geprüft.
-- **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
-
-### G6 – Container-Deploy auf dem Docker-Host
-
-- **Status:** teilweise
-- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits (letzter manueller Check).
-- **Stand:** `deploy-dev.yml` läuft auf dem Self-hosted-Runner auf dem DEV-Host, ohne SSH-Hop (`232b138`). Deploy-Lauf `42415113477` für `2f13c3f` ist `success` und prüft `/health/live`. Der committete Marker `.runtime/last-deploy-sha` steht noch auf `1480f5c`. Host-`.env` und SQL-Login wurden hier nicht inspiziert.
-- **Abhängigkeit:** G5 für einen Linux-Container ohne Windows-Auth. Der grüne Deploy belegt den Smoke-Test, nicht den SQL-Login.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack und `/health/live` ist grün — vom Workflow für `2f13c3f` gemeldet, hier nicht noch einmal gemessen. Dry-Run bleibt auf dem DEV-Host an, bis ein Operator ihn bewusst ausstellt. Committete Dateien stellen ihn nicht aus.
-
 ### G7 – MQTT- oder Kafka-Broker
 
 - **Status:** offen
 - **Ziel:** Gebaute Publisher gegen einen echten Broker laufen lassen.
-- **Stand:** `MqttPublisher` und `KafkaPublisher` sind auf `main`. `MQTT_ENABLED=false`, kein Broker konfiguriert.
+- **Stand:** `MqttPublisher` und `KafkaPublisher` sind auf `main`. Die Publisher-Settings defaulten auf aus. Ein Broker ist im Baum nicht konfiguriert.
 - **Akzeptanz:** Entweder `MQTT_ENABLED=true` plus `MQTT_HOST`, oder `KAFKA_ENABLED=true` plus `KAFKA_BOOTSTRAP_SERVERS`. Events verlassen den Collector, Fehler im Broker brechen den Collector nicht.
 
 ### G8 – PROD-Lesebetrieb
@@ -43,6 +28,21 @@
 - **Akzeptanz:** Eigene Postgres-Datenbank oder mode-prefixed `source_key`. Keine Schreibzugriffe auf SAP MSSQL.
 
 ## Erledigt
+
+### G5 – SQL-Login `bdx_readonly`
+
+- **Status:** erledigt für den DEV-Container (`12fa8cf`)
+- **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
+- **Stand:** `docs/sql/create_bdx_readonly.sql` verweigert CONTROL nicht mehr (`7d0fb2f`). Der Commit `12fa8cf` hält fest, dass der Login aus dem DEV-Container 871 offene Aufträge gelesen hat. Dieser Abgleich hat LDSAP nicht erneut geprüft.
+- **Akzeptanz:** erfüllt für DEV. Kein Schreibrecht auf dem SAP-SQL-Server. Ein eigener Nachweis für die PROD-Company-DB fehlt.
+
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt auf dem DEV-Host (`12fa8cf`, aufgezeichnet 2026-11-07 19:55 +0100, sha `1480f5c`)
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Abhängigkeit:** G5, erfüllt für den DEV-Container.
+- **Stand:** `12fa8cf` hält fest, dass collector und api oben waren und der Event-Store verbunden war (38561 Aufträge, 184 Läufe). `.runtime/last-deploy-sha` ist weiterhin `1480f5c`. Seit `232b138` deployt Actions direkt auf dem Self-hosted-Runner. Lauf `42415113477` für `2f13c3f` ist `success` und prüft `/health/live`. Der Host wurde hier nicht erneut inspiziert.
+- **Akzeptanz:** erfüllt für den aufgezeichneten `deploy.ps1`-Lauf und für den späteren Actions-Lauf. Das Skript bricht ab, wenn der DEV-Host den Service-Layer-Guard nicht auf dem sicheren Default hält.
 
 ### G1 – SAP Read-only Collector
 
@@ -58,9 +58,10 @@
 
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Broker ist G7, Deploy ist G6.
+- **Status:** erledigt als Code (Sprint 003). Broker ist G7, der DEV-Container ist G6.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Dry-Run auf dem Host ausstellt. Committete Dateien tun das nicht.
+- **Stand:** Code liegt auf `main` (`sap_sl/operations.py`, Migration 003). Das letzte DEV-Protokoll zeigt blockierte Aufrufe mit Audit in `sl_operations`. `ServiceLayerSettings.dry_run` defaultet im Code auf aus, und `.env.example` lässt Dry-Run ebenfalls aus. Das widerspricht der Akzeptanz unten. Dieser Abgleich ändert den Code nicht und schreibt die Ausschalt-Zuweisung nicht erneut ins Repository.
+- **Akzeptanz:** Code und die protokollierte Dry-Run-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Guard in der nicht versionierten Host-Umgebung umstellt. Committete Dateien sollen den Guard nicht abschalten; der Default und die Beispieldatei tun das derzeit doch.
 
 ### G10 – Schwachstellen-Analyse
 
