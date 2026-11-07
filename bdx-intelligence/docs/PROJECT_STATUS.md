@@ -1,9 +1,9 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-07 21:38 (CET)
+> **Zuletzt aktualisiert:** 2026-11-07 21:40 (CET)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
-Abgleich mit Git am 2026-11-07 21:38 CET. Quelle ist `main` @ `6ccc036185b5` (`feat(infra): add prepare-dev-host.sh to install GitHub self-hosted runner`, 2026-11-07 21:28 +0100). Dieser Lauf hat den Baum gelesen und die GitHub-Actions-Liste abgefragt. SAP, PostgreSQL und der DEV-Host wurden nicht erneut gemessen. Die Tabelle „Operational status“ bleibt das letzte protokollierte Messergebnis.
+Abgleich mit Git am 2026-11-07 21:40 CET. Quelle ist `main` @ `6ccc036185b5` (`feat(infra): add prepare-dev-host.sh to install GitHub self-hosted runner`, 2026-11-07 21:28 +0100). Dieser Lauf hat den Baum gelesen und die GitHub-Actions-Liste abgefragt. SAP, PostgreSQL und der DEV-Host wurden nicht erneut gemessen. Die Tabelle „Operational status“ bleibt das letzte protokollierte Messergebnis.
 
 | Sprint | Scope | Status auf `main` |
 |---|---|---|
@@ -14,6 +14,8 @@ Abgleich mit Git am 2026-11-07 21:38 CET. Quelle ist `main` @ `6ccc036185b5` (`f
 | TBD | Multi-company SAP, SSO/SCIM | ⬜ nicht im Baum |
 
 Testfunktionen im Baum: **112** (104 Unit, 8 Integration). `pyproject.toml` setzt `addopts` auf `-m 'not integration'`, der Default-Lauf ist also die Unit-Suite. CI (`ci.yml`) hängt `--cov-fail-under=68` an. Die Integration-Suite läuft in `integration.yml` (`pytest -m integration`, nightly 03:00 UTC und `workflow_dispatch`).
+
+Ziele mit stabilen IDs: `docs/PROJECT_GOALS.md` (G1–G9). Neue Wünsche: `docs/REQUIREMENTS.md`. Dort stehen keine Zeilen; die nächste ID ist `R001`.
 
 ---
 
@@ -78,12 +80,12 @@ Der frühere Satz „nichts davon ist committed“ stimmt nicht mehr. Workflows,
 
 | Feature | Status | Notes |
 |---|---|---|
-| **`.github/workflows/ci.yml`** | ✅ auf main | push/PR auf `main`: ruff und mypy mit `continue-on-error` (beratend), pytest mit `--cov-fail-under=68`, Docker-Build-Smoke-Test. Der Dateikopf kommentiert noch „>= 80 %“; das ausgeführte Gate ist 68 %. Arbeitsverzeichnis `bdx-intelligence/` |
+| **`.github/workflows/ci.yml`** | ✅ auf main, Lauf für `6ccc036` grün | push/PR auf `main`: ruff und mypy mit `continue-on-error` (beratend), pytest mit `--cov-fail-under=68`, Docker-Build-Smoke-Test. Der Dateikopf kommentiert noch „>= 80 %“; das ausgeführte Gate ist 68 %. Actions-Lauf `42411199913` ist `success`. Arbeitsverzeichnis `bdx-intelligence/` |
 | **`.github/workflows/integration.yml`** | ✅ auf main | nightly `0 3 * * *` + `workflow_dispatch`; `pytest -m integration`. Die Suite überspringt sich, wenn `SAP_DB_*`, `SL_*` und `POSTGRES_DSN` fehlen |
 | **`.github/workflows/deploy-dev.yml`** | ✅ auf main, Lauf für `6ccc036` pending | Build auf `ubuntu-latest`, Image `ghcr.io/<repo-lowercase>/bdx-intelligence:dev` und `:sha-<sha>`. Deploy-Job `runs-on: [self-hosted, linux]`. Bricht ab, wenn die Host-Umgebung Dry-Run ausschaltet. Actions-Lauf `42411199922` war beim Abgleich `pending` (keine Conclusion) |
 | **`.github/workflows/deploy-prod.yml`** | ✅ auf main | nur `workflow_dispatch`; Deploy-Job ebenfalls `[self-hosted, linux]`; Inputs `run_migrations` und `confirm_sl_write` |
 | **`.github/workflows/ci-triage.yml`** | ✅ auf main | `workflow_run` nach fehlgeschlagener CI → `scripts/ci_triage.py`. Ohne `CURSOR_API_KEY` No-Op |
-| **`.github/workflows/pr-review.yml`** | ✅ auf main | PR open/sync/reopen → `scripts/pr_review.py`. Mehrere Läufe am 2026-11-07 endeten in ~0 s mit `failure` (dieser Abgleich hat die Logs nicht ausgewertet) |
+| **`.github/workflows/pr-review.yml`** | ✅ auf main, Lauf für `6ccc036` failed | PR open/sync/reopen → `scripts/pr_review.py`. Actions-Lauf `42411198790` (push von `6ccc036`) ist `failure` nach 0 s. Logs in diesem Abgleich nicht gelesen |
 | **`.github/workflows/auto-merge.yml`** | ✅ auf main | Label `trivial`, nur Test/Doku, keine geschützten Pfade (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) |
 | **`.github/workflows/dora.yml`** | ✅ auf main | Montag 06:00 UTC → `scripts/dora_metrics.py`. `docs/dora-metrics.md` liegt noch nicht im Baum |
 | **`.github/workflows/lint-cleanup.yml`** | ✅ auf main | Sonntag 04:00 UTC und `workflow_dispatch`; ruff-Fix als Aufräum-PR. `continue-on-error` in `ci.yml` bleibt, bis das Landen und das Gate scharf geschaltet wird |
@@ -149,9 +151,9 @@ Der vorherige Text beschrieb Sprint 004 als untracked und `main` als einen Commi
 | **Echte SAP-Schreibvorgänge** | Bleiben eine Operator-Entscheidung ausserhalb von Git. Jeder Schreibpfad läuft durch `sap_sl/operations.py` und die Audit-Tabelle |
 | Multi-company SAP, SSO/SCIM | ⬜ nicht auf `main` |
 | Machine `User`/operator and `LastProdEnd` are empty in the feed | needs MDE-side configuration |
-| GitHub-Settings | Workflows nennen `CURSOR_API_KEY`, `DEV_SSH_*`, `PROD_SSH_*`, `SAP_DB_*`, `SL_*`, `POSTGRES_DSN`, Environment `prod` mit Reviewern und Branch Protection für `ci.yml`. Ob das in den Repo-Settings gesetzt ist, wurde nicht geprüft |
+| GitHub-Settings | Environments `dev` und `prod` existieren, beide ohne Protection Rules (API, 2026-11-07 21:40 CET). Branch Protection von `main` war nicht lesbar (403). Secret-Werte wurden nicht gelesen. Workflows nennen weiterhin `CURSOR_API_KEY`, `DEV_SSH_*`, `PROD_SSH_*`, `SAP_DB_*`, `SL_*`, `POSTGRES_DSN` |
 
-### Nicht auf `main` (offene PRs, Stand 2026-11-07 21:38 CET)
+### Nicht auf `main` (offene PRs, Stand 2026-11-07 21:40 CET)
 
 Diese Zweige sind nicht Teil des abgeglichenen Baums. Titel nur als Lagebild, kein übernommener Scope:
 
@@ -163,6 +165,7 @@ Diese Zweige sind nicht Teil des abgeglichenen Baums. Titel nur als Lagebild, ke
 | 5 | feat(analytics): Sprint 005 - KPI engine, anomaly detection & self-tuning thresholds | nein |
 | 6 | feat: Schwachstellen-Analyse Dashboard | nein |
 | 7 | docs: reconcile project status and goals | ja |
+| 8 | docs: Projektstatus, Ziele und Anforderungen an main abgleichen | ja |
 
 `.cursor/skills/dev-sync/SKILL.md` und `.cursor/prompts/sync-coordinator.mdc` liegen auf `main` nicht.
 

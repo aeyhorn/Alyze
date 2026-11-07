@@ -1,40 +1,72 @@
-# BDX Intelligence – Project Goals
+# BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 21:38 (CET)
-> **Git:** `main` @ `6ccc036185b5` (2026-11-07 21:28 +0100)
+> **Zuletzt abgeglichen:** 2026-11-07 21:40 (CET)
+> Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
+> IDs bleiben stabil. Dieser Abgleich folgt `origin/main` bei `6ccc036185b5`.
 
-Ziele, die der Baum auf `main` selbst beschreibt (`README.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/PROJECT_STATUS.md`). Offene Pull Requests sind kein Ziel dieses Stands.
+## Aktiv
 
-## Produktziel
+### G4 – Sprint 004 landen
 
-BDX Intelligence verbindet SAP Business One und die Fertigung mit einem lokalen PostgreSQL-Event-Store und stellt das Ergebnis als REST-API, Dashboard, CLI und optional als MQTT- oder Kafka-Events bereit.
+- **Status:** in Arbeit
+- **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
+- **Stand:** Der Baum ist auf `main` (`2fcd60d`–`6ccc036`, inklusive `scripts/prepare-dev-host.sh`). CI für `6ccc036` ist grün (Lauf `42411199913`). Coverage-Floor im Workflow ist 68 %; `TestAgent` verlangt weiter 80 %. ruff und mypy sind in CI nur beratend. `deploy.ps1` hat den DEV-Host ausgebracht (siehe G6). Der Actions-Deploy auf dem Self-hosted-Runner für `6ccc036` (Lauf `42411199922`) ist noch pending. `pr-review.yml` für denselben Push ist `failure` (Lauf `42411198790`, 0 s, Logs nicht gelesen). Environments `dev` und `prod` existieren und haben keine Protection Rules. Branch Protection von `main` war über die API nicht lesbar (403). Secret-Werte wurden nicht gelesen.
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Davon ist der Commit-Teil erfüllt, der Rest nicht nachgewiesen.
 
-- **Lesen:** SAP-B1-SQL-Server (nur SELECT), Mazak-XmskSvr über den SCADA-Proxy, SCADA-Telemetrie für abgeleitete BDE-Sätze.
-- **Schreiben:** SAP Service Layer, nur mit Audit in `sl_operations`. Dry-Run soll Schreibvorgänge blockieren, bis ein Operator sie ausserhalb von Git freigibt. Der Code-Default tut das heute nicht; siehe `docs/REQUIREMENTS.md`.
-- **Speichern:** eine Zeile pro Auftrag in `order_state`, Historie nur bei Änderung, Events idempotent über `event_id`.
-- **Menschen aus der Schleife** für Lint, Tests, DEV-Deploy und Triage. SAP-Schreibfreigaben und PROD-Deploy bleiben menschlich.
+### G7 – MQTT- oder Kafka-Broker
 
-## Geliefert auf `main`
+- **Status:** offen
+- **Ziel:** Gebaute Publisher gegen einen echten Broker laufen lassen.
+- **Stand:** `MqttPublisher` und `KafkaPublisher` sind auf `main`. `MqttSettings.enabled` und `KafkaSettings.enabled` defaulten auf aus. Das letzte DEV-Protokoll hatte MQTT aus. Ein Broker ist im Baum nicht konfiguriert.
+- **Akzeptanz:** Entweder MQTT an plus Host, oder Kafka an plus Bootstrap-Server. Events verlassen den Collector, Fehler im Broker brechen den Collector nicht.
 
-| Ziel | Stand |
-|---|---|
-| Read-only SAP-Collector, idempotente Auftragsevents, REST und CLI | Sprint 001, Commit `4219156` und Folgecommits |
-| Inkrementelles Lesen, Maschinenlage, abgeleitete BDE, Docker-Paket | Sprint 002, ab `60bb34a` / `936d8c8` |
-| MQTT- und Kafka-Publisher, Dashboard, Service-Layer-Schreiboperationen mit Audit | Sprint 003, `936d8c8`. Broker sind nicht an (Defaults aus) |
-| CI, nächtliche Integrationstests, DEV- und PROD-Deploy-Workflows, Quality-Gate-Agents, HOTL-Prompts | Sprint 004, auf `main`. Lint und mypy beratend, Coverage-Gate 68 %, DEV-Deploy von `6ccc036` beim Abgleich noch `pending` |
-| Self-hosted Runner für LAN-Deploy | Workflows verlangen `[self-hosted, linux]`. `scripts/prepare-dev-host.sh` (`6ccc036`) ist das Provisioning, kein Beleg, dass der Runner registriert ist |
-| Docker-Context-Deploy ohne den GitHub-SSH-Job | `scripts/deploy.ps1` (`12fa8cf`) |
+### G8 – PROD-Lesebetrieb
 
-## Noch offen, im Baum benannt
+- **Status:** offen
+- **Ziel:** Collector read-only gegen `SBO_LEISINGER`, ohne DEV- und PROD-Daten in `order_state` zu mischen.
+- **Stand:** Einzelaufträge sind probeweise gelesen (FA 38574). DEV hinkt PROD hinterher, deshalb fehlt auf DEV die Maschinen-Verknüpfung für laufende Aufträge. Dieser Abgleich hat nicht erneut gemessen.
+- **Akzeptanz:** Eigene Postgres-Datenbank oder mode-prefixed `source_key`. Keine Schreibzugriffe auf SAP MSSQL. Der Service-Layer-Guard bleibt unberührt.
 
-- SQL-Login `bdx_readonly` auf LDSAP als Voraussetzung für Linux-Container. Das Skript ist da, die Existenz auf dem Server ist aus Git nicht ablesbar.
-- Laufender Collector gegen PROD mit getrenntem Event-Store, damit DEV- und PROD-Daten nicht in `order_state` mischen.
-- MQTT- oder Kafka-Broker, sobald ein Abnehmer da ist.
-- Coverage von 68 % Richtung dem Agent-Ziel 80 % anheben, danach ruff und mypy in CI scharf schalten.
-- `pr-review.yml` läuft aktuell nicht durch (Failures nach 0 s, Ursache hier nicht gelesen).
-- Multi-Company-SAP, SSO/SCIM: in der Sprint-Tabelle als TBD, kein Code auf `main`.
-- Maschinenfelder `User` und `LastProdEnd` kommen im Feed leer; das ist eine MDE-Konfiguration, kein BDX-Code.
+## Erledigt
 
-## Bewusst nicht Ziel dieses Abgleichs
+### G1 – SAP Read-only Collector
 
-Pull Requests 2, 3, 4, 5, 6 und 7 sind offen und nicht in `6ccc036`. Dazu gehören eine Analytics-/KPI-Linie (PR 5), ein Schwachstellen-Dashboard (PR 6) und ein Dev-Sync-Agent (PR 3). Solange sie nicht auf `main` sind, sind sie keine Projektziele dieses Dokuments.
+- **Status:** erledigt (Sprint 001, auf DEV in Betrieb)
+- **Ziel:** Read-only-Verbindung zu SAP Business One, idempotente Änderungserkennung, REST und CLI.
+- **Akzeptanz:** erfüllt. MSSQL-Kanal bleibt read-only.
+
+### G2 – BDE, Maschinen, inkrementelles Lesen
+
+- **Status:** erledigt (Sprint 002, auf DEV in Betrieb)
+- **Ziel:** Inkrementeller SAP-Lesen, Maschinenzustand aus XMSK, BDE aus SCADA-Telemetrie.
+- **Akzeptanz:** erfüllt. Statuscodes `P`/`R`/`L`/`C` bleiben wie gegen OWOR geprüft.
+
+### G3 – Publishing, Dashboard, Write-back
+
+- **Status:** erledigt als Code (Sprint 003). Broker ist G7, der DEV-Container ist G6.
+- **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
+- **Stand:** Code liegt auf `main` (`sap_sl/operations.py`, Migration 003). Das letzte DEV-Protokoll zeigt blockierte Aufrufe mit Audit in `sl_operations`. `ServiceLayerSettings.dry_run` defaultet im Code auf aus, und `.env.example` lässt Dry-Run ebenfalls aus. Das widerspricht der Akzeptanz unten. Dieser Abgleich ändert den Code nicht und schreibt die Ausschalt-Zuweisung nicht erneut ins Repository.
+- **Akzeptanz:** Code und die protokollierte Dry-Run-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Guard in der nicht versionierten Host-Umgebung umstellt. Committete Dateien schalten den Guard nicht ab.
+
+### G5 – SQL-Login `bdx_readonly`
+
+- **Status:** erledigt für den DEV-Container (`12fa8cf`)
+- **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` verweigert CONTROL nicht mehr (`7d0fb2f`). Der Commit `12fa8cf` hält fest, dass der Login aus dem DEV-Container 871 offene Aufträge gelesen hat.
+- **Akzeptanz:** erfüllt für DEV. Kein Schreibrecht auf dem SAP-SQL-Server. Ein eigener Nachweis für die PROD-Company-DB fehlt.
+
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt auf dem DEV-Host (`12fa8cf`, aufgezeichnet 2026-11-07 19:55 +0100, sha `1480f5c`)
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Abhängigkeit:** G5, erfüllt für den DEV-Container.
+- **Stand:** Der Commit `12fa8cf` hält fest, dass collector und api oben waren und der Event-Store verbunden war (38561 Aufträge, 184 Läufe). `.runtime/last-deploy-sha` ist `1480f5c`. Der Actions-SSH-Deploy ist davon unabhängig und für `6ccc036` noch pending (G4). `scripts/prepare-dev-host.sh` (`6ccc036`) provisioniert den Self-hosted-Runner, beweist aber nicht, dass er registriert ist.
+- **Akzeptanz:** erfüllt für den aufgezeichneten `deploy.ps1`-Lauf. Das Skript bricht ab, wenn der DEV-Host den Service-Layer-Guard nicht auf dem sicheren Default hält.
+
+## Geparkt
+
+### G9 – Mehrere SAP-Firmen, SSO/SCIM
+
+- **Status:** geparkt
+- **Ziel:** Mehrere Company-DBs und SSO/SCIM. In `PROJECT_STATUS` als TBD geführt.
+- **Akzeptanz:** noch nicht festgelegt. Neue Anforderungen dazu kommen nach `REQUIREMENTS.md`.
