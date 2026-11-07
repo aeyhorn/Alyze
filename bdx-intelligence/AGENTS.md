@@ -39,6 +39,11 @@ See `docs/ARCHITECTURE.md` and `docs/PROJECT_STATUS.md` for details.
 5. **Custom SAP UDFs** (`U_Type`, `U_Priority`, `U_BDX_Machine`) do **not**
    exist in Leisinger company DBs — `queries.py` selects `NULL` placeholders.
    Do not assume they are populated.
+6. **PROD migrations require explicit opt-in.** `alembic/env.py` refuses to
+   run against the PROD event store (`SAP_MODE=prod` + `POSTGRES_DSN_PROD`
+   set) unless `ALEMBIC_ALLOW_PROD=1` is also set. `deploy-prod.yml` sets it
+   only when the human has checked the `run_migrations` approval input. Never
+   set `ALEMBIC_ALLOW_PROD=1` in a committed file or in DEV `.env`.
 
 ## Architecture invariants (do not break without a migration)
 

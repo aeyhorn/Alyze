@@ -76,8 +76,10 @@ jobs:
             export BDX_IMAGE="${IMAGE}:${{ inputs.image_tag }}"
             docker compose pull
             # Optional migrations (extra approval input).
+            # ALEMBIC_ALLOW_PROD=1 satisfies the prod-DSN guard in alembic/env.py;
+            # the human has already opted in via the run_migrations checkbox.
             if [ "${{ inputs.run_migrations }}" = "true" ]; then
-              docker compose run --rm migrate
+              ALEMBIC_ALLOW_PROD=1 docker compose run --rm migrate
             fi
             # Recreate services.
             docker compose up -d --force-recreate collector api
