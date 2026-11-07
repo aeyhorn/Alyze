@@ -13,6 +13,7 @@ Usage examples
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -544,6 +545,110 @@ def serve(
 
     cfg = load_app_settings()
     uvicorn.run(create_app(), host=host or cfg.api_host, port=port or cfg.api_port, log_level="info")
+
+
+# ── Quality-gate agents ─────────────────────────────────────────────────────
+# These commands are intentionally decoupled from the running collector/API:
+# they audit the source tree and the developer toolchain so they can be used as
+# an independent pre-merge / CI check against the state of development.
+
+
+@app.command("check")
+def check(
+    skip_docs: bool = typer.Option(False, "--skip-docs", help="Skip documentation agent"),
+    skip_tests: bool = typer.Option(False, "--skip-tests", help="Skip test agent"),
+    skip_quality: bool = typer.Option(False, "--skip-quality", help="Skip quality agent"),
+    min_coverage: float = typer.Option(80.0, "--min-coverage", help="Coverage gate (%)"),
+    no_mypy: bool = typer.Option(False, "--no-mypy", help="Disable mypy in the quality agent"),
+    no_ruff: bool = typer.Option(False, "--no-ruff", help="Disable ruff in the quality agent"),
+    json_out: Optional[Path] = typer.Option(
+        None, "--json", help="Write a JSON report to this path (CI artifact)"
+    ),
+):
+    """Run all quality-gate agents (docs + tests + quality) and exit non-zero on errors."""
+    from bdx.agents.runner import AgentRunner, RunnerConfig, write_json_report
+
+    cfg = RunnerConfig(
+        root=Path.cwd(),
+        run_docs=not skip_docs,
+        run_tests=not skip_tests,
+        run_quality=not skip_quality,
+        min_coverage=min_coverage,
+        enable_mypy=not no_mypy,
+        enable_ruff=not no_ruff,
+    )
+    report = AgentRunner(cfg).run()
+    console.print(report.render())
+    if json_out is not None:
+        write_json_report(report, json_out)
+        console.print(f"\n[dim]JSON report → {json_out}[/dim]")
+    raise typer.Exit(code=report.exit_code)
+
+
+@app.command("check-docs")
+def check_docs(
+    json_out: Optional[Path] = typer.Option(None, "--json", help="Write JSON report to this path"),
+):
+    """Run only the documentation agent."""
+    from bdx.agents.docs import DocumentationAgent
+    from bdx.agents.runner import RunnerReport, write_json_report
+
+    result = DocumentationAgent(root=Path.cwd()).run()
+    console.print(result.render())
+    if json_out is not None:
+        report = RunnerReport(results=[result], durations={result.agent: 0.0})
+        write_json_report(report, json_out)
+        console.print(f"\n[dim]JSON report -> {json_out}[/dim]")
+    raise typer.Exit(code=_exit_code_for(result))
+
+
+@app.command("check-tests")
+def check_tests(
+    min_coverage: float = typer.Option(80.0, "--min-coverage", help="Coverage gate (%)"),
+    json_out: Optional[Path] = typer.Option(None, "--json", help="Write JSON report to this path"),
+):
+    """Run only the test agent (pytest + coverage)."""
+    from bdx.agents.runner import RunnerReport, write_json_report
+    from bdx.agents.tests import TestConfig, TestAgent
+
+    result = TestAgent(TestConfig(root=Path.cwd(), min_coverage=min_coverage)).run()
+    console.print(result.render())
+    if json_out is not None:
+        report = RunnerReport(results=[result], durations={result.agent: 0.0})
+        write_json_report(report, json_out)
+        console.print(f"\n[dim]JSON report -> {json_out}[/dim]")
+    raise typer.Exit(code=_exit_code_for(result))
+
+
+@app.command("check-quality")
+def check_quality(
+    no_mypy: bool = typer.Option(False, "--no-mypy", help="Disable mypy"),
+    no_ruff: bool = typer.Option(False, "--no-ruff", help="Disable ruff"),
+    json_out: Optional[Path] = typer.Option(None, "--json", help="Write JSON report to this path"),
+):
+    """Run only the quality agent (ruff + mypy + smell scan)."""
+    from bdx.agents.quality import QualityAgent, QualityConfig
+    from bdx.agents.runner import RunnerReport, write_json_report
+
+    result = QualityAgent(QualityConfig(
+        root=Path.cwd(), enable_mypy=not no_mypy, enable_ruff=not no_ruff
+    )).run()
+    console.print(result.render())
+    if json_out is not None:
+        report = RunnerReport(results=[result], durations={result.agent: 0.0})
+        write_json_report(report, json_out)
+        console.print(f"\n[dim]JSON report -> {json_out}[/dim]")
+    raise typer.Exit(code=_exit_code_for(result))
+
+
+def _exit_code_for(result) -> int:  # noqa: ANN001
+    """0 = passed, 1 = warnings only, 2 = at least one error."""
+    from bdx.agents.base import Status
+    if result.status is Status.PASSED:
+        return 0
+    if result.status is Status.WARNED:
+        return 1
+    return 2
 
 
 if __name__ == "__main__":

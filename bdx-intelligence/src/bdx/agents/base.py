@@ -1,6 +1,6 @@
 """Common types for the quality-gate agents.
 
-Every agent returns a :class:`CheckResult` – a list of :class:`Finding` objects
+Every agent returns a :class:`CheckResult` - a list of :class:`Finding` objects
 plus an aggregate :class:`Status`. Findings carry a :class:`Severity` so the
 runner can decide whether the gate is green (passed), yellow (warnings only)
 or red (at least one error).
@@ -8,8 +8,8 @@ or red (at least one error).
 from __future__ import annotations
 
 import enum
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 
 class Severity(enum.Enum):
@@ -32,7 +32,7 @@ class Status(enum.Enum):
     FAILED = "failed"
 
     @classmethod
-    def from_findings(cls, findings: Iterable[Finding]) -> "Status":
+    def from_findings(cls, findings: Iterable[Finding]) -> Status:
         has_error = any(f.severity is Severity.ERROR for f in findings)
         has_warning = any(f.severity is Severity.WARNING for f in findings)
         if has_error:
@@ -59,7 +59,7 @@ class Finding:
 
     def render(self) -> str:
         loc = f" [{self.location}]" if self.location else ""
-        return f"{self.severity.value.upper():7} {self.code}{loc} – {self.message}"
+        return f"{self.severity.value.upper():7} {self.code}{loc} - {self.message}"
 
 
 @dataclass
@@ -105,7 +105,7 @@ class CheckResult:
         return f
 
     def render(self) -> str:
-        lines = [f"== {self.agent} → {self.status.value} =="
+        lines = [f"== {self.agent} -> {self.status.value} =="
                  f"  ({self.error_count} error, {self.warning_count} warn, {self.info_count} info)"]
         if self.summary:
             lines.append(self.summary)

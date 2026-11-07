@@ -17,6 +17,7 @@ Usage (called from .github/workflows/dora.yml weekly):
 
 Commits the updated file via the workflow (git auto-commit action).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,7 @@ import json
 import os
 import statistics
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def _gh_json(*args: str) -> object:
@@ -40,10 +41,22 @@ def _gh_api(path: str) -> object:
 def _merged_prs(repo: str, since: datetime) -> list[dict]:
     since_iso = since.isoformat()
     out = subprocess.run(
-        ["gh", "pr", "list", "--repo", repo, "--state", "closed",
-         "--search", f"is:pr is:merged merged:>{since_iso}",
-         "--json", "number,createdAt,mergedAt,title,url"],
-        check=True, capture_output=True, text=True
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "closed",
+            "--search",
+            f"is:pr is:merged merged:>{since_iso}",
+            "--json",
+            "number,createdAt,mergedAt,title,url",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     return json.loads(out)
 
@@ -70,7 +83,7 @@ def _workflow_runs(repo: str, workflow: str, since: datetime) -> list[dict]:
 def _fmt_dt(s: str) -> str:
     try:
         return datetime.fromisoformat(s.replace("Z", "+00:00")).strftime("%Y-%m-%d %H:%M")
-    except Exception:  # noqa: BLE001
+    except Exception:
         return s
 
 
@@ -81,7 +94,7 @@ def main() -> int:
     parser.add_argument("--days", type=int, default=30)
     args = parser.parse_args()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     since = now - timedelta(days=args.days)
 
     prs = _merged_prs(repo=args.repo, since=since)
@@ -91,7 +104,7 @@ def main() -> int:
             created = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
             merged = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
             cycle_hours.append((merged - created).total_seconds() / 3600.0)
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
 
     deploys = _workflow_runs(args.repo, "deploy-dev.yml", since)
@@ -100,7 +113,6 @@ def main() -> int:
     deploy_failed = sum(1 for r in deploys if r.get("conclusion") == "failure")
     change_failure_rate = (deploy_failed / deploy_count * 100.0) if deploys else 0.0
     deploy_freq_per_day = deploy_count / args.days if args.days else 0.0
-
     ci_runs = _workflow_runs(args.repo, "ci.yml", since)
     ci_failed = [r for r in ci_runs if r.get("conclusion") == "failure"]
     ci_total = len(ci_runs)
@@ -111,14 +123,14 @@ def main() -> int:
     for r in sorted(ci_runs, key=lambda x: x["created_at"]):
         try:
             ts = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         by_branch.setdefault(r.get("head_branch", "?"), []).append((ts, r.get("conclusion", "")))
     mttr_minutes: list[float] = []
-    for branch, runs in by_branch.items():
+    for _branch, runs in by_branch.items():
         for i, (ts, concl) in enumerate(runs):
             if concl == "failure":
-                for ts2, concl2 in runs[i + 1:]:
+                for ts2, concl2 in runs[i + 1 :]:
                     if concl2 == "success":
                         mttr_minutes.append((ts2 - ts).total_seconds() / 60.0)
                         break
@@ -133,7 +145,7 @@ def main() -> int:
         "",
         "| Metric | Value |",
         "|---|---|",
-        f"| Deploy frequency | {deploy_freq_per_day:.2f} / day ({deploy_count} deploys)",
+        f"| Deploy frequency | {deploy_freq_per_day:.2f} / day ({deploy_count} deploys, {deploy_success} ok) |",
         f"| Cycle time (median) | {median_cycle:.1f} h |",
         f"| MTTR (median) | {median_mttr:.1f} min |",
         f"| Change failure rate | {change_failure_rate:.1f} % |",
@@ -146,8 +158,9 @@ def main() -> int:
         "|---|---|---|",
     ]
     for r in deploys[-10:]:
-        lines.append(f"| {_fmt_dt(r['created_at'])} | {r.get('conclusion','?')} | "
-                     f"[run]({r['html_url']}) |")
+        lines.append(
+            f"| {_fmt_dt(r['created_at'])} | {r.get('conclusion', '?')} | [run]({r['html_url']}) |"
+        )
     lines += ["", "## Recent merged PRs", "", "| # | Title | Cycle (h) |", "|---|---|---|"]
     for pr in prs[-10:]:
         try:
@@ -155,7 +168,7 @@ def main() -> int:
             merged = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
             ch = (merged - created).total_seconds() / 3600.0
             lines.append(f"| {pr['number']} | {pr['title'][:60]} | {ch:.1f} |")
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
 
     content = "\n".join(lines) + "\n"

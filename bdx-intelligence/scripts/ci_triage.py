@@ -7,6 +7,7 @@ Exit codes:
     0  comment posted (or skipped: no PR, no CURSOR_API_KEY, no failures)
     1  startup error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,8 +15,6 @@ import json
 import os
 import subprocess
 import sys
-from typing import Optional
-
 
 TRIAGE_PROMPT = """\
 You triage failed CI runs for the BDX-Intelligence project (Python 3.11,
@@ -38,17 +37,28 @@ Be concise. Do not invent file paths or line numbers not present in the logs.
 
 
 def _gh_json(*args: str) -> dict:
-    out = subprocess.run(
-        ["gh", *args], check=True, capture_output=True, text=True
-    ).stdout
+    out = subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
     return json.loads(out)
 
 
-def _find_pr_for_run(repo: str, head_sha: str) -> Optional[int]:
+def _find_pr_for_run(repo: str, head_sha: str) -> int | None:
     out = subprocess.run(
-        ["gh", "pr", "list", "--repo", repo, "--state", "open",
-         "--search", head_sha, "--json", "number,headRefOid"],
-        check=True, capture_output=True, text=True
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--search",
+            head_sha,
+            "--json",
+            "number,headRefOid",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     prs = json.loads(out)
     for pr in prs:
@@ -65,7 +75,9 @@ def _failed_jobs(repo: str, run_id: str) -> list[dict]:
 def _job_log(repo: str, job_id: int, max_bytes: int = 60000) -> str:
     out = subprocess.run(
         ["gh", "run", "view", "--repo", repo, "--job", str(job_id), "--log-failed"],
-        check=False, capture_output=True, text=True
+        check=False,
+        capture_output=True,
+        text=True,
     ).stdout
     return out[-max_bytes:]
 
@@ -91,7 +103,7 @@ def _triage(logs: str) -> str:
             ),
         )
         return result.result or "_no triage produced._"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"_triage agent failed: {exc}_"
 
 
@@ -101,8 +113,9 @@ def main() -> int:
     parser.add_argument("--repo", required=True)
     args = parser.parse_args()
 
-    run = _gh_json("run", "view", args.run_id, "--repo", args.repo,
-                   "--json", "headSha,displayTitle")
+    run = _gh_json(
+        "run", "view", args.run_id, "--repo", args.repo, "--json", "headSha,displayTitle"
+    )
     head_sha = run["headSha"]
     pr_number = _find_pr_for_run(args.repo, head_sha)
     if not pr_number:
@@ -118,16 +131,14 @@ def main() -> int:
         jobs[0]["name"], _job_log(args.repo, jobs[0]["databaseId"])
     )
     for j in jobs[1:5]:
-        logs += "\n\n--- JOB: {} ---\n{}".format(
-            j["name"], _job_log(args.repo, j["databaseId"])
-        )
+        logs += "\n\n--- JOB: {} ---\n{}".format(j["name"], _job_log(args.repo, j["databaseId"]))
 
     print(f"Triaging {len(jobs)} failed job(s) for PR #{pr_number}...")
     triage = _triage(logs)
     body = (
         "## CI failure triage (automated)\n\n"
         f"{triage}\n\n"
-        f"_Run: [{args.run_id}]({os.environ.get('GITHUB_SERVER_URL','')}/"
+        f"_Run: [{args.run_id}]({os.environ.get('GITHUB_SERVER_URL', '')}/"
         f"{args.repo}/actions/runs/{args.run_id})_"
     )
     subprocess.run(

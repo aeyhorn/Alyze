@@ -1,0 +1,77 @@
+name: Lint Cleanup
+
+# One-shot / weekly cleanup: runs `ruff check --fix . && ruff format .` across
+# the codebase and opens a trivial PR with the result. This is the path to
+# make the ruff gate blocking (see ci.yml): once this PR lands and the
+# advisory gate is clean, remove `continue-on-error` from the lint job.
+#
+# Manual trigger recommended (workflow_dispatch) so the cleanup PR is created
+# on demand rather than weekly noise.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Sundays 04:00 UTC
+    - cron: "0 4 * * 0"
+
+concurrency:
+  group: lint-cleanup
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+defaults:
+  run:
+    working-directory: bdx-intelligence
+
+jobs:
+  cleanup:
+    name: ruff --fix + format → trivial PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: bdx-intelligence/pyproject.toml
+
+      - run: python -m pip install --upgrade pip
+      - run: pip install "ruff>=0.6.0"
+
+      - name: Apply ruff fixes + format
+        run: |
+          ruff check --fix . || true
+          ruff format .
+
+      - name: Verify suite still green
+        run: |
+          pip install ".[dev]"
+          pytest -q
+
+      - name: Create trivial PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="chore/ruff-cleanup-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to clean — no PR."
+            exit 0
+          fi
+          git commit -m "chore(lint): ruff --fix + format (auto)"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(lint): ruff --fix + format (auto)" \
+            --body "Automated ruff cleanup (format + safe fixes). Trivial, no behavior change. Suite green." \
+            --label trivial

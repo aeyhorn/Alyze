@@ -3,8 +3,8 @@
 Runs two Cursor cloud agents on a pull-request diff and posts the verdicts as
 a single PR comment:
 
-  1. Bug review       – finds correctness / regression risks in the diff.
-  2. Security review  – finds secrets, injection, auth issues in the diff.
+  1. Bug review       - finds correctness / regression risks in the diff.
+  2. Security review  - finds secrets, injection, auth issues in the diff.
 
 Usage (called from .github/workflows/pr-review.yml):
 
@@ -21,14 +21,13 @@ Requires:
 If CURSOR_API_KEY is missing, the script exits 0 with a skip notice so the
 workflow stays green — review is opt-in via the repo secret.
 """
+
 from __future__ import annotations
 
 import argparse
 import os
 import subprocess
 import sys
-from typing import Optional
-
 
 BUG_PROMPT = """\
 You are a code reviewer focused on correctness and regressions.
@@ -86,7 +85,7 @@ def _run_review(prompt: str, diff: str) -> str:
                 cloud=CloudAgentOptions(repos=[]),
             ),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"[review agent failed: {exc}]"
     return result.result or "[no text returned]"
 
@@ -94,9 +93,14 @@ def _run_review(prompt: str, diff: str) -> str:
 def _post_comment(repo: str, pr_number: int, body: str) -> None:
     subprocess.run(
         [
-            "gh", "pr", "comment", str(pr_number),
-            "--repo", repo,
-            "--body", body,
+            "gh",
+            "pr",
+            "comment",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--body",
+            body,
         ],
         check=True,
     )
@@ -112,7 +116,8 @@ def main() -> int:
     if not os.environ.get("CURSOR_API_KEY"):
         print("CURSOR_API_KEY not set — skipping SDK review (opt-in).")
         _post_comment(
-            args.repo, args.pr_number,
+            args.repo,
+            args.pr_number,
             "## Automated review\n\n_skipped — set `CURSOR_API_KEY` repo secret "
             "to enable Cursor bug + security review._",
         )

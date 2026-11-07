@@ -19,13 +19,13 @@ Exit codes:
     0  PR created (or already existed)
     1  startup failure (gh missing, not on a branch, etc.)
 """
+
 from __future__ import annotations
 
 import argparse
 import os
 import subprocess
 import sys
-
 
 BODY_PROMPT = """\
 You write pull-request descriptions for the BDX-Intelligence project.
@@ -46,9 +46,7 @@ Be concise. Do not invent facts not present in the diff. Do not write code.
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], check=True, capture_output=True, text=True
-    ).stdout.strip()
+    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout.strip()
 
 
 def _diff(base: str, head: str) -> str:
@@ -61,8 +59,9 @@ def _generate_body(diff: str) -> str:
         return (
             "## Summary\n\n_Auto-generated placeholder — set `CURSOR_API_KEY` "
             "for an AI-generated description._\n\n"
-            "## Changes\n\n" + "\n".join(f"- `{f}`" for f in files.splitlines()) +
-            "\n\n## Tests\n\n_To be filled in._\n\n## Risk\n\n_To be filled in._\n"
+            "## Changes\n\n"
+            + "\n".join(f"- `{f}`" for f in files.splitlines())
+            + "\n\n## Tests\n\n_To be filled in._\n\n## Risk\n\n_To be filled in._\n"
         )
     try:
         from cursor_sdk import Agent, AgentOptions, CloudAgentOptions
@@ -79,7 +78,7 @@ def _generate_body(diff: str) -> str:
             ),
         )
         return result.result or "_no body generated._"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"_body generation failed: {exc}_"
 
 
@@ -99,11 +98,17 @@ def main() -> int:
     body = _generate_body(diff)
 
     cmd = [
-        "gh", "pr", "create",
-        "--base", args.base,
-        "--head", args.head,
-        "--title", args.title,
-        "--body", body,
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        args.base,
+        "--head",
+        args.head,
+        "--title",
+        args.title,
+        "--body",
+        body,
     ]
     for label in args.label:
         cmd += ["--label", label]

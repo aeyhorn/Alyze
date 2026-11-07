@@ -4,6 +4,7 @@ Skips the whole suite unless DEV credentials are present in the environment.
 The CI nightly cron sets these secrets; local runs need a `.env` with the
 DEV values.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,11 +19,11 @@ def _required_env(*names: str) -> bool:
 pytestmark = pytest.mark.integration
 
 
-def pytest_collection_modifyitems(config, items):  # noqa: ANN001
+def pytest_collection_modifyitems(config, items):
     """Skip integration tests when DEV credentials are not configured."""
-    sap_ok = _required_env("SAP_DB_HOST", "SAP_DB_NAME", "SAP_DB_TRUSTED_CONNECTION") or _required_env(
-        "SAP_DB_HOST", "SAP_DB_NAME", "SAP_DB_USER", "SAP_DB_PASSWORD"
-    )
+    sap_ok = _required_env(
+        "SAP_DB_HOST", "SAP_DB_NAME", "SAP_DB_TRUSTED_CONNECTION"
+    ) or _required_env("SAP_DB_HOST", "SAP_DB_NAME", "SAP_DB_USER", "SAP_DB_PASSWORD")
     sl_ok = _required_env("SL_BASE_URL", "SL_USERNAME", "SL_PASSWORD", "SL_COMPANY_DB_DEV")
     pg_ok = _required_env("POSTGRES_DSN")
 
@@ -33,9 +34,13 @@ def pytest_collection_modifyitems(config, items):  # noqa: ANN001
     for item in items:
         if "integration" not in item.keywords:
             continue
-        needs_sap = any("sap_read" in m.name or "sap" in m.name.lower() for m in item.iter_markers())
+        needs_sap = any(
+            "sap_read" in m.name or "sap" in m.name.lower() for m in item.iter_markers()
+        )
         needs_sl = any("sl" in m.name.lower() for m in item.iter_markers())
-        needs_pg = any("pg" in m.name.lower() or "postgres" in m.name.lower() for m in item.iter_markers())
+        needs_pg = any(
+            "pg" in m.name.lower() or "postgres" in m.name.lower() for m in item.iter_markers()
+        )
         # Heuristic: tests in this directory that aren't explicitly tagged
         # default to needing SAP + PG. SL contract tests opt in via marker.
         if not needs_sl and not needs_sap and not needs_pg:
@@ -54,8 +59,8 @@ def pytest_collection_modifyitems(config, items):  # noqa: ANN001
 
 @pytest.fixture(scope="session")
 def sap_engine():
-    from bdx.db.sap import build_sap_engine
     from bdx.config import load_sap_settings
+    from bdx.db.sap import build_sap_engine
 
     return build_sap_engine(load_sap_settings())
 
@@ -76,7 +81,7 @@ def pg_session_factory():
 
 
 @pytest.fixture
-def pg_session(pg_session_factory):  # noqa: ANN001
+def pg_session(pg_session_factory):
     s = pg_session_factory()
     yield s
     s.rollback()
@@ -85,7 +90,7 @@ def pg_session(pg_session_factory):  # noqa: ANN001
 
 @pytest.fixture(scope="session")
 def sl_client():
-    from bdx.config import load_service_layer_settings, SapMode
+    from bdx.config import SapMode, load_service_layer_settings
     from bdx.sap_sl.client import ServiceLayerClient
 
     settings = load_service_layer_settings()

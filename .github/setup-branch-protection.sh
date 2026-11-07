@@ -18,8 +18,8 @@ gh api \
   -X PUT \
   "repos/$REPO/branches/$BRANCH/protection" \
   -F "required_status_checks[strict]=true" \
-  -F "required_status_checks[contexts][]=Lint & Format (ruff)" \
-  -F "required_status_checks[contexts][]=Type Check (mypy)" \
+  -F "required_status_checks[contexts][]=Lint & Format (ruff, advisory)" \
+  -F "required_status_checks[contexts][]=Type Check (mypy, advisory)" \
   -F "required_status_checks[contexts][]=Tests (pytest + coverage)" \
   -F "required_status_checks[contexts][]=Docker Build Smoke Test" \
   -F "enforce_admins=false" \

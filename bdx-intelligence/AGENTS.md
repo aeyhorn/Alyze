@@ -94,6 +94,26 @@ See `docs/ARCHITECTURE.md` and `docs/PROJECT_STATUS.md` for details.
   `collector/` (mypy strict in CI).
 - `ruff check` and `ruff format --check` must pass (CI + pre-commit).
 
+> **ruff status:** currently advisory (`continue-on-error` in CI) because the
+> legacy codebase has ~381 ruff findings (import sorting, format) from before
+> ruff was added. New files already pass. Run the `Lint Cleanup` workflow
+> (`.github/workflows/lint-cleanup.yml`, manual trigger) to auto-fix the
+> codebase as a trivial PR; once that lands, remove `continue-on-error` from
+> the `lint` job in `.github/workflows/ci.yml`.
+
+> **mypy status:** currently advisory (`continue-on-error` in CI) because the
+> legacy code has ~48 errors (pydantic-settings `call-arg` friction + untyped
+> functions in `collector/polling.py`). The config in `pyproject.toml` is
+> permissive on purpose so CI is green on day 1. Tightening path:
+> 1. Annotate the untyped functions in `collector/polling.py`, `snapshots.py`,
+>    `change_detector.py`.
+> 2. Add `# type: ignore[call-arg]` (or a pydantic mypy plugin) for the
+>    `*Settings()` calls in `config.py`.
+> 3. Flip `check_untyped_defs` to `true` and re-enable
+>    `disallow_untyped_defs` in the `[[tool.mypy.overrides]]` block.
+> 4. Remove `continue-on-error` from the `typecheck` job in
+>    `.github/workflows/ci.yml`.
+
 ## Workflow (human-out-of-the-loop)
 
 1. **Spec** (Notion or GitHub Issue) → auto-branch `feat/<slug>` or

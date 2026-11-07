@@ -1,4 +1,4 @@
-"""Quality-gate agents – documentation, tests and code quality.
+"""Quality-gate agents - documentation, tests and code quality.
 
 These agents are intentionally decoupled from the running collector/API: they
 operate purely on the source tree and the developer toolchain (pytest, ruff,

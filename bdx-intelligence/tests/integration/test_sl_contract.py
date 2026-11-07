@@ -10,18 +10,18 @@ operations in DRY_RUN mode. They verify:
 The `sl_client` fixture in conftest.py forces `dry_run=True` regardless of
 the environment, so these tests are safe to run on any environment.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from bdx.models.events import SLOperation
 from bdx.sap_sl.operations import (
-    close_order,
     cancel_order,
+    close_order,
     release_order,
     report_production,
 )
-
 
 pytestmark = [pytest.mark.integration, pytest.mark.sl]
 
