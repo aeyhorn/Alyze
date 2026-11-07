@@ -75,7 +75,13 @@ jobs:
   deploy:
     name: Deploy to DEV host
     needs: build
-    runs-on: ubuntu-latest
+    # Self-hosted runner in the LAN that can reach the DEV host (192.168.82.33).
+    # GitHub-hosted runners cannot SSH to a private-LAN IP. Register a runner:
+    #   Settings → Actions → Runners → New self-hosted runner → Linux x64
+    # Install it on any machine that can SSH to DEV_SSH_HOST (the DEV host
+    # itself works too — it then SSHes to localhost). The runner must have
+    # the `self-hosted` label (default) and `linux` (added by default on Linux).
+    runs-on: [self-hosted, linux]
     environment: dev
     env:
       # Pull the exact image the build job just pushed (lowercased path).

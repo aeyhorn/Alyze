@@ -63,7 +63,9 @@ jobs:
   deploy:
     name: Deploy to PROD host
     needs: approve
-    runs-on: ubuntu-latest
+    # Self-hosted runner in the LAN that can reach the PROD host.
+    # GitHub-hosted runners cannot SSH to a private-LAN IP; see deploy-dev.yml.
+    runs-on: [self-hosted, linux]
     environment: prod
     steps:
       - name: Lowercase image name
