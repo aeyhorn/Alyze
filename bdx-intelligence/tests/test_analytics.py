@@ -665,3 +665,254 @@ def test_api_kpis_with_data(api_client, analytics_engine):
     data = r.json()
     assert data["count"] >= 1
     assert data["kpis"][0]["value"] == pytest.approx(3.5)
+
+
+# -- Procurement KPI tests ----------------------------------------------------
+
+
+def _make_stock_rows(item_code: str, qty_available: float, qty_on_hand: float | None = None) -> dict:
+    return {
+        "item_code": item_code,
+        "warehouse_code": "WH01",
+        "qty_on_hand": qty_on_hand if qty_on_hand is not None else qty_available,
+        "qty_committed": 0.0,
+        "qty_on_order": 0.0,
+        "qty_available": qty_available,
+    }
+
+
+def _make_po_row(item_code: str, open_qty: float, earliest: str = "2026-12-01") -> dict:
+    return {
+        "item_code": item_code,
+        "total_open_po_qty": open_qty,
+        "earliest_delivery": earliest,
+        "po_count": 1,
+    }
+
+
+def test_material_coverage_full(asession):
+    from bdx.analytics.kpis_procurement import compute_material_coverage
+
+    _add_order(asession, 100, status="R", planned=50.0, completed=0.0, item_code="BOLT-X")
+    asession.commit()
+
+    stock = [_make_stock_rows("BOLT-X", qty_available=80.0)]  # more than needed
+    results = compute_material_coverage(asession, stock, [], window_hours=720)
+
+    item_r = next((r for r in results if r.dimension == "item_group" and r.dimension_value == "BOLT-X"), None)
+    assert item_r is not None
+    assert item_r.value == 100.0  # fully covered
+
+    global_r = next((r for r in results if r.metric_name == "material_coverage_pct" and r.dimension == "global"), None)
+    assert global_r is not None
+    assert global_r.value == 100.0
+
+
+def test_material_coverage_partial(asession):
+    from bdx.analytics.kpis_procurement import compute_material_coverage
+
+    _add_order(asession, 101, status="R", planned=100.0, completed=0.0, item_code="GEAR-Y")
+    asession.commit()
+
+    stock = [_make_stock_rows("GEAR-Y", qty_available=40.0)]  # only 40% covered
+    results = compute_material_coverage(asession, stock, [], window_hours=720)
+
+    item_r = next((r for r in results if r.dimension == "item_group" and r.dimension_value == "GEAR-Y"), None)
+    assert item_r is not None
+    assert item_r.value == pytest.approx(40.0)
+
+
+def test_critical_items_count(asession):
+    from bdx.analytics.kpis_procurement import compute_material_coverage
+
+    _add_order(asession, 102, status="R", planned=100.0, item_code="SHAFT-Z")
+    asession.commit()
+
+    # Stock=20, no PO -> gap = 80 -> critical
+    stock = [_make_stock_rows("SHAFT-Z", qty_available=20.0)]
+    results = compute_material_coverage(asession, stock, [], window_hours=720)
+
+    crit_r = next((r for r in results if r.metric_name == "critical_items_count"), None)
+    assert crit_r is not None
+    assert crit_r.value == 1.0
+
+
+def test_critical_item_covered_by_po(asession):
+    """Item covered by open PO should NOT count as critical."""
+    from bdx.analytics.kpis_procurement import compute_material_coverage
+
+    _add_order(asession, 103, status="R", planned=100.0, item_code="AXLE-W")
+    asession.commit()
+
+    stock = [_make_stock_rows("AXLE-W", qty_available=20.0)]
+    open_pos = [_make_po_row("AXLE-W", open_qty=90.0)]  # 20+90 >= 100
+    results = compute_material_coverage(asession, stock, open_pos, window_hours=720)
+
+    crit_r = next((r for r in results if r.metric_name == "critical_items_count"), None)
+    assert crit_r is not None
+    assert crit_r.value == 0.0
+
+
+def test_po_lead_time(asession):
+    from bdx.analytics.kpis_procurement import compute_po_lead_time
+
+    lead_time_rows = [
+        {"supplier_code": "SUP-01", "supplier_name": "Acme", "actual_lead_time_days": 10, "delivery_delay_days": 0},
+        {"supplier_code": "SUP-01", "supplier_name": "Acme", "actual_lead_time_days": 14, "delivery_delay_days": 2},
+        {"supplier_code": "SUP-02", "supplier_name": "Beta", "actual_lead_time_days": 30, "delivery_delay_days": 5},
+    ]
+    results = compute_po_lead_time(lead_time_rows)
+
+    sup01 = next((r for r in results if r.dimension == "supplier" and r.dimension_value == "SUP-01"), None)
+    assert sup01 is not None
+    assert sup01.value == pytest.approx(12.0)  # median(10, 14) = 12
+
+    global_r = next((r for r in results if r.dimension == "global"), None)
+    assert global_r is not None
+    assert global_r.value == pytest.approx(14.0)  # median(10, 14, 30) = 14
+
+
+def test_supplier_otd(asession):
+    from bdx.analytics.kpis_procurement import compute_supplier_otd
+
+    otd_rows = [
+        {"supplier_code": "SUP-01", "supplier_name": "Acme", "total_lines": 10, "on_time_lines": 8, "avg_delay_days": 1.5},
+        {"supplier_code": "SUP-02", "supplier_name": "Beta", "total_lines": 5, "on_time_lines": 3, "avg_delay_days": 5.0},
+    ]
+    results = compute_supplier_otd(otd_rows)
+
+    sup01 = next((r for r in results if r.dimension == "supplier" and r.dimension_value == "SUP-01"), None)
+    assert sup01 is not None
+    assert sup01.value == pytest.approx(80.0)
+
+    global_r = next((r for r in results if r.dimension == "global"), None)
+    assert global_r is not None
+    # (8+3) / (10+5) = 73.33%
+    assert abs(global_r.value - 73.33) < 0.1
+
+
+def test_po_overdue_empty():
+    from bdx.analytics.kpis_procurement import compute_po_overdue
+
+    results = compute_po_overdue([])
+    assert results
+    assert results[0].metric_name == "po_overdue_count"
+    assert results[0].value == 0.0
+
+
+def test_po_overdue_with_rows():
+    from bdx.analytics.kpis_procurement import compute_po_overdue
+
+    overdue = [
+        {"supplier_code": "SUP-01", "item_code": "BOLT-X", "days_overdue": 5, "open_qty": 10},
+        {"supplier_code": "SUP-01", "item_code": "GEAR-Y", "days_overdue": 12, "open_qty": 5},
+        {"supplier_code": "SUP-02", "item_code": "SHAFT-Z", "days_overdue": 3, "open_qty": 20},
+    ]
+    results = compute_po_overdue(overdue)
+
+    global_r = next((r for r in results if r.metric_name == "po_overdue_count" and r.dimension == "global"), None)
+    assert global_r is not None
+    assert global_r.value == 3.0
+
+    gr_delay = next((r for r in results if r.metric_name == "gr_delay_days"), None)
+    assert gr_delay is not None
+    assert gr_delay.value == pytest.approx(5.0)  # median(3, 5, 12) = 5
+
+
+def test_stock_coverage_days():
+    from bdx.analytics.kpis_procurement import compute_stock_coverage
+
+    stock_rows = [
+        {"item_code": "BOLT-X", "qty_on_hand": 100.0, "qty_committed": 0.0, "qty_available": 100.0},
+    ]
+    # 50 units consumed in 30 days window = 1.67/day -> coverage = 100/1.67 = ~60 days
+    consumption_rows = [
+        {"item_code": "BOLT-X", "total_issued_qty": 50.0, "total_movement_qty": 50.0},
+    ]
+    results = compute_stock_coverage(stock_rows, consumption_rows, window_hours=720)
+
+    item_r = next((r for r in results if r.dimension == "item_group"), None)
+    assert item_r is not None
+    assert item_r.value == pytest.approx(60.0, abs=1.0)
+
+
+def test_stock_coverage_critical_low():
+    from bdx.analytics.kpis_procurement import compute_stock_coverage
+
+    stock_rows = [{"item_code": "GEAR-Y", "qty_on_hand": 2.0, "qty_committed": 0.0, "qty_available": 2.0}]
+    # 50 units / 30 days = 1.67/day -> 2 / 1.67 = ~1.2 days
+    consumption_rows = [{"item_code": "GEAR-Y", "total_issued_qty": 50.0, "total_movement_qty": 50.0}]
+    results = compute_stock_coverage(stock_rows, consumption_rows, window_hours=720)
+
+    item_r = next((r for r in results if r.dimension == "item_group"), None)
+    assert item_r is not None
+    assert item_r.value < 3.0  # below crit threshold
+
+
+def test_procurement_anomaly_recommendations(asession):
+    """Verify procurement anomalies use the correct German recommendation."""
+    from bdx.analytics.anomalies import detect_and_persist
+    from bdx.analytics.kpis import KpiResult
+    from bdx.analytics.thresholds import seed_fixed_thresholds
+
+    seed_fixed_thresholds(asession)
+
+    kpis = [
+        KpiResult("critical_items_count", "global", None, 8.0, 720),   # crit (>5)
+        KpiResult("supplier_otd_rate", "global", None, 60.0, 720),     # crit (<70%)
+        KpiResult("stock_coverage_days", "item_group", "GEAR-Y", 2.0, 720),  # crit (<3d)
+    ]
+
+    new, _, _ = detect_and_persist(asession, kpis)
+    assert new == 3
+
+    from sqlalchemy import select
+
+    crit_items = asession.execute(
+        select(DetectedAnomaly)
+        .where(DetectedAnomaly.metric_name == "critical_items_count")
+        .where(DetectedAnomaly.resolved_at.is_(None))
+    ).scalars().first()
+    assert crit_items is not None
+    assert crit_items.severity == "crit"
+    assert "Einkauf" in crit_items.recommendation or "blockieren" in crit_items.recommendation
+
+    otd_a = asession.execute(
+        select(DetectedAnomaly)
+        .where(DetectedAnomaly.metric_name == "supplier_otd_rate")
+        .where(DetectedAnomaly.resolved_at.is_(None))
+    ).scalars().first()
+    assert otd_a is not None
+    assert "Lieferant" in otd_a.recommendation
+
+    stock_a = asession.execute(
+        select(DetectedAnomaly)
+        .where(DetectedAnomaly.metric_name == "stock_coverage_days")
+        .where(DetectedAnomaly.resolved_at.is_(None))
+    ).scalars().first()
+    assert stock_a is not None
+    assert "Lagerreichweite" in stock_a.recommendation
+
+
+def test_procurement_thresholds_seeded(asession):
+    """All procurement metric seeds should be present after seed_fixed_thresholds."""
+    from bdx.analytics.thresholds import seed_fixed_thresholds
+
+    seed_fixed_thresholds(asession)
+
+    from sqlalchemy import select
+
+    names = {
+        row.metric_name
+        for row in asession.execute(select(MetricThreshold.metric_name)).all()
+    }
+    for metric in [
+        "material_coverage_pct",
+        "critical_items_count",
+        "po_lead_time_days",
+        "supplier_otd_rate",
+        "po_overdue_count",
+        "gr_delay_days",
+        "stock_coverage_days",
+    ]:
+        assert metric in names, f"Missing seed threshold for {metric}"

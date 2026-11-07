@@ -53,6 +53,14 @@ FIXED_SEED_THRESHOLDS: dict[str, tuple[float, float, bool]] = {
     "mtbf_hours":               (24.0,  8.0,   False),  # want MTBF to be high
     "queue_unstarted_count":    (3.0,   10.0,  True),
     "oee_availability_pct":     (70.0,  50.0,  False),
+    # Procurement / inventory KPIs
+    "material_coverage_pct":    (80.0,  60.0,  False),  # warn <80%, crit <60%
+    "critical_items_count":     (2.0,   5.0,   True),   # warn >2, crit >5 items
+    "po_lead_time_days":        (14.0,  30.0,  True),   # warn >14d, crit >30d
+    "supplier_otd_rate":        (85.0,  70.0,  False),  # warn <85%, crit <70%
+    "po_overdue_count":         (2.0,   5.0,   True),   # warn >2 lines, crit >5
+    "gr_delay_days":            (7.0,   21.0,  True),   # warn >7d, crit >21d
+    "stock_coverage_days":      (7.0,   3.0,   False),  # warn <7d, crit <3d
 }
 
 

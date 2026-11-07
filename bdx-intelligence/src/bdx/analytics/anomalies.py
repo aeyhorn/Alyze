@@ -155,6 +155,85 @@ _RECOMMENDATIONS: dict[str, dict[str, str]] = {
             "Maschine ist häufig außer Betrieb. Wartungsplan und Betriebsdaten sofort prüfen."
         ),
     },
+    # -- Procurement / inventory KPIs ------------------------------------------
+    "material_coverage_pct": {
+        "warn": (
+            "Materialdeckung für '{dim}' liegt bei {value:.1f} % (Ziel: >{threshold:.1f} %). "
+            "Lagerbestand deckt nicht den gesamten Bedarf offener Fertigungsaufträge. "
+            "Offene Bestellungen und Liefertermine prüfen."
+        ),
+        "crit": (
+            "Kritisch niedrige Materialdeckung für '{dim}': {value:.1f} % (Grenzwert: {threshold:.1f} %). "
+            "Fertigungsstart gefährdet - Material nicht verfügbar und keine ausreichenden "
+            "offenen Bestellungen. Sofortiger Beschaffungsimpuls erforderlich."
+        ),
+    },
+    "critical_items_count": {
+        "warn": (
+            "{value:.0f} Artikel haben unzureichende Materialdeckung (Lagerbestand + offene "
+            "Bestellungen decken Fertigungsbedarf nicht). Bestellauslösung und Liefertermintreue prüfen."
+        ),
+        "crit": (
+            "Kritisch: {value:.0f} Artikel blockieren Fertigungsaufträge - weder Lagerbestand noch "
+            "offene Bestellungen decken den Bedarf. Sofortige Eskalation an Einkauf und Fertigungsleitung."
+        ),
+    },
+    "po_lead_time_days": {
+        "warn": (
+            "Tatsächliche Lieferzeit von '{dim}': Median {value:.1f} Tage (Schwellwert: {threshold:.1f} d). "
+            "Bestellvorlaufzeiten im System überprüfen und ggf. früher disponieren."
+        ),
+        "crit": (
+            "Sehr lange Lieferzeit von '{dim}': {value:.1f} Tage (Grenzwert: {threshold:.1f} d). "
+            "Alternative Lieferanten prüfen oder Sicherheitsbestände erhöhen. "
+            "Fertigungsplanung auf verlängerte Wiederbeschaffung anpassen."
+        ),
+    },
+    "supplier_otd_rate": {
+        "warn": (
+            "Liefertermintreue von '{dim}': {value:.1f} % (Ziel: >{threshold:.1f} %). "
+            "Lieferant hält vereinbarte Termine nicht zuverlässig ein. Eskalationsgespräch einplanen."
+        ),
+        "crit": (
+            "Kritisch niedrige Liefertermintreue '{dim}': {value:.1f} % (Grenzwert: {threshold:.1f} %). "
+            "Lieferant ist unzuverlässig - Alternativlieferant prüfen, "
+            "Sicherheitsbestand erhöhen, Einkauf benachrichtigen."
+        ),
+    },
+    "po_overdue_count": {
+        "warn": (
+            "{value:.0f} offene Bestellpositionen haben ihren Liefertermin überschritten. "
+            "Mahnungen an Lieferanten auslösen und Auswirkung auf Fertigungsplan prüfen."
+        ),
+        "crit": (
+            "Kritisch: {value:.0f} überfällige Bestellpositionen. Fertigungsstarts sind "
+            "möglicherweise blockiert. Sofortiger Kontakt mit Lieferanten und Umplanung der "
+            "betroffenen Fertigungsaufträge."
+        ),
+    },
+    "gr_delay_days": {
+        "warn": (
+            "Median-Wareneingangs-Verzug: {value:.1f} Tage (Schwellwert: {threshold:.1f} d). "
+            "Lieferanten halten Termintreue nicht ein. Bestellprozess und Lieferantenmanagement prüfen."
+        ),
+        "crit": (
+            "Kritisch hoher Wareneingangs-Verzug: {value:.1f} Tage (Grenzwert: {threshold:.1f} d). "
+            "Systematische Lieferprobleme - Lieferantenbasis überprüfen, "
+            "Fertigungsplanung auf Verzüge anpassen."
+        ),
+    },
+    "stock_coverage_days": {
+        "warn": (
+            "Lagerreichweite für '{dim}': {value:.1f} Tage (Ziel: >{threshold:.1f} d). "
+            "Bestand deckt den Verbrauch nur für kurze Zeit. Bestellpunkt prüfen und "
+            "Mindestbestand ggf. erhöhen."
+        ),
+        "crit": (
+            "Kritisch niedrige Lagerreichweite für '{dim}': {value:.1f} Tage (Grenzwert: {threshold:.1f} d). "
+            "Produktionsstopp droht durch Materialunterversorgung. "
+            "Sofortige Beschaffung und Prüfung offener Bestellungen."
+        ),
+    },
 }
 
 _DEFAULT_RECOMMENDATION = {

@@ -244,7 +244,7 @@ def run_polling_loop(
         if analytics_enabled and time.monotonic() >= next_analytics:
             from bdx.analytics.collector import run_analytics_once
             try:
-                run_analytics_once(pg_session_factory)
+                run_analytics_once(pg_session_factory, sap_engine=sap_engine)
             except Exception as exc:  # noqa: BLE001
                 logger.error("analytics.cycle.failed", error=str(exc))
             next_analytics = time.monotonic() + analytics_interval

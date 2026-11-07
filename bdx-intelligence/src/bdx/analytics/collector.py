@@ -60,29 +60,48 @@ def _persist_kpi_results(session: Session, results: list) -> int:
     return len(results)
 
 
-def run_analytics_once(pg_session_factory) -> dict:
+def run_analytics_once(
+    pg_session_factory,
+    sap_engine=None,
+) -> dict:
     """Execute one full analytics cycle.
 
     1. Build machine_state_history from pending domain events.
-    2. Compute all KPIs.
-    3. Persist KPI snapshots.
-    4. Run anomaly detection.
+    2. Compute all event-store KPIs.
+    3. Compute procurement KPIs (requires live SAP connection; skipped if sap_engine=None).
+    4. Persist KPI snapshots.
+    5. Run anomaly detection.
 
     Returns a summary dict with counts.
     """
+    from bdx.analytics.kpis_procurement import compute_all_procurement_kpis
+
     summary: dict = {}
     with pg_session_factory() as session:
         # Step 1: materialise machine state intervals
         history_rows = build_machine_state_history(session)
         summary["history_rows"] = history_rows
 
-        # Step 2 + 3: compute and persist KPIs
+        # Step 2: event-store KPIs
         kpi_results = compute_all_kpis(session)
+
+        # Step 3: procurement KPIs (optional SAP read)
+        procurement_results: list = []
+        if sap_engine is not None:
+            try:
+                with sap_engine.connect() as sap_conn:
+                    procurement_results = compute_all_procurement_kpis(session, sap_conn)
+            except Exception as exc:
+                logger.warning("procurement_kpis.sap_error", error=str(exc))
+        kpi_results = kpi_results + procurement_results
+
+        # Step 4: persist
         persisted = _persist_kpi_results(session, kpi_results)
         summary["kpis_computed"] = len(kpi_results)
         summary["kpi_snapshots_written"] = persisted
+        summary["procurement_kpis"] = len(procurement_results)
 
-        # Step 4: anomaly detection
+        # Step 5: anomaly detection
         new_a, upd_a, res_a = detect_and_persist(session, kpi_results)
         summary["anomalies_new"] = new_a
         summary["anomalies_updated"] = upd_a
