@@ -174,8 +174,14 @@ def run_polling_loop(
     machine_adapter=None,  # noqa: ANN001
     machine_settings: MachineSettings | None = None,
     publisher=None,  # noqa: ANN001
+    analytics_interval: int = 600,
+    analytics_enabled: bool = True,
 ) -> None:
-    """Block and poll SAP (and the machine feed) until SIGTERM/SIGINT."""
+    """Block and poll SAP (and the machine feed) until SIGTERM/SIGINT.
+
+    Also runs the analytics KPI cycle every ``analytics_interval`` seconds
+    (default 600 s / 10 min) when ``analytics_enabled`` is True.
+    """
     global _SHUTDOWN
     _SHUTDOWN = False
 
@@ -186,16 +192,27 @@ def run_polling_loop(
 
     machine_enabled = machine_adapter is not None and machine_settings is not None
     machine_interval = machine_settings.poll_interval_seconds if machine_enabled else settings.poll_interval_seconds
-    tick = min(settings.poll_interval_seconds, machine_interval)
+    tick = min(settings.poll_interval_seconds, machine_interval, analytics_interval if analytics_enabled else 9999)
 
     logger.info(
         "collector.started",
         poll_interval=settings.poll_interval_seconds,
         machine_poll_interval=machine_interval if machine_enabled else None,
+        analytics_interval=analytics_interval if analytics_enabled else None,
     )
 
     next_sap = time.monotonic()
     next_machine = time.monotonic()
+    next_analytics = time.monotonic() + 30  # short delay so SAP runs first
+
+    # Seed thresholds once on startup
+    if analytics_enabled:
+        try:
+            from bdx.analytics.thresholds import seed_fixed_thresholds
+            with pg_session_factory() as _s:
+                seed_fixed_thresholds(_s)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("analytics.seed_failed", error=str(exc))
 
     while not _SHUTDOWN:
         now = time.monotonic()
@@ -224,8 +241,19 @@ def run_polling_loop(
                 logger.error("machine.cycle.failed", error=str(exc))
             next_machine = time.monotonic() + machine_interval
 
+        if analytics_enabled and time.monotonic() >= next_analytics:
+            from bdx.analytics.collector import run_analytics_once
+            try:
+                run_analytics_once(pg_session_factory)
+            except Exception as exc:  # noqa: BLE001
+                logger.error("analytics.cycle.failed", error=str(exc))
+            next_analytics = time.monotonic() + analytics_interval
+
         # Sleep until the next due cycle, in short increments for fast shutdown
-        due = min(next_sap, next_machine if machine_enabled else next_sap)
+        candidates = [next_sap, next_machine if machine_enabled else next_sap]
+        if analytics_enabled:
+            candidates.append(next_analytics)
+        due = min(candidates)
         deadline = min(due, time.monotonic() + tick)
         while not _SHUTDOWN and time.monotonic() < deadline:
             time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
