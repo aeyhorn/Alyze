@@ -331,6 +331,15 @@ def detect_and_persist(session: Session, kpi_results: list[KpiResult]) -> tuple[
             kpi.metric_name, severity, kpi.value, breach_threshold,
             kpi.dimension_value or "global",
         )
+        if kpi.metric_name in {
+            "on_time_delivery_rate",
+            "backlog_overdue_count",
+            "cycle_time_hours",
+            "release_to_start_hours",
+            "queue_unstarted_count",
+        }:
+            from bdx.analytics.causes import cause_citation
+            recommendation += cause_citation(session)
 
         if existing:
             existing.severity = severity

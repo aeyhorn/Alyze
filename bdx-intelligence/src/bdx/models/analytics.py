@@ -141,6 +141,75 @@ class MetricThresholdDTO(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MeasurementQuality(Base):
+    """One row per analytics run describing whether KPIs may be trusted."""
+
+    __tablename__ = "measurement_quality"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    link_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    linked_orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    machine_orders_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    event_history_days: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    shift_calendar_rows: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    wip: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    throughput_per_hour: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    median_cycle_time_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    littles_law_predicted_wip: Mapped[float | None] = mapped_column(Float, nullable=True)
+    littles_law_deviation: Mapped[float | None] = mapped_column(Float, nullable=True)
+    utilization_reliable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cycle_time_reliable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class OrderFlowSegment(Base):
+    """Four-part cycle time of one production order."""
+
+    __tablename__ = "order_flow_segments"
+
+    doc_entry: Mapped[int] = mapped_column(Integer, primary_key=True)
+    item_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_run_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    wait_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    setup_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    run_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    post_process_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class LatenessCause(Base):
+    """Single dominant cause for one late production order."""
+
+    __tablename__ = "lateness_causes"
+
+    doc_entry: Mapped[int] = mapped_column(Integer, primary_key=True)
+    item_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    cause: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BottleneckRank(Base):
+    """Machine ranked by utilization times queue of released-but-unstarted hours."""
+
+    __tablename__ = "bottleneck_rank"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    machine_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    utilization_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    queue_hours: Mapped[float] = mapped_column(Float, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    waiting_orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    interpretation: Mapped[str] = mapped_column(String(16), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class DetectedAnomalyDTO(BaseModel):
     anomaly_id: str
     metric_name: str

@@ -78,30 +78,51 @@ def run_analytics_once(
 
     summary: dict = {}
     with pg_session_factory() as session:
-        # Step 1: materialise machine state intervals
-        history_rows = build_machine_state_history(session)
-        summary["history_rows"] = history_rows
+        from bdx.analytics.bottleneck import rank_bottlenecks
+        from bdx.analytics.causes import classify_lateness
+        from bdx.analytics.flow import build_flow_segments
+        from bdx.analytics.kpis_procurement import ProcurementContext
+        from bdx.analytics.quality import record_measurement_quality
 
-        # Step 2: event-store KPIs
+        # Step 1: materialise machine state intervals and flow segments
+        history_rows = build_machine_state_history(session)
+        flow_rows = build_flow_segments(session)
+        summary["history_rows"] = history_rows
+        summary["flow_segments"] = flow_rows
+
+        # Step 2: event-store KPIs (cycle time reads the segments written above)
         kpi_results = compute_all_kpis(session)
 
-        # Step 3: procurement KPIs (optional SAP read)
+        # Step 3: procurement KPIs (optional SAP read, component demand)
         procurement_results: list = []
+        procurement_ctx = ProcurementContext()
         if sap_engine is not None:
             try:
                 with sap_engine.connect() as sap_conn:
-                    procurement_results = compute_all_procurement_kpis(session, sap_conn)
+                    procurement_results, procurement_ctx = compute_all_procurement_kpis(session, sap_conn)
             except Exception as exc:
                 logger.warning("procurement_kpis.sap_error", error=str(exc))
         kpi_results = kpi_results + procurement_results
 
-        # Step 4: persist
+        # Step 4: diagnosis (quality, bottleneck, one cause per late order)
+        quality = record_measurement_quality(session)
+        bottlenecks = rank_bottlenecks(session)
+        causes = classify_lateness(
+            session,
+            material_gap_orders=procurement_ctx.material_gap_orders,
+            overdue_po_orders=procurement_ctx.overdue_po_orders,
+        )
+        summary["utilization_reliable"] = quality.utilization_reliable
+        summary["cycle_time_reliable"] = quality.cycle_time_reliable
+        summary["bottlenecks"] = len(bottlenecks)
+        summary["lateness_causes"] = causes
+
+        # Step 5: persist KPIs and detect anomalies (recommendations cite causes)
         persisted = _persist_kpi_results(session, kpi_results)
         summary["kpis_computed"] = len(kpi_results)
         summary["kpi_snapshots_written"] = persisted
         summary["procurement_kpis"] = len(procurement_results)
 
-        # Step 5: anomaly detection
         new_a, upd_a, res_a = detect_and_persist(session, kpi_results)
         summary["anomalies_new"] = new_a
         summary["anomalies_updated"] = upd_a

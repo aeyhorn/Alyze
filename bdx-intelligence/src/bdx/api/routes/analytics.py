@@ -5,6 +5,10 @@ GET /api/v1/analytics/kpis/{metric}  - all dimension rows for a single metric
 GET /api/v1/analytics/trends         - time-series KPI values
 GET /api/v1/analytics/anomalies      - active (unresolved) anomalies
 GET /api/v1/analytics/thresholds     - current threshold configuration
+GET /api/v1/analytics/quality        - measurement gates for utilization and cycle time
+GET /api/v1/analytics/flow           - four-part cycle time per production order
+GET /api/v1/analytics/causes         - one lateness cause per late order
+GET /api/v1/analytics/bottleneck     - machine rank by utilization times queue hours
 POST /api/v1/analytics/run           - trigger an analytics cycle on demand
 """
 from __future__ import annotations
@@ -15,14 +19,19 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from bdx.analytics.quality import reliability_for_metric
 from bdx.api.deps import get_pg_session, require_api_key
 from bdx.models.analytics import (
+    BottleneckRank,
     DetectedAnomaly,
     DetectedAnomalyDTO,
     KpiSnapshot,
     KpiSnapshotDTO,
+    LatenessCause,
+    MeasurementQuality,
     MetricThreshold,
     MetricThresholdDTO,
+    OrderFlowSegment,
 )
 
 router = APIRouter(
@@ -30,6 +39,14 @@ router = APIRouter(
     tags=["analytics"],
     dependencies=[Depends(require_api_key)],
 )
+
+
+def _kpi_payload(session: Session, row: KpiSnapshot) -> dict:
+    payload = KpiSnapshotDTO.model_validate(row).model_dump(mode="json")
+    reliable = reliability_for_metric(session, row.metric_name)
+    if reliable is not None:
+        payload["reliable"] = reliable
+    return payload
 
 
 # ── KPI endpoints ─────────────────────────────────────────────────────────────
@@ -81,7 +98,7 @@ def list_kpis(
 
     return {
         "count": len(rows),
-        "kpis": [KpiSnapshotDTO.model_validate(r).model_dump(mode="json") for r in rows],
+        "kpis": [_kpi_payload(session, r) for r in rows],
     }
 
 
@@ -122,7 +139,7 @@ def get_kpi(metric_name: str, session: Session = Depends(get_pg_session)) -> dic
     return {
         "metric_name": metric_name,
         "count": len(rows),
-        "kpis": [KpiSnapshotDTO.model_validate(r).model_dump(mode="json") for r in rows],
+        "kpis": [_kpi_payload(session, r) for r in rows],
     }
 
 
@@ -231,6 +248,124 @@ def list_thresholds(
     return {
         "count": len(rows),
         "thresholds": [MetricThresholdDTO.model_validate(r).model_dump(mode="json") for r in rows],
+    }
+
+
+# ── Diagnosis endpoints ───────────────────────────────────────────────────────
+
+
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+@router.get("/quality", summary="Latest measurement-quality gates")
+def get_quality(session: Session = Depends(get_pg_session)) -> dict:
+    """Return whether utilization and cycle time may be trusted."""
+    row = session.execute(
+        select(MeasurementQuality).order_by(MeasurementQuality.computed_at.desc(), MeasurementQuality.id.desc())
+    ).scalars().first()
+    if row is None:
+        return {"available": False}
+    return {
+        "available": True,
+        "computed_at": _iso(row.computed_at),
+        "link_rate": row.link_rate,
+        "linked_orders": row.linked_orders,
+        "machine_orders_total": row.machine_orders_total,
+        "event_history_days": row.event_history_days,
+        "shift_calendar_rows": row.shift_calendar_rows,
+        "wip": row.wip,
+        "throughput_per_hour": row.throughput_per_hour,
+        "median_cycle_time_h": row.median_cycle_time_h,
+        "littles_law_predicted_wip": row.littles_law_predicted_wip,
+        "littles_law_deviation": row.littles_law_deviation,
+        "utilization_reliable": row.utilization_reliable,
+        "cycle_time_reliable": row.cycle_time_reliable,
+    }
+
+
+@router.get("/flow", summary="Four-part cycle time per production order")
+def list_flow(
+    doc_entry: int | None = Query(None),
+    limit: int = Query(200, ge=1, le=5000),
+    session: Session = Depends(get_pg_session),
+) -> dict:
+    q = select(OrderFlowSegment).order_by(OrderFlowSegment.computed_at.desc())
+    if doc_entry is not None:
+        q = q.where(OrderFlowSegment.doc_entry == doc_entry)
+    rows = session.execute(q.limit(limit)).scalars().all()
+    return {
+        "count": len(rows),
+        "segments": [
+            {
+                "doc_entry": r.doc_entry,
+                "item_code": r.item_code,
+                "wait_h": r.wait_h,
+                "setup_h": r.setup_h,
+                "run_h": r.run_h,
+                "post_process_h": r.post_process_h,
+                "total_h": r.total_h,
+                "released_at": _iso(r.released_at),
+                "first_start_at": _iso(r.first_start_at),
+                "last_run_end_at": _iso(r.last_run_end_at),
+                "closed_at": _iso(r.closed_at),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/causes", summary="One lateness cause per late production order")
+def list_causes(
+    cause: str | None = Query(None),
+    session: Session = Depends(get_pg_session),
+) -> dict:
+    from bdx.analytics.causes import CAUSE_LABELS, cause_counts
+
+    q = select(LatenessCause).order_by(LatenessCause.cause, LatenessCause.doc_entry)
+    if cause:
+        q = q.where(LatenessCause.cause == cause)
+    rows = session.execute(q).scalars().all()
+    return {
+        "count": len(rows),
+        "by_cause": [
+            {"cause": name, "label": CAUSE_LABELS.get(name, name), "count": n}
+            for name, n in cause_counts(session)
+        ],
+        "causes": [
+            {
+                "doc_entry": r.doc_entry,
+                "item_code": r.item_code,
+                "cause": r.cause,
+                "label": CAUSE_LABELS.get(r.cause, r.cause),
+                "due_date": r.due_date,
+                "closed_at": _iso(r.closed_at),
+                "evidence": r.evidence,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/bottleneck", summary="Machines ranked by utilization times waiting hours")
+def list_bottlenecks(session: Session = Depends(get_pg_session)) -> dict:
+    rows = session.execute(
+        select(BottleneckRank).order_by(BottleneckRank.score.desc())
+    ).scalars().all()
+    return {
+        "count": len(rows),
+        "machines": [
+            {
+                "machine_id": r.machine_id,
+                "utilization_pct": r.utilization_pct,
+                "queue_hours": r.queue_hours,
+                "score": r.score,
+                "waiting_orders": r.waiting_orders,
+                "interpretation": r.interpretation,
+                "computed_at": _iso(r.computed_at),
+            }
+            for r in rows
+        ],
     }
 
 

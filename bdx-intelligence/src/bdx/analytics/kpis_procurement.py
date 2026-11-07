@@ -19,6 +19,7 @@ KPIs produced:
 from __future__ import annotations
 
 import statistics
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -32,6 +33,14 @@ from bdx.models.events import OrderState
 logger = structlog.get_logger(__name__)
 
 
+@dataclass
+class ProcurementContext:
+    """Order sets used by the lateness classifier. Empty when SAP was not read."""
+
+    material_gap_orders: set[int] = field(default_factory=set)
+    overdue_po_orders: set[int] = field(default_factory=set)
+
+
 # ---------------------------------------------------------------------------
 # 1. Material coverage - can open FAs be started with current stock?
 # ---------------------------------------------------------------------------
@@ -41,35 +50,48 @@ def compute_material_coverage(
     stock_rows: list[dict[str, Any]],
     open_po_rows: list[dict[str, Any]],
     window_hours: int = DEFAULT_WINDOW_HOURS,
+    component_rows: list[dict[str, Any]] | None = None,
 ) -> list[KpiResult]:
-    """Materialdeckung: % of open FA remaining demand covered by available stock.
+    """Materialdeckung: % of remaining component demand covered by available stock.
 
-    Args:
-        stock_rows:   rows from fetch_stock_for_open_orders (OITW)
-        open_po_rows: rows from fetch_open_po_qty_by_item   (POR1 aggregated)
+    ``component_rows`` are WOR1 lines (doc_entry, item_code, planned_qty, issued_qty).
+    When they are passed, demand is the open component quantity. Without them the
+    function falls back to the finished-good quantity of open production orders.
     """
-    # Build available stock dict: item_code -> total qty_available across warehouses
     stock: dict[str, float] = {}
     for row in stock_rows:
         ic = row["item_code"]
         stock[ic] = stock.get(ic, 0.0) + float(row.get("qty_available") or 0.0)
 
-    # Build open PO incoming qty: item_code -> total_open_po_qty
     incoming: dict[str, float] = {}
     for row in open_po_rows:
         ic = row["item_code"]
         incoming[ic] = float(row.get("total_open_po_qty") or 0.0)
 
-    # Open FA remaining demand: item_code -> total needed
-    open_orders = session.execute(
-        select(OrderState.item_code, OrderState.planned_qty, OrderState.completed_qty)
-        .where(OrderState.status.in_(["P", "R"]))
-    ).all()
-
     demand: dict[str, float] = {}
-    for item_code, planned, completed in open_orders:
-        remaining = max(0.0, float(planned or 0) - float(completed or 0))
-        demand[item_code] = demand.get(item_code, 0.0) + remaining
+    orders_by_item: dict[str, set[int]] = {}
+    if component_rows is not None:
+        for row in component_rows:
+            item_code = row.get("item_code")
+            if not item_code:
+                continue
+            remaining = max(
+                0.0,
+                float(row.get("planned_qty") or 0) - float(row.get("issued_qty") or 0),
+            )
+            if remaining <= 0:
+                continue
+            demand[item_code] = demand.get(item_code, 0.0) + remaining
+            if row.get("doc_entry") is not None:
+                orders_by_item.setdefault(item_code, set()).add(int(row["doc_entry"]))
+    else:
+        open_orders = session.execute(
+            select(OrderState.item_code, OrderState.planned_qty, OrderState.completed_qty)
+            .where(OrderState.status.in_(["P", "R"]))
+        ).all()
+        for item_code, planned, completed in open_orders:
+            remaining = max(0.0, float(planned or 0) - float(completed or 0))
+            demand[item_code] = demand.get(item_code, 0.0) + remaining
 
     if not demand:
         return []
@@ -115,7 +137,15 @@ def compute_material_coverage(
             dimension_value=None,
             value=global_pct,
             window_hours=window_hours,
-            extra={"items_checked": len(demand), "critical_items": critical_items[:50]},
+            extra={
+                "items_checked": len(demand),
+                "critical_items": critical_items[:50],
+                "critical_doc_entries": sorted({
+                    doc_entry
+                    for item_code in critical_items
+                    for doc_entry in orders_by_item.get(item_code, set())
+                })[:100],
+            },
         ))
 
     # Critical items count as a separate KPI
@@ -286,7 +316,11 @@ def compute_po_overdue(
         dimension_value=None,
         value=float(len(overdue_rows)),
         window_hours=window_hours,
-        extra={"median_delay_days": median_delay, "max_delay_days": round(max(delays), 1) if delays else 0},
+        extra={
+            "median_delay_days": median_delay,
+            "max_delay_days": round(max(delays), 1) if delays else 0,
+            "item_codes": sorted({row.get("item_code") for row in overdue_rows if row.get("item_code")})[:100],
+        },
     ))
 
     # GR delay as its own metric (how late are overdue deliveries?)
@@ -374,24 +408,27 @@ def compute_stock_coverage(
 
 def compute_all_procurement_kpis(
     session: Session,
-    sap_conn: Any,  # SQLAlchemy Connection to MSSQL
+    sap_conn: Any,
     window_hours: int = DEFAULT_WINDOW_HOURS,
-) -> list[KpiResult]:
+) -> tuple[list[KpiResult], ProcurementContext]:
     """Fetch SAP procurement data and compute all procurement KPIs.
 
     ``sap_conn`` is a live SQLAlchemy connection to the SAP SQL Server.
-    Returns an empty list if the connection is None (SAP not configured).
+    Returns an empty result and an empty context when the connection is missing
+    or a query fails.
     """
+    context = ProcurementContext()
     if sap_conn is None:
         logger.info("procurement_kpis.skipped", reason="no_sap_connection")
-        return []
+        return [], context
 
     from bdx.db.queries_sap_extended import (
+        fetch_components_for_open_orders,
         fetch_gr_lead_times,
         fetch_item_consumption,
         fetch_open_po_qty_by_item,
         fetch_overdue_po_lines,
-        fetch_stock_for_open_orders,
+        fetch_stock_for_components,
         fetch_supplier_otd,
     )
 
@@ -399,21 +436,43 @@ def compute_all_procurement_kpis(
 
     results: list[KpiResult] = []
     try:
-        stock_rows = fetch_stock_for_open_orders(sap_conn)
+        component_rows = fetch_components_for_open_orders(sap_conn)
+        stock_rows = fetch_stock_for_components(sap_conn)
         open_po_rows = fetch_open_po_qty_by_item(sap_conn)
         lead_time_rows = fetch_gr_lead_times(sap_conn, since_date)
         otd_rows = fetch_supplier_otd(sap_conn, since_date)
         overdue_rows = fetch_overdue_po_lines(sap_conn)
         consumption_rows = fetch_item_consumption(sap_conn, since_date)
 
-        results.extend(compute_material_coverage(session, stock_rows, open_po_rows, window_hours))
+        results.extend(compute_material_coverage(
+            session, stock_rows, open_po_rows, window_hours, component_rows=component_rows,
+        ))
         results.extend(compute_po_lead_time(lead_time_rows, window_hours))
         results.extend(compute_supplier_otd(otd_rows, window_hours))
         results.extend(compute_po_overdue(overdue_rows, window_hours))
         results.extend(compute_stock_coverage(stock_rows, consumption_rows, window_hours))
 
+        critical_items: set[str] = set()
+        for result in results:
+            if result.metric_name == "critical_items_count":
+                critical_items.update(result.extra.get("items") or [])
+        overdue_items = {row.get("item_code") for row in overdue_rows if row.get("item_code")}
+        for row in component_rows:
+            doc_entry = row.get("doc_entry")
+            item_code = row.get("item_code")
+            if doc_entry is None or not item_code:
+                continue
+            remaining = max(0.0, float(row.get("planned_qty") or 0) - float(row.get("issued_qty") or 0))
+            if remaining <= 0:
+                continue
+            if item_code in critical_items:
+                context.material_gap_orders.add(int(doc_entry))
+            if item_code in overdue_items:
+                context.overdue_po_orders.add(int(doc_entry))
+
         logger.info("procurement_kpis.computed", count=len(results))
     except Exception as exc:
         logger.warning("procurement_kpis.failed", error=str(exc))
+        return [], ProcurementContext()
 
-    return results
+    return results, context

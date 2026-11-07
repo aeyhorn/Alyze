@@ -5,7 +5,7 @@ The MSSQL channel is read-only by convention and enforced by the SQLAlchemy
 event listener in ``src/bdx/db/sap.py``.
 
 Tables covered:
-  WOR1  - Production order routing / operations (planned op times)
+  WOR1  - Production order component lines (ItemCode, PlannedQty, IssuedQty)
   OIVL  - Inventory value ledger (stock movements, current qty)
   OITW  - Item warehouse stock (current qty per warehouse)
   ORDR  - Sales / customer orders header
@@ -23,65 +23,55 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-# ── WOR1 - Production order routing operations ───────────────────────────────
+# ── WOR1 - Production order component lines ──────────────────────────────────
 #
-# Each OWOR can have multiple operations (WOR1 rows) with planned durations.
-# PlannedQty = planned production qty; TotalTime + SetupTime in minutes.
+# In SAP Business One, WOR1 is the component list of a production order, not a
+# routing with setup times. ItemType 4 = inventory item, 290 = resource.
+# Remaining demand is PlannedQty - IssuedQty.
 
-WOR1_BY_DOCENTRY_SQL = text(
-    """
-    SELECT
+_WOR1_COMPONENT_COLUMNS = """
         r.DocEntry          AS doc_entry,
         r.LineNum           AS line_num,
         r.VisOrder          AS vis_order,
-        r.OcrCode           AS resource_code,
-        r.OcrName           AS resource_name,
-        r.WipAcct           AS wip_account,
+        r.ItemCode          AS item_code,
+        r.ItemType          AS item_type,
         r.PlannedQty        AS planned_qty,
-        r.SetupTime         AS setup_time_min,
-        r.TotalTime         AS total_time_min,
-        r.ActualSetupTime   AS actual_setup_time_min,
-        r.ActualTotalTime   AS actual_total_time_min,
-        r.ActualQty         AS actual_qty,
-        r.CompDate          AS completed_date,
-        r.Completed         AS is_completed
+        r.IssuedQty         AS issued_qty,
+        r.BaseQty           AS base_qty,
+        r.wareHouse         AS warehouse_code,
+        r.IssueType         AS issue_type
+"""
+
+WOR1_BY_DOCENTRY_SQL = text(
+    f"""
+    SELECT {_WOR1_COMPONENT_COLUMNS}
     FROM dbo.WOR1 r
     WHERE r.DocEntry = :doc_entry
+      AND r.ItemType = 4
     ORDER BY r.VisOrder
     """
 )
 
 WOR1_FOR_OPEN_ORDERS_SQL = text(
-    """
-    SELECT
-        r.DocEntry          AS doc_entry,
-        r.LineNum           AS line_num,
-        r.VisOrder          AS vis_order,
-        r.OcrCode           AS resource_code,
-        r.OcrName           AS resource_name,
-        r.PlannedQty        AS planned_qty,
-        r.SetupTime         AS setup_time_min,
-        r.TotalTime         AS total_time_min,
-        r.ActualSetupTime   AS actual_setup_time_min,
-        r.ActualTotalTime   AS actual_total_time_min,
-        r.ActualQty         AS actual_qty,
-        r.Completed         AS is_completed
+    f"""
+    SELECT {_WOR1_COMPONENT_COLUMNS}
     FROM dbo.WOR1 r
     INNER JOIN dbo.OWOR wo ON wo.DocEntry = r.DocEntry
     WHERE wo.Status IN ('P', 'R')
+      AND r.ItemType = 4
     ORDER BY r.DocEntry, r.VisOrder
     """
 )
 
 
-def fetch_routing_for_order(conn: Connection, doc_entry: int) -> list[dict[str, Any]]:
-    """Return routing operations for a single production order."""
+def fetch_components_for_order(conn: Connection, doc_entry: int) -> list[dict[str, Any]]:
+    """Return component lines for a single production order."""
     result = conn.execute(WOR1_BY_DOCENTRY_SQL, {"doc_entry": doc_entry})
     return [dict(row._mapping) for row in result]
 
 
-def fetch_routing_for_open_orders(conn: Connection) -> list[dict[str, Any]]:
-    """Return routing operations for all open production orders."""
+def fetch_components_for_open_orders(conn: Connection) -> list[dict[str, Any]]:
+    """Return component lines for all open production orders."""
     result = conn.execute(WOR1_FOR_OPEN_ORDERS_SQL)
     return [dict(row._mapping) for row in result]
 
@@ -122,8 +112,40 @@ OITW_BY_ITEMCODE_SQL = text(
 
 
 def fetch_stock_for_open_orders(conn: Connection) -> list[dict[str, Any]]:
-    """Return warehouse stock for items referenced by open production orders."""
+    """Return warehouse stock for finished items referenced by open production orders."""
     result = conn.execute(OITW_FOR_ITEMS_SQL)
+    return [dict(row._mapping) for row in result]
+
+
+OITW_FOR_COMPONENTS_SQL = text(
+    """
+    SELECT
+        w.ItemCode          AS item_code,
+        w.WhsCode           AS warehouse_code,
+        w.OnHand            AS qty_on_hand,
+        w.IsCommited        AS qty_committed,
+        w.OnOrder           AS qty_on_order,
+        (w.OnHand - w.IsCommited) AS qty_available
+    FROM dbo.OITW w
+    WHERE w.ItemCode IN (
+        SELECT DISTINCT r.ItemCode
+        FROM dbo.WOR1 r
+        INNER JOIN dbo.OWOR wo ON wo.DocEntry = r.DocEntry
+        WHERE wo.Status IN ('P', 'R')
+          AND r.ItemType = 4
+    )
+    ORDER BY w.ItemCode, w.WhsCode
+    """
+)
+
+
+def fetch_stock_for_components(conn: Connection) -> list[dict[str, Any]]:
+    """Return warehouse stock for components of open production orders.
+
+    Includes zero on-hand rows so a missing quantity is visible as zero
+    available stock rather than a missing item.
+    """
+    result = conn.execute(OITW_FOR_COMPONENTS_SQL)
     return [dict(row._mapping) for row in result]
 
 

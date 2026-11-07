@@ -79,9 +79,63 @@ def _percentile(values: list[float], p: float) -> float:
 # ── Order KPIs ────────────────────────────────────────────────────────────────
 
 
+def _cycle_time_from_segments(segments: list, window_hours: int) -> list[KpiResult]:
+    """Median total hours grouped by item, taken from order_flow_segments."""
+    hours_by_group: dict[str, list[float]] = {}
+    for segment in segments:
+        if segment.total_h is None:
+            continue
+        group = segment.item_code or "unknown"
+        hours_by_group.setdefault(group, []).append(float(segment.total_h))
+
+    results: list[KpiResult] = []
+    all_hours: list[float] = []
+    for group, hours in hours_by_group.items():
+        all_hours.extend(hours)
+        results.append(KpiResult(
+            metric_name="cycle_time_hours",
+            dimension="item_group",
+            dimension_value=group,
+            value=round(statistics.median(hours), 2),
+            window_hours=window_hours,
+            extra={"p95": round(_percentile(hours, 95), 2), "sample_count": len(hours), "source": "segments"},
+        ))
+    if all_hours:
+        results.append(KpiResult(
+            metric_name="cycle_time_hours",
+            dimension="global",
+            dimension_value=None,
+            value=round(statistics.median(all_hours), 2),
+            window_hours=window_hours,
+            extra={"p95": round(_percentile(all_hours, 95), 2), "sample_count": len(all_hours), "source": "segments"},
+        ))
+    return results
+
+
 def compute_cycle_time(session: Session, window_hours: int = DEFAULT_WINDOW_HOURS) -> list[KpiResult]:
-    """Durchlaufzeit: elapsed hours from ORDER_RELEASED to ORDER_CLOSED, per item_group."""
+    """Durchlaufzeit: elapsed hours from ORDER_RELEASED to ORDER_CLOSED, per item_group.
+
+    Uses ``order_flow_segments.total_h`` when those rows exist. Otherwise falls
+    back to the release and close events directly.
+    """
+    from bdx.models.analytics import OrderFlowSegment
+
     since = _since(window_hours)
+    segment_rows = session.execute(
+        select(OrderFlowSegment).where(OrderFlowSegment.total_h.is_not(None))
+    ).scalars().all()
+    in_window = []
+    for segment in segment_rows:
+        closed = segment.closed_at
+        if closed is None:
+            continue
+        if closed.tzinfo is None:
+            closed = closed.replace(tzinfo=UTC)
+        if closed >= since:
+            in_window.append(segment)
+    if in_window:
+        return _cycle_time_from_segments(in_window, window_hours)
+
 
     released = {
         row.doc_entry: row.occurred_at
