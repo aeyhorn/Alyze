@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bdx-intelligence"
-version = "0.1.0"
-description = "BDX Intelligence – SAP Business One read-only collector and event engine"
+version = "0.2.0"
+description = "BDX Intelligence – SAP Business One read-only collector, machine monitor and event engine"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -26,6 +26,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mqtt = [
+    "paho-mqtt>=2.0.0",
+]
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",

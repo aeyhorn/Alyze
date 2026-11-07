@@ -1,10 +1,13 @@
 # BDX Intelligence
 
-**Read-only SAP Business One production order collector and event engine.**
+**Read-only SAP Business One production order collector, machine monitor and event engine.**
 
-BDX Intelligence connects to your SAP Business One SQL Server database (read-only), detects changes in production orders, generates domain events, and exposes them via a REST API and CLI reports.
+BDX Intelligence reads production orders from the SAP Business One SQL Server (read-only, incremental), reads the
+live machine state of the Mazak CNC machines (XMSK feed via the SCADA proxy), derives BDE records from the SCADA
+telemetry, turns everything into domain events (PostgreSQL event store, optional MQTT) and exposes it via REST API,
+dashboard and CLI.
 
-> **Sprint 001**: SAP read-only collector with polling, change detection, PostgreSQL event store, FastAPI API, and CLI reporting.
+> **Status**: Sprints 001–003 delivered and verified against DEV (see [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)).
 
 ---
 
@@ -13,105 +16,96 @@ BDX Intelligence connects to your SAP Business One SQL Server database (read-onl
 ### Prerequisites
 
 - Python 3.11+
-- ODBC Driver 18 for SQL Server ([install guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server))
-- PostgreSQL 14+ (for the event store)
-- A SAP B1 SQL Server read-only database user (see [docs/SAP_MAPPING.md](docs/SAP_MAPPING.md))
+- ODBC Driver 17 or 18 for SQL Server
+- PostgreSQL 14+ (event store) – at Leisinger: container `bdx-intelligence-postgres` on 192.168.82.33:5437
+- SAP B1 SQL Server read access: Windows integrated auth on a domain-joined machine **or** a read-only SQL login
+  (see [docs/SAP_MAPPING.md](docs/SAP_MAPPING.md))
+- Optional: network access to the SCADA system (`http://192.168.82.33:3888`) for machines/BDE
 
 ### 1. Install
 
 ```bash
-# Clone and set up a virtual environment
-git clone <your-gitea-repo>/bdx-intelligence.git
-cd bdx-intelligence
 python -m venv .venv
-source .venv/bin/activate
-
-# Install the package
-pip install -e ".[dev]"
+.venv\Scripts\activate            # Windows   (Linux/macOS: source .venv/bin/activate)
+pip install -e ".[dev]"           # add  .[mqtt]  for the MQTT publisher
 ```
 
 ### 2. Configure
 
 ```bash
-cp .env.example .env
-# Edit .env with your SAP and PostgreSQL credentials
-# NEVER commit .env to version control
+cp .env.example .env              # fill in credentials – NEVER commit .env
 ```
 
-Minimum required environment variables:
+`.env` in the project root is loaded automatically (`python-dotenv`); real environment variables take precedence.
+
+Minimum:
 
 ```env
-SAP_DB_HOST=your-sap-server
-SAP_DB_NAME=SBO_YourCompany
-SAP_DB_USER=bdx_readonly
-SAP_DB_PASSWORD=your_password
-POSTGRES_DSN=postgresql+psycopg2://bdx:pw@localhost:5432/bdx_intelligence
+SAP_DB_HOST=ldsap.leisinger.local
+SAP_DB_NAME=DEV_SBO_LEISINGER
+SAP_DB_TRUSTED_CONNECTION=yes                       # or SAP_DB_USER / SAP_DB_PASSWORD
+SAP_DB_ODBC_DRIVER=ODBC Driver 17 for SQL Server
+POSTGRES_DSN=postgresql+psycopg2://bdx:pw@192.168.82.33:5437/bdx_intelligence
+
+MACHINE_ENABLED=true
+MACHINE_XMSK_URL=http://192.168.82.33:3888/api/machstates
+BDE_ENABLED=true
+BDE_SCADA_BASE_URL=http://192.168.82.33:3888
 ```
 
-### 3. Run Database Migrations
+### 3. Migrate, diagnose, run
 
 ```bash
-export POSTGRES_DSN="postgresql+psycopg2://bdx:pw@localhost:5432/bdx_intelligence"
-alembic upgrade head
+alembic upgrade head              # schema 001 + 002
+bdx-collect diagnose              # PG, SAP, XMSK feed, SCADA API, MQTT
+bdx-collect collect --once        # one SAP cycle (first run = full load, then incremental ≈2 s)
+bdx-collect machines --live       # one machine cycle + table
+bdx-collect collect               # continuous: SAP every 60 s, machines every 15 s (Ctrl+C to stop)
 ```
 
-### 4. Diagnose Connectivity
+### 4. Reports
 
 ```bash
-bdx-collect diagnose
+bdx-collect report                # open orders (P/R) from order_state
+bdx-collect report --all -s L     # closed orders
+bdx-collect events -t MACHINE_STATE_CHANGED
+bdx-collect machines
+bdx-collect runs
 ```
 
-This one-shot command checks both SAP and PostgreSQL connectivity and runs sample queries. Use `--skip-sap` if you only want to verify PostgreSQL.
-
-### 5. Run the Collector
+### 5. API + dashboard
 
 ```bash
-# Single cycle (useful for testing)
-bdx-collect collect --once
-
-# Continuous polling (60-second intervals, Ctrl+C to stop)
-bdx-collect collect
+bdx-collect serve                 # uvicorn on API_HOST:API_PORT (8085 on the dev machine)
 ```
 
-### 6. View Reports
+- Dashboard: `http://localhost:8085/dashboard` · OpenAPI: `http://localhost:8085/docs`
+- `GET /health` – readiness (Postgres, last collector run, machine feed, publisher)
+- `GET /api/v1/orders` (`open_only`, `status`, `item_code`, `doc_num`), `/orders/summary`, `/orders/{doc_entry}`
+- `GET /api/v1/events` (`event_type`, `machine_id`, `doc_entry`, `since`), `/events/summary`
+- `GET /api/v1/machines`, `/machines/{id}`, `/machines/{id}/live`
+- `GET /api/v1/bde/records?hours=24`
+- `GET /api/v1/runs`
+- `GET/PUT /api/v1/service-layer[/mode]`
+
+Set `API_KEY` to protect `/api/v1/*` (`X-API-Key` header or `?api_key=`; the dashboard stores it from the URL).
+
+### Docker (prepared, not deployed)
 
 ```bash
-# Open production orders from latest snapshot
-bdx-collect report
-
-# Filter by status
-bdx-collect report --status R
-
-# Domain events
-bdx-collect events
-
-# Filter by event type
-bdx-collect events --type ORDER_CREATED
+docker compose --env-file .env up -d --build
 ```
 
-### 7. Start the API Server
-
-```bash
-uvicorn bdx.api.main:create_app --factory --host 0.0.0.0 --port 8080
-```
-
-API endpoints:
-- `GET /health` – readiness probe
-- `GET /health/live` – liveness probe
-- `GET /api/v1/orders` – latest order snapshot
-- `GET /api/v1/events` – domain events
-
-Interactive docs at `http://localhost:8080/docs`.
+Requires a SQL login (`SAP_DB_TRUSTED_CONNECTION=no`) – Windows integrated auth is not available in Linux containers.
 
 ---
 
 ## Running Tests
 
-No SAP or PostgreSQL instance required – tests use SQLite and mock data:
+No SAP, PostgreSQL or SCADA required – tests use SQLite and mocked HTTP/SAP:
 
 ```bash
-pytest
-# With coverage
+pytest                            # 74 tests
 pytest --cov=bdx --cov-report=term-missing
 ```
 
@@ -122,77 +116,61 @@ pytest --cov=bdx --cov-report=term-missing
 ```
 bdx-intelligence/
 ├── src/bdx/
-│   ├── config.py          # All settings from environment variables
-│   ├── logging_config.py  # Structured logging (structlog)
-│   ├── db/
-│   │   ├── sap.py         # SAP SQL Server engine (read-only guard)
-│   │   ├── postgres.py    # PostgreSQL engine + session factory
-│   │   └── queries.py     # Parameterized OWOR / OITM queries
-│   ├── models/
-│   │   ├── sap.py         # WorkOrder, ItemMaster Pydantic models
-│   │   └── events.py      # DomainEvent ORM + EventType enum
-│   ├── collector/
-│   │   ├── snapshots.py   # Snapshot persistence
-│   │   ├── change_detector.py  # Idempotent event generation
-│   │   └── polling.py     # 60-second polling loop with retry/backoff
-│   ├── api/
-│   │   ├── main.py        # FastAPI application factory
-│   │   ├── deps.py        # Dependency injection helpers
-│   │   └── routes/        # health, orders endpoints
-│   ├── adapters/
-│   │   ├── bde.py         # BDE adapter interface stub
-│   │   └── machine.py     # Machine adapter interface stub (read-only)
-│   └── cli/
-│       └── report.py      # Typer CLI commands
-├── alembic/               # Database schema migrations
-├── tests/                 # pytest tests (SQLite, no real SAP)
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── SAP_MAPPING.md
-    └── PROJECT_STATUS.md
+│   ├── config.py              # settings from env (SAP, PG, collector, machine, BDE, MQTT, app)
+│   ├── db/                    # sap.py (read-only engine), postgres.py, queries.py
+│   ├── models/                # sap.py (WorkOrder, status codes), events.py (ORM + EventType)
+│   ├── collector/             # polling.py, snapshots.py, change_detector.py, machines.py
+│   ├── adapters/              # machine.py (XMSK), bde.py (SCADA telemetry)
+│   ├── publish/               # base.py, mqtt.py
+│   ├── sap_sl/                # Service Layer client + mode registry
+│   ├── api/                   # main.py, deps.py, routes/, static/dashboard.html
+│   └── cli/report.py          # bdx-collect
+├── alembic/                   # 001_initial, 002_state_tables_and_machines
+├── tests/
+├── Dockerfile · docker-compose.yml
+└── docs/                      # ARCHITECTURE, SAP_MAPPING, PROJECT_STATUS
 ```
 
 ---
 
 ## Domain Events
 
-The collector generates these events by comparing consecutive snapshots:
-
 | Event | Trigger |
 |---|---|
-| `ORDER_CREATED` | Order appears for the first time |
-| `ORDER_RELEASED` | Status changes `L` → `R` |
-| `QUANTITY_CHANGED` | `PlannedQty` changes |
-| `DUE_DATE_CHANGED` | `DueDate` changes |
-| `ORDER_CLOSED` | Status changes to `C` or `X` |
+| `ORDER_CREATED` | order seen for the first time |
+| `ORDER_RELEASED` | SAP status `P` (Planned) → `R` (Released) |
+| `ORDER_PARTIAL_COMPLETE` | `CmpltQty` increased while open |
+| `QUANTITY_CHANGED` | `PlannedQty` changed |
+| `DUE_DATE_CHANGED` | `DueDate` changed |
+| `ORDER_CLOSED` | status → `L` (Closed) or `C` (Cancelled) |
+| `MACHINE_ONLINE` / `MACHINE_OFFLINE` | machine appears in / disappears from the XMSK feed |
+| `MACHINE_STATE_CHANGED` | running / idle / setup / off changed |
+| `MACHINE_ORDER_STARTED` / `MACHINE_ORDER_FINISHED` | order reference on the machine set / cleared (linked to SAP `DocNum` when numeric) |
+| `MACHINE_PIECES_REPORTED` | piece counter increased |
 
 ---
 
 ## Security
 
-- **No write access to SAP**: the application-level read-only guard blocks all DML/DDL.  The database user must have `SELECT` only.
-- **No machine control**: machine and BDE adapters are read-only by interface contract.
-- **Secrets from environment only**: `.env` is in `.gitignore`.  Never commit credentials.
-- **TLS for SAP**: enabled by default (`SAP_DB_TLS=yes`).
+- **No write access to SAP**: application-level read-only guard blocks all DML/DDL; the DB account must be `SELECT` only.
+  The Service Layer write channel is prepared but has no write operations and is guarded by `SL_DRY_RUN`.
+- **No machine control**: machine and BDE adapters are read-only HTTP GET by interface contract.
+- **Secrets from environment only**: `.env` is in `.gitignore`. Never commit credentials.
+- **TLS for SAP**: enabled by default (`SAP_DB_TLS=yes`); `SL_ALLOW_INVALID_CERT` only for the internal self-signed cert.
+- **API**: optional shared key; keep the API inside the LAN.
 
 ---
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
-- [SAP Field Mapping](docs/SAP_MAPPING.md)
-- [Project Status](docs/PROJECT_STATUS.md)
+- [SAP / shop-floor field mapping](docs/SAP_MAPPING.md)
+- [Project status](docs/PROJECT_STATUS.md)
 
 ---
 
-## Gitea Repository Setup
+## Repository
 
-This project is designed for a local Gitea instance:
-
-```bash
-# After creating the repository in Gitea
-git remote add origin http://your-gitea/your-org/bdx-intelligence.git
-# Push only after explicit approval
-```
+Remote: `github.com/aeyhorn/Alyze` (branch `main`).
 
 **Do not push without explicit approval** – this repository may contain environment-specific configuration references.

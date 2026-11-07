@@ -7,13 +7,28 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+# SAP Business One OWOR.Status codes (verified against DEV_SBO_LEISINGER):
+#   P = Planned, R = Released, L = Closed, C = Cancelled
+STATUS_PLANNED = "P"
+STATUS_RELEASED = "R"
+STATUS_CLOSED = "L"
+STATUS_CANCELLED = "C"
+OPEN_STATUSES = frozenset({STATUS_PLANNED, STATUS_RELEASED})
+CLOSED_STATUSES = frozenset({STATUS_CLOSED, STATUS_CANCELLED})
+STATUS_LABELS = {
+    STATUS_PLANNED: "Planned",
+    STATUS_RELEASED: "Released",
+    STATUS_CLOSED: "Closed",
+    STATUS_CANCELLED: "Cancelled",
+}
+
 
 class WorkOrder(BaseModel):
     """Reflects a row from dbo.OWOR (Production / Work Order)."""
 
     doc_entry: int = Field(..., description="SAP primary key (DocEntry)")
     doc_num: int = Field(..., description="Human-readable order number")
-    status: str = Field(..., description="R=Released, L=Planned, C=Closed, X=Cancelled")
+    status: str = Field(..., description="P=Planned, R=Released, L=Closed, C=Cancelled")
     item_code: str
     planned_qty: Decimal
     completed_qty: Decimal
@@ -36,7 +51,26 @@ class WorkOrder(BaseModel):
 
     @property
     def is_open(self) -> bool:
-        return self.status not in ("C", "X")
+        return self.status in OPEN_STATUSES
+
+    @property
+    def fingerprint(self) -> str:
+        """Stable string of all change-relevant fields (used to skip unchanged rows)."""
+        return "|".join(
+            str(x)
+            for x in (
+                self.status,
+                self.item_code,
+                self.planned_qty,
+                self.completed_qty,
+                self.rejected_qty,
+                self.due_date,
+                self.start_date,
+                self.comments,
+                self.update_date,
+                self.update_ts,
+            )
+        )
 
     @model_validator(mode="before")
     @classmethod

@@ -91,6 +91,63 @@ class CollectorSettings(BaseSettings):
     retry_max_attempts: int = Field(5, ge=1)
     retry_wait_min_seconds: float = Field(2.0, ge=0)
     retry_wait_max_seconds: float = Field(60.0, ge=1)
+    # Incremental reads: look back this many days behind the newest known
+    # SAP UpdateDate (UpdateDate has day granularity) – safety margin.
+    incremental_lookback_days: int = Field(2, ge=1, le=60)
+    # Force a full OWOR read every N cycles (0 = never, only on empty state)
+    full_reload_every_cycles: int = Field(0, ge=0)
+
+
+class MachineSettings(BaseSettings):
+    """MDE / machine feed (Mazak XMSK ``machstates`` XML, read-only)."""
+
+    model_config = SettingsConfigDict(env_prefix="MACHINE_", case_sensitive=False)
+
+    enabled: bool = Field(False)
+    xmsk_url: str = Field(
+        "",
+        description="e.g. http://192.168.82.33:3888/api/machstates (SCADA nginx proxy to XmskSvr)",
+    )
+    poll_interval_seconds: int = Field(15, ge=2)
+    timeout_seconds: float = Field(10.0, ge=1)
+    # Machine is reported offline when no XMSK data arrived for this long
+    offline_after_seconds: int = Field(120, ge=10)
+
+    @property
+    def configured(self) -> bool:
+        return self.enabled and bool(self.xmsk_url)
+
+
+class BdeSettings(BaseSettings):
+    """BDE source: telemetry history of the SCADA system (REST, read-only)."""
+
+    model_config = SettingsConfigDict(env_prefix="BDE_", case_sensitive=False)
+
+    enabled: bool = Field(False)
+    scada_base_url: str = Field("", description="e.g. http://192.168.82.33:3888")
+    timeout_seconds: float = Field(30.0, ge=1)
+    # Two telemetry points further apart than this start a new BDE record
+    gap_seconds: int = Field(900, ge=60)
+
+    @property
+    def configured(self) -> bool:
+        return self.enabled and bool(self.scada_base_url)
+
+
+class MqttSettings(BaseSettings):
+    """Optional MQTT event publishing."""
+
+    model_config = SettingsConfigDict(env_prefix="MQTT_", case_sensitive=False)
+
+    enabled: bool = Field(False)
+    host: str = Field("")
+    port: int = Field(1883, ge=1, le=65535)
+    username: str = Field("")
+    password: str = Field("")
+    tls: bool = Field(False)
+    client_id: str = Field("bdx-intelligence")
+    topic_prefix: str = Field("bdx/intelligence")
+    qos: int = Field(1, ge=0, le=2)
 
 
 class AppSettings(BaseSettings):
@@ -100,6 +157,20 @@ class AppSettings(BaseSettings):
     log_format: str = Field("console", pattern=r"^(json|console)$")
     api_host: str = Field("0.0.0.0")
     api_port: int = Field(8080, ge=1, le=65535)
+    # When set, every /api/* request must carry header "X-API-Key: <value>"
+    api_key: str = Field("", description="Empty = API is unauthenticated (LAN only!)")
+
+
+def load_machine_settings() -> MachineSettings:
+    return MachineSettings()
+
+
+def load_bde_settings() -> BdeSettings:
+    return BdeSettings()
+
+
+def load_mqtt_settings() -> MqttSettings:
+    return MqttSettings()
 
 
 def load_sap_settings() -> SAPSettings:

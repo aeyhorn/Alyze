@@ -14,7 +14,13 @@ from typing import Sequence
 import structlog
 
 from bdx.models.events import DomainEvent, EventType
-from bdx.models.sap import WorkOrder
+from bdx.models.sap import (
+    CLOSED_STATUSES,
+    OPEN_STATUSES,
+    STATUS_PLANNED,
+    STATUS_RELEASED,
+    WorkOrder,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -24,6 +30,17 @@ _QTY_EPSILON = Decimal("0.000001")
 
 def _qty_changed(a: Decimal, b: Decimal) -> bool:
     return abs(a - b) > _QTY_EPSILON
+
+
+def _get(prev, key: str, default=None):  # noqa: ANN001
+    """Read a field from a previous-state dict or ORM row."""
+    if isinstance(prev, dict):
+        return prev.get(key, default)
+    return getattr(prev, key, default)
+
+
+def _dec(v) -> Decimal:  # noqa: ANN001
+    return Decimal(str(v if v is not None else 0))
 
 
 def detect_changes(
@@ -62,25 +79,37 @@ def detect_changes(
             logger.info("event.detected", type="ORDER_CREATED", source_key=source_key)
             continue
 
-        prev_status = prev.get("status") if isinstance(prev, dict) else getattr(prev, "status", None)
-        prev_planned = Decimal(str(prev.get("planned_qty", 0) if isinstance(prev, dict) else getattr(prev, "planned_qty", 0)))
-        prev_due = prev.get("due_date") if isinstance(prev, dict) else getattr(prev, "due_date", None)
+        prev_status = _get(prev, "status")
+        prev_planned = _dec(_get(prev, "planned_qty", 0))
+        prev_completed = _dec(_get(prev, "completed_qty", 0))
+        prev_due = _get(prev, "due_date")
 
-        # ORDER_RELEASED: status changed from planned (L) to released (R)
-        if prev_status == "L" and wo.status == "R":
+        # ORDER_RELEASED: status changed from Planned (P) to Released (R)
+        if prev_status == STATUS_PLANNED and wo.status == STATUS_RELEASED:
             events.append(_make_event(EventType.ORDER_RELEASED, wo, run_id, occurred_at, payload={
                 "prev_status": prev_status,
                 "new_status": wo.status,
             }))
             logger.info("event.detected", type="ORDER_RELEASED", source_key=source_key)
 
-        # ORDER_CLOSED: status became C or X
-        if prev_status not in ("C", "X") and wo.status in ("C", "X"):
+        # ORDER_CLOSED: status became Closed (L) or Cancelled (C)
+        if prev_status in OPEN_STATUSES and wo.status in CLOSED_STATUSES:
             events.append(_make_event(EventType.ORDER_CLOSED, wo, run_id, occurred_at, payload={
                 "prev_status": prev_status,
                 "new_status": wo.status,
+                "completed_qty": str(wo.completed_qty),
+                "planned_qty": str(wo.planned_qty),
             }))
             logger.info("event.detected", type="ORDER_CLOSED", source_key=source_key)
+
+        # ORDER_PARTIAL_COMPLETE: completed quantity increased while still open
+        if wo.status in OPEN_STATUSES and wo.completed_qty > prev_completed + _QTY_EPSILON:
+            events.append(_make_event(EventType.ORDER_PARTIAL_COMPLETE, wo, run_id, occurred_at, payload={
+                "prev_completed_qty": str(prev_completed),
+                "new_completed_qty": str(wo.completed_qty),
+                "planned_qty": str(wo.planned_qty),
+            }))
+            logger.info("event.detected", type="ORDER_PARTIAL_COMPLETE", source_key=source_key)
 
         # QUANTITY_CHANGED
         if _qty_changed(prev_planned, wo.planned_qty):
@@ -101,8 +130,9 @@ def detect_changes(
             logger.info("event.detected", type="DUE_DATE_CHANGED", source_key=source_key)
 
     # Note: orders that disappear from SAP entirely are not detected here
-    # because they may just be filtered (e.g. OWOR_OPEN_ORDERS_SQL excludes C/X).
-    # ORDER_CLOSED is detected above by status change, which is the reliable signal.
+    # because they may just be filtered (incremental reads only return open or
+    # recently updated orders).  ORDER_CLOSED is detected above by status change,
+    # which is the reliable signal; the collector re-reads vanished open orders.
 
     logger.info("change_detection.complete", events_found=len(events))
     return events
@@ -117,7 +147,7 @@ def _make_event(
 ) -> DomainEvent:
     return DomainEvent(
         event_id=str(uuid.uuid4()),
-        event_type=event_type,
+        event_type=getattr(event_type, "value", event_type),
         source_key=wo.source_key,
         doc_entry=wo.doc_entry,
         doc_num=wo.doc_num,
@@ -128,12 +158,15 @@ def _make_event(
     )
 
 
-def persist_events(session, events: list[DomainEvent]) -> None:
-    """Save events to PostgreSQL, skipping duplicates by event_id (idempotent)."""
+def persist_events(session, events: list[DomainEvent]) -> list[DomainEvent]:
+    """Save events to PostgreSQL, skipping duplicates by event_id (idempotent).
+
+    Returns the events that were actually inserted.
+    """
     from sqlalchemy import select
 
     if not events:
-        return
+        return []
 
     existing_ids = set(
         session.execute(
@@ -150,3 +183,4 @@ def persist_events(session, events: list[DomainEvent]) -> None:
         logger.info("events.persisted", count=len(new_events))
     else:
         logger.debug("events.all_duplicate", skipped=len(events))
+    return new_events

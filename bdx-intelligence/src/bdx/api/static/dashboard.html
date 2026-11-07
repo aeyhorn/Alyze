@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BDX Intelligence – Dashboard</title>
+<style>
+  :root { --bg:#0f1419; --panel:#182027; --line:#263039; --fg:#e6edf3; --muted:#8b98a5;
+          --ok:#2ea043; --warn:#d29922; --bad:#f85149; --info:#58a6ff; --idle:#6e7681; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; gap:16px; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:2;}
+  header h1 { font-size:17px; margin:0; letter-spacing:.3px; }
+  header .spacer { flex:1; }
+  header .meta { color:var(--muted); font-size:12px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; text-transform:uppercase; }
+  .pill.ok { background:rgba(46,160,67,.2); color:var(--ok);} .pill.bad { background:rgba(248,81,73,.2); color:var(--bad);}
+  .pill.warn { background:rgba(210,153,34,.2); color:var(--warn);} .pill.info{ background:rgba(88,166,255,.2); color:var(--info);}
+  .pill.idle { background:rgba(110,118,129,.25); color:#c9d1d9;}
+  main { padding:16px 20px; display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .card h2 { margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); display:flex; justify-content:space-between; }
+  .kpis { grid-column: span 12; display:grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .kpi .v { font-size:26px; font-weight:700; } .kpi .l { color:var(--muted); font-size:12px; }
+  .machines { grid-column: span 12; display:grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .m { background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--idle); border-radius:8px; padding:12px; }
+  .m.running { border-left-color:var(--ok);} .m.idle{ border-left-color:var(--warn);} .m.off{ border-left-color:var(--idle);}
+  .m.fault{ border-left-color:var(--bad);} .m.offline{ opacity:.55; }
+  .m .name { font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+  .m .row { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; margin-top:4px; }
+  .m .row b { color:var(--fg); font-weight:600; }
+  .bar { height:5px; background:#0b0f13; border-radius:3px; overflow:hidden; margin-top:6px;}
+  .bar i { display:block; height:100%; background:var(--info); }
+  .half { grid-column: span 6; } .full { grid-column: span 12; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--panel);}
+  .scroll { max-height:360px; overflow:auto; }
+  td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .ev-ORDER_CREATED{color:var(--info)} .ev-ORDER_RELEASED{color:var(--ok)} .ev-ORDER_CLOSED{color:var(--muted)}
+  .ev-QUANTITY_CHANGED,.ev-DUE_DATE_CHANGED{color:var(--warn)} .ev-ORDER_PARTIAL_COMPLETE{color:var(--ok)}
+  .ev-MACHINE_STATE_CHANGED{color:var(--info)} .ev-MACHINE_ORDER_STARTED{color:var(--ok)} .ev-MACHINE_ORDER_FINISHED{color:var(--warn)}
+  .ev-MACHINE_OFFLINE{color:var(--bad)} .ev-MACHINE_ONLINE{color:var(--ok)} .ev-MACHINE_PIECES_REPORTED{color:var(--fg)}
+  .err { color:var(--bad); font-size:12px; }
+  input[type=search] { background:#0b0f13; border:1px solid var(--line); color:var(--fg); padding:4px 8px; border-radius:6px; }
+  @media (max-width: 900px) { .half { grid-column: span 12; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>BDX Intelligence</h1>
+  <span id="health" class="pill idle">…</span>
+  <span class="spacer"></span>
+  <span class="meta" id="meta">lädt…</span>
+  <span class="meta">Refresh <select id="refresh"><option value="10000">10 s</option><option value="30000" selected>30 s</option><option value="60000">60 s</option><option value="0">aus</option></select></span>
+</header>
+
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="full">
+    <h2 style="margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Maschinen (XMSK)</h2>
+    <div class="machines" id="machines"></div>
+  </section>
+
+  <section class="card half">
+    <h2>Letzte Ereignisse <span id="evcount"></span></h2>
+    <div class="scroll"><table><thead><tr><th>Zeit</th><th>Typ</th><th>Quelle</th><th>Details</th></tr></thead><tbody id="events"></tbody></table></div>
+  </section>
+
+  <section class="card half">
+    <h2>Offene Fertigungsaufträge <input id="q" type="search" placeholder="Filter DocNum / Artikel"></h2>
+    <div class="scroll"><table><thead><tr><th>DocNum</th><th>Status</th><th>Artikel</th><th class="num">Geplant</th><th class="num">Fertig</th><th>Fällig</th><th>Maschine</th></tr></thead><tbody id="orders"></tbody></table></div>
+  </section>
+
+  <section class="card half">
+    <h2>Collector-Läufe</h2>
+    <div class="scroll"><table><thead><tr><th>Start</th><th>Modus</th><th class="num">Dauer</th><th class="num">Gelesen</th><th class="num">Geändert</th><th class="num">Events</th><th>Fehler</th></tr></thead><tbody id="runs"></tbody></table></div>
+  </section>
+
+  <section class="card half">
+    <h2>BDE (abgeleitet aus Telemetrie, 24 h) <span id="bdecount"></span></h2>
+    <div class="scroll"><table><thead><tr><th>Maschine</th><th>Auftrag</th><th>Start</th><th>Ende</th><th class="num">Dauer</th><th class="num">Stück</th></tr></thead><tbody id="bde"></tbody></table></div>
+  </section>
+</main>
+
+<script>
+const API = '/api/v1';
+const qs = new URLSearchParams(location.search);
+const apiKey = qs.get('api_key') || localStorage.getItem('bdx_api_key') || '';
+if (qs.get('api_key')) localStorage.setItem('bdx_api_key', apiKey);
+
+async function get(path) {
+  const r = await fetch(API + path, { headers: apiKey ? {'X-API-Key': apiKey} : {} });
+  if (!r.ok) throw new Error(path + ' → HTTP ' + r.status);
+  return r.json();
+}
+const fmtT = s => s ? new Date(s).toLocaleString('de-CH', {hour12:false}) : '–';
+const fmtDur = s => s == null ? '–' : (s < 90 ? s.toFixed(1)+' s' : s < 5400 ? (s/60).toFixed(1)+' min' : (s/3600).toFixed(1)+' h');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let ordersCache = [];
+function renderOrders() {
+  const f = (document.getElementById('q').value || '').toLowerCase();
+  const rows = ordersCache.filter(o => !f || String(o.doc_num).includes(f) || (o.item_code||'').toLowerCase().includes(f)).slice(0, 500);
+  document.getElementById('orders').innerHTML = rows.map(o => `<tr>
+    <td>${o.doc_num}</td><td><span class="pill ${o.status==='R'?'ok':'info'}">${esc(o.status_label)}</span></td>
+    <td>${esc(o.item_code)}</td><td class="num">${o.planned_qty}</td><td class="num">${o.completed_qty}</td>
+    <td>${o.due_date||''}</td><td>${esc(o._machine||'')}</td></tr>`).join('') || '<tr><td colspan="7">keine</td></tr>';
+}
+document.getElementById('q').addEventListener('input', renderOrders);
+
+function payloadSummary(e) {
+  const p = e.payload || {};
+  switch (e.event_type) {
+    case 'ORDER_CREATED': return `${e.item_code||''} geplant ${p.planned_qty||''} (${p.status||''}) fällig ${p.due_date||'–'}`;
+    case 'ORDER_RELEASED': return `${e.item_code||''} ${p.prev_status} → ${p.new_status}`;
+    case 'ORDER_CLOSED': return `${p.new_status||''} fertig ${p.completed_qty??''}/${p.planned_qty??''}`;
+    case 'QUANTITY_CHANGED': return `${p.prev_planned_qty} → ${p.new_planned_qty}`;
+    case 'DUE_DATE_CHANGED': return `${p.prev_due_date||'–'} → ${p.new_due_date||'–'}`;
+    case 'ORDER_PARTIAL_COMPLETE': return `${p.prev_completed_qty} → ${p.new_completed_qty} / ${p.planned_qty}`;
+    case 'MACHINE_STATE_CHANGED': return `${p.prev_state} → ${p.new_state} (${p.new_exec||''})`;
+    case 'MACHINE_ORDER_STARTED': return `FA ${p.order_ref} ${p.part||''}`;
+    case 'MACHINE_ORDER_FINISHED': return `FA ${p.order_ref} Stück ${p.pieces??''}`;
+    case 'MACHINE_PIECES_REPORTED': return `${p.prev_pieces} → ${p.new_pieces} (+${p.delta})`;
+    default: return JSON.stringify(p).slice(0, 80);
+  }
+}
+
+async function refresh() {
+  const meta = document.getElementById('meta');
+  try {
+    const [health, machines, events, orders, runs, osum, esum] = await Promise.all([
+      fetch('/health').then(r => r.json()),
+      get('/machines'), get('/events?limit=60'), get('/orders?open_only=true&limit=5000'),
+      get('/runs?limit=20'), get('/orders/summary'), get('/events/summary?hours=24'),
+    ]);
+    const h = document.getElementById('health');
+    h.textContent = health.status; h.className = 'pill ' + (health.status === 'ok' ? 'ok' : 'warn');
+    h.title = JSON.stringify(health.checks);
+
+    const lastRun = runs.runs[0];
+    meta.textContent = `Stand ${fmtT(orders.snapshot_at)} · letzter Lauf ${lastRun ? lastRun.mode + ' ' + fmtT(lastRun.started_at) : '–'}`;
+
+    const ev24 = Object.values(esum.recent).reduce((a,b)=>a+b,0);
+    document.getElementById('kpis').innerHTML = [
+      ['Offene FA', osum.open], ['Freigegeben (R)', (osum.by_status.find(x=>x.status==='R')||{}).count||0],
+      ['Geplant (P)', (osum.by_status.find(x=>x.status==='P')||{}).count||0],
+      ['Maschinen online', `${machines.online}/${machines.count}`], ['In Fertigung', machines.running],
+      ['Events 24 h', ev24],
+    ].map(([l,v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+
+    const byOrder = {};
+    machines.machines.forEach(m => { if (m.sap_order) byOrder[m.sap_order.doc_entry] = m.machine_id; });
+    document.getElementById('machines').innerHTML = machines.machines.map(m => {
+      const cls = m.online ? (m.state || 'unknown') : 'offline';
+      const o = m.sap_order;
+      const pct = o && o.planned_qty ? Math.min(100, 100 * (m.pieces ?? o.completed_qty) / o.planned_qty) : 0;
+      return `<div class="m ${cls}">
+        <div class="name">${esc(m.machine_id)} <span class="pill ${m.online ? (m.state==='running'?'ok':m.state==='fault'?'bad':m.state==='idle'?'warn':'idle') : 'bad'}">${m.online ? esc(m.state) : 'offline'}</span></div>
+        <div class="row"><span>Exec</span><b>${esc(m.exec_state||'–')} ${m.mode ? '· '+esc(m.mode):''}</b></div>
+        <div class="row"><span>Auftrag</span><b>${esc(m.order_ref||'–')}${o ? ' <span class="pill '+(o.status==='R'?'ok':'info')+'">'+esc(o.status_label)+'</span>' : ''}</b></div>
+        <div class="row"><span>Teil / NC</span><b>${esc(m.part||'–')} / ${esc(m.nc_program||'–')}</b></div>
+        <div class="row"><span>Stück</span><b>${esc(m.pieces_raw||'–')}${o ? ' von '+o.planned_qty : ''}</b></div>
+        ${o ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}
+        <div class="row"><span>Override F/S/R</span><b>${m.feed_override??'–'} / ${m.spindle_override??'–'} / ${m.rapid_override??'–'} %</b></div>
+        <div class="row"><span>Last Sp/X/Z</span><b>${m.load_spindle??'–'} / ${m.load_axis_1??'–'} / ${m.load_axis_2??'–'}</b></div>
+        <div class="row"><span>Gesehen</span><b title="${esc(m.last_message||'')}">${fmtT(m.last_seen_at)}</b></div>
+      </div>`;
+    }).join('') || '<div class="card">Keine Maschinen-Daten (MACHINE_ENABLED?)</div>';
+
+    document.getElementById('evcount').textContent = `${events.count}`;
+    document.getElementById('events').innerHTML = events.events.map(e => `<tr>
+      <td>${fmtT(e.occurred_at)}</td><td class="ev-${e.event_type}">${e.event_type}</td>
+      <td>${esc(e.machine_id || (e.doc_num ? 'FA '+e.doc_num : e.source_key))}</td><td>${esc(payloadSummary(e))}</td></tr>`).join('');
+
+    ordersCache = orders.orders.map(o => ({...o, _machine: byOrder[o.doc_entry]}));
+    renderOrders();
+
+    document.getElementById('runs').innerHTML = runs.runs.map(r => `<tr>
+      <td>${fmtT(r.started_at)}</td><td>${r.mode}${r.since_date ? ' ≥ '+r.since_date : ''}</td><td class="num">${fmtDur(r.duration_seconds)}</td>
+      <td class="num">${r.orders_read}</td><td class="num">${r.orders_changed}</td><td class="num">${r.events_created}</td>
+      <td class="err">${esc(r.error||'')}</td></tr>`).join('');
+  } catch (e) {
+    meta.innerHTML = `<span class="err">${esc(e.message)}</span>`;
+  }
+  try {
+    const bde = await get('/bde/records?hours=24');
+    document.getElementById('bdecount').textContent = `${bde.count}`;
+    document.getElementById('bde').innerHTML = bde.records.slice(0, 200).map(r => `<tr>
+      <td>${esc(r.machine_id)}</td><td>${esc(r.order_id)}</td><td>${fmtT(r.start_time)}</td><td>${fmtT(r.end_time)}</td>
+      <td class="num">${fmtDur(r.duration_seconds)}</td><td class="num">${r.quantity_good}</td></tr>`).join('') || '<tr><td colspan="6">keine</td></tr>';
+  } catch (e) {
+    document.getElementById('bde').innerHTML = `<tr><td colspan="6" class="err">${esc(e.message)}</td></tr>`;
+  }
+}
+
+let timer = null;
+function schedule() {
+  clearInterval(timer);
+  const ms = +document.getElementById('refresh').value;
+  if (ms) timer = setInterval(refresh, ms);
+}
+document.getElementById('refresh').addEventListener('change', schedule);
+refresh(); schedule();
+</script>
+</body>
+</html>

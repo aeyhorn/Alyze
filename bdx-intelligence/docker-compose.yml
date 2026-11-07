@@ -1,0 +1,56 @@
+# BDX Intelligence – container deployment (NOT yet deployed; see docs/PROJECT_STATUS.md)
+#
+#   docker compose --env-file .env up -d --build
+#
+# Prerequisites
+#   * PostgreSQL reachable via POSTGRES_DSN (the existing bdx-intelligence-postgres
+#     container on the Docker host works; use host 192.168.82.33:5437 or attach to its network)
+#   * A SQL Server login for the read channel (SAP_DB_TRUSTED_CONNECTION=no) – Windows
+#     integrated auth is not available inside Linux containers.
+#   * Run migrations once:  docker compose run --rm migrate
+#
+# All runtime configuration comes from .env (never committed).
+
+x-common: &common
+  build: .
+  image: bdx-intelligence:latest
+  env_file: .env
+  environment:
+    LOG_FORMAT: json
+    SAP_DB_ODBC_DRIVER: "ODBC Driver 18 for SQL Server"
+    SAP_DB_TRUSTED_CONNECTION: "no"
+  restart: unless-stopped
+  networks: [bdx]
+
+services:
+  migrate:
+    <<: *common
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+
+  collector:
+    <<: *common
+    container_name: bdx-intelligence-collector
+    command: ["bdx-collect", "collect"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    <<: *common
+    container_name: bdx-intelligence-api
+    command: ["bdx-collect", "serve"]
+    ports:
+      - "${API_PORT:-8085}:8085"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8085/health/live', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  bdx:
+    name: bdx-intelligence

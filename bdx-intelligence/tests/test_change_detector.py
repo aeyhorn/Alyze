@@ -51,12 +51,48 @@ class TestDetectChanges:
         assert events == []
 
     def test_released_event(self):
-        prev_wo = _make_wo(1, status="L")
+        # SAP: P = Planned → R = Released
+        prev_wo = _make_wo(1, status="P")
         curr_wo = _make_wo(1, status="R")
         prev = {prev_wo.source_key: _prev_from_wo(prev_wo)}
         events = detect_changes(prev, [curr_wo], _RUN, _NOW)
         types = {e.event_type for e in events}
         assert EventType.ORDER_RELEASED in types
+
+    def test_closed_from_planned_is_not_released(self):
+        prev_wo = _make_wo(1, status="L")
+        curr_wo = _make_wo(1, status="R")
+        prev = {prev_wo.source_key: _prev_from_wo(prev_wo)}
+        events = detect_changes(prev, [curr_wo], _RUN, _NOW)
+        assert EventType.ORDER_RELEASED not in {e.event_type for e in events}
+
+    def test_order_closed_with_L(self):
+        prev_wo = _make_wo(1, status="R")
+        curr_wo = _make_wo(1, status="L")
+        prev = {prev_wo.source_key: _prev_from_wo(prev_wo)}
+        events = detect_changes(prev, [curr_wo], _RUN, _NOW)
+        closed = [e for e in events if e.event_type == EventType.ORDER_CLOSED]
+        assert len(closed) == 1
+        assert closed[0].payload["new_status"] == "L"
+
+    def test_partial_complete(self):
+        prev_wo = _make_wo(1, status="R")
+        prev = {prev_wo.source_key: {**_prev_from_wo(prev_wo), "completed_qty": 10}}
+        curr_wo = _make_wo(1, status="R").model_copy(update={"completed_qty": Decimal("25")})
+        events = detect_changes(prev, [curr_wo], _RUN, _NOW)
+        partial = [e for e in events if e.event_type == EventType.ORDER_PARTIAL_COMPLETE]
+        assert len(partial) == 1
+        assert partial[0].payload["new_completed_qty"] == "25"
+        assert partial[0].payload["prev_completed_qty"] == "10"
+
+    def test_partial_complete_not_on_closed(self):
+        prev_wo = _make_wo(1, status="R")
+        prev = {prev_wo.source_key: {**_prev_from_wo(prev_wo), "completed_qty": 10}}
+        curr_wo = _make_wo(1, status="L").model_copy(update={"completed_qty": Decimal("100")})
+        events = detect_changes(prev, [curr_wo], _RUN, _NOW)
+        types = {e.event_type for e in events}
+        assert EventType.ORDER_CLOSED in types
+        assert EventType.ORDER_PARTIAL_COMPLETE not in types
 
     def test_quantity_changed(self):
         prev_wo = _make_wo(1, planned="100")
