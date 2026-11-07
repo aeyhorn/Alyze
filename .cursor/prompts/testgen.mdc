@@ -1,0 +1,55 @@
+---
+description: Generate tests for a coverage gap — trivial, auto-merge eligible
+argument: target_module_or_function
+---
+
+# Test Generation
+
+You are adding tests to close a coverage gap in BDX-Intelligence.
+
+**Target:** $ARGUMENTS
+
+## Workflow
+
+1. **Measure the gap.** Run:
+   ```
+   pytest --cov=bdx --cov-report=term-missing --cov-report=html
+   ```
+   Identify the uncovered lines/branches in the target.
+
+2. **Create a branch** `test/<short-slug>` from `main`.
+
+3. **Write tests** in `bdx-intelligence/tests/` that exercise the uncovered
+   paths. Mirror existing test style:
+   - SQLite in-memory via `conftest.py` fixtures (`engine`, `session`,
+     `sample_orders`, `mock_sap_rows`)
+   - `respx` for HTTP mocks (SCADA, SL)
+   - `Decimal` with `_QTY_EPSILON` for quantity assertions
+   - One test function per behavior, descriptive name (`test_<behavior>`)
+
+4. **Do not change production code.** If you find a bug while writing tests,
+   stop and switch to the `bugfix` prompt. This PR is test-only.
+
+5. **Run gates**:
+   ```
+   ruff check . && ruff format --check . && mypy src/bdx && pytest -v --cov=bdx --cov-fail-under=80
+   ```
+   Coverage must not decrease.
+
+6. **Commit** with:
+   ```
+   test(<scope>): cover <what> in <module>
+
+   Lines <a>-<b> of src/bdx/<module>.py now exercised.
+   Coverage: <old>% → <new>%.
+   ```
+
+7. **Push and open a PR**. Tag the description with `trivial` so the
+   auto-merge policy applies. CI must be green; no review needed for
+   test-only PRs that do not touch `sap_sl/`, `db/`, or `alembic/`.
+
+## Hard rules
+
+- Never change production code in this PR.
+- Never lower the coverage gate.
+- Never mock away a real bug to make a test pass.

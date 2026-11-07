@@ -73,6 +73,19 @@ bdx-collect machines
 bdx-collect runs
 ```
 
+### 4b. SAP write-back (Service Layer, DRY_RUN-safe)
+
+```bash
+# DRY_RUN=true (safe default) → audits the operation without touching SAP
+bdx-collect release 38559              # P → R
+bdx-collect close 38559                # → L
+bdx-collect cancel 38559               # → C
+bdx-collect report-production 38559 -q 25 -w W01   # book 25 pcs into warehouse W01
+bdx-collect sl-operations             # audit log
+
+# Real writes: set SL_DRY_RUN=false in .env (or env), then re-run
+```
+
 ### 5. API + dashboard
 
 ```bash
@@ -87,6 +100,8 @@ bdx-collect serve                 # uvicorn on API_HOST:API_PORT (8085 on the de
 - `GET /api/v1/bde/records?hours=24`
 - `GET /api/v1/runs`
 - `GET/PUT /api/v1/service-layer[/mode]`
+- `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` — SAP write-back
+- `GET /api/v1/service-layer/operations` — write-back audit log
 
 Set `API_KEY` to protect `/api/v1/*` (`X-API-Key` header or `?api_key=`; the dashboard stores it from the URL).
 
@@ -105,7 +120,7 @@ Requires a SQL login (`SAP_DB_TRUSTED_CONNECTION=no`) – Windows integrated aut
 No SAP, PostgreSQL or SCADA required – tests use SQLite and mocked HTTP/SAP:
 
 ```bash
-pytest                            # 74 tests
+pytest                            # 87 tests
 pytest --cov=bdx --cov-report=term-missing
 ```
 

@@ -1,0 +1,54 @@
+---
+description: Behavior-preserving refactor — trivial, auto-merge eligible
+argument: refactor_target
+---
+
+# Refactor
+
+You are doing a behavior-preserving refactor in BDX-Intelligence.
+
+**Target:** $ARGUMENTS
+
+## Workflow
+
+1. **Baseline.** Run the full suite and note the green state:
+   ```
+   pytest -v --cov=bdx
+   ```
+   This is your safety net. If any test goes red during the refactor, you
+   changed behavior — revert.
+
+2. **Create a branch** `refactor/<short-slug>` from `main`.
+
+3. **Refactor** following `bdx-intelligence/AGENTS.md`:
+   - Preserve all public signatures and event payloads
+   - Preserve `order_state` fingerprint upsert semantics
+   - Preserve event idempotency (`event_id` UUIDs, `persist_events` skip-dup)
+   - Preserve SAP status code mapping (P/R/L/C)
+   - structlog, Pydantic v2, SQLAlchemy 2.0 typed mappings, type hints
+
+4. **Run gates after every meaningful step**:
+   ```
+   ruff check . && ruff format --check . && mypy src/bdx && pytest -v --cov=bdx --cov-fail-under=80
+   ```
+   Tests must stay green at every commit. Commit in small steps.
+
+5. **Commit** with:
+   ```
+   refactor(<scope>): <imperative summary>
+
+   No behavior change. Suite green before/after.
+   ```
+
+6. **Push and open a PR**. Tag the description with `trivial` and
+   `no-behavior-change` so the auto-merge policy applies. If the refactor
+   touches `sap_sl/`, `db/`, or `alembic/`, CODEOWNER review is still required
+   (CODEOWNERS rule).
+
+## Hard rules
+
+- Never change behavior. If a test needs to change, it is not a refactor —
+  switch to the `feature` or `bugfix` prompt.
+- Never change event payloads or `event_type` names.
+- Never change the `order_state` upsert semantics.
+- Never change SAP status code mappings.

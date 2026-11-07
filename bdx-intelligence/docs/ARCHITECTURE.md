@@ -108,15 +108,30 @@ Adapters are read-only by interface contract – there are no methods to control
 
 ### 5. Publishing (`src/bdx/publish/`)
 
-`EventPublisher.publish(events)` is fire-and-forget and never raises into the collector. `build_publisher()` returns
-`MqttPublisher` when `MQTT_ENABLED=true` and `MQTT_HOST` is set, else `NullPublisher`.
-Topic: `<MQTT_TOPIC_PREFIX>/events/<EVENT_TYPE>/<source_key with ':'→'/'>` e.g.
-`bdx/intelligence/events/MACHINE_STATE_CHANGED/MACHINE/QT350MY`; payload = `DomainEventDTO` JSON.
+`EventPublisher.publish(events)` is fire-and-forget and never raises into the collector. `build_all_publishers()`
+returns a single publisher or a composite covering every configured transport:
 
-### 6. Service Layer client (`src/bdx/sap_sl/client.py`)
+| Transport | Module | Extra | Topic / key |
+|---|---|---|---|
+| MQTT | `publish/mqtt.py` (`MqttPublisher`) | `.[mqtt]` (paho-mqtt) | `<prefix>/events/<EVENT_TYPE>/<source_key ':'→'/'>` |
+| Kafka | `publish/kafka.py` (`KafkaPublisher`) | `.[kafka]` (confluent-kafka) | topic `KAFKA_TOPIC`, key = `source_key` (partition affinity) |
+
+When both are enabled a `_Composite` publisher fans out to both. `NullPublisher` when none are on.
+
+### 6. Service Layer client + write-back (`src/bdx/sap_sl/`)
 
 Login/session (`B1SESSION`, `ROUTEID`), CSRF fetch, 401 re-login, `SL_DRY_RUN` guard, `SL_ALLOW_INVALID_CERT`,
-OData error extraction. Write operations are not implemented yet.
+OData error extraction. Write operations are implemented in `sap_sl/operations.py`:
+
+| Operation | SL call | Effect |
+|---|---|---|
+| `release_order` | `PATCH ProductionOrders({DocEntry})` `{"Status":"R"}` | Planned → Released |
+| `close_order` | `PATCH ProductionOrders({DocEntry})` `{"Status":"L"}` | → Closed |
+| `cancel_order` | `PATCH ProductionOrders({DocEntry})` `{"Status":"C"}` | → Cancelled |
+| `report_production` | `POST ReceiptFromProduction` | books produced qty into a warehouse |
+
+Every call (success / failure / DRY_RUN) is recorded in the `sl_operations` audit table (migration 003).
+`SL_DRY_RUN=true` is the safe default — writes only reach SAP with `SL_DRY_RUN=false`.
 
 ### 7. API (`src/bdx/api/`)
 
@@ -130,6 +145,8 @@ OData error extraction. Write operations are not implemented yet.
 | `GET /api/v1/bde/records?hours=` | derived BDE records |
 | `GET /api/v1/runs` | collector runs |
 | `GET/PUT /api/v1/service-layer[/mode]` | SL status, dev/prod switch |
+| `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` | SAP write-back (DRY_RUN-safe) |
+| `GET /api/v1/service-layer/operations` | write-back audit log |
 | `GET /dashboard` | static dashboard (auto-refresh) |
 
 `/api/v1/*` is protected by `API_KEY` when set (`X-API-Key` header or `?api_key=`); health and dashboard stay public.
@@ -185,9 +202,14 @@ host 192.168.82.33 (port 5437).
 | `MACHINE_TIMEOUT_SECONDS`, `MACHINE_OFFLINE_AFTER_SECONDS` | 10 / 120 | |
 | `BDE_ENABLED`, `BDE_SCADA_BASE_URL` | false / – | BDE source |
 | `BDE_TIMEOUT_SECONDS`, `BDE_GAP_SECONDS` | 30 / 900 | |
-| `MQTT_ENABLED`, `MQTT_HOST`, `MQTT_PORT` | false / – / 1883 | publisher |
+| `MQTT_ENABLED`, `MQTT_HOST`, `MQTT_PORT` | false / – / 1883 | publisher (MQTT) |
 | `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_TLS`, `MQTT_CLIENT_ID` | – / – / false / bdx-intelligence | |
 | `MQTT_TOPIC_PREFIX`, `MQTT_QOS` | bdx/intelligence / 1 | |
+| `KAFKA_ENABLED`, `KAFKA_BOOTSTRAP_SERVERS` | false / – | publisher (Kafka) |
+| `KAFKA_TOPIC`, `KAFKA_CLIENT_ID` | bdx-intelligence-events / bdx-intelligence | |
+| `KAFKA_SECURITY_PROTOCOL`, `KAFKA_SASL_MECHANISM` | PLAINTEXT / PLAIN | |
+| `KAFKA_ACKS`, `KAFKA_REQUEST_TIMEOUT` | 1 / 10 | |
+| `SL_DRY_RUN` | false | **set to `true` for safety** — blocks all SAP writes |
 | `API_HOST`, `API_PORT` | 0.0.0.0 / 8080 (8085 on the dev machine) | |
 | `API_KEY` | – | optional API protection |
 | `LOG_LEVEL`, `LOG_FORMAT` | INFO / console | structlog |

@@ -1,0 +1,71 @@
+---
+description: BDX-Intelligence coding conventions, SAP safety rules, test patterns and event naming. Apply to all work in the bdx-intelligence project.
+globs: bdx-intelligence/**
+alwaysApply: true
+---
+
+# BDX-Intelligence – Agent Conventions
+
+This rule applies to every change in `bdx-intelligence/`. Read `bdx-intelligence/AGENTS.md` for the full version.
+
+## SAP Safety (hard rules)
+
+1. **MSSQL channel is read-only.** Never add INSERT/UPDATE/DELETE/DDL against the SAP SQL Server. The SQLAlchemy event listener in `src/bdx/db/sap.py` blocks these at the Python layer — do not weaken it. The DB account must also be read-only.
+2. **Service Layer writes are guarded by `SL_DRY_RUN`.** Default is `true` (blocks all writes). Never set `SL_DRY_RUN=false` in code or in `.env.example`. Only operators flip it in the real `.env`. Every SL call goes through `sap_sl/operations.py::_exec` which audits to `sl_operations`. Do not bypass the audit.
+3. **No string interpolation in SQL.** Use parameterized `text()` with `:param` binds, as in `src/bdx/db/queries.py`. Never f-string/format SQL.
+4. **Secrets only from env.** No credentials in code, tests, or docs. `.env` is gitignored. `.env.example` contains only placeholders.
+5. **Custom SAP UDFs** (`U_Type`, `U_Priority`, `U_BDX_Machine`) do **not** exist in Leisinger company DBs — `queries.py` selects `NULL` placeholders. Do not assume they are populated.
+
+## Architecture invariants (do not break without a migration)
+
+- `order_state` is one row per order, upserted by fingerprint. `order_snapshots` is history-on-change only. Do not change this to history-on-every-cycle.
+- `source_key` is the PK of `order_state` and the join key for events. Format: `<company_db>:<doc_entry>`.
+- Events are idempotent by `event_id` (UUID). `persist_events()` skips duplicates. Never reuse event_ids.
+- Machine ↔ SAP link: numeric XMSK `Order` = SAP `DocNum` → `order_state.doc_num` → `doc_entry`. Free-text refs (e.g. `10886/NEU`) stay raw in `order_ref`, no link.
+- SAP status codes: `P`=Planned, `R`=Released, `L`=Closed, `C`=Cancelled. (Sprint 001 had these wrong — do not reintroduce the old mapping.)
+- Incremental read window: `since = max(sap_update_date) − INCREMENTAL_LOOKBACK_DAYS`. Open orders are always re-read; vanished open orders are re-read by DocEntry so closures are never missed.
+
+## Event naming
+
+- Order events: `ORDER_CREATED`, `ORDER_RELEASED`, `QUANTITY_CHANGED`, `DUE_DATE_CHANGED`, `ORDER_PARTIAL_COMPLETE`, `ORDER_CLOSED`.
+- Machine events: `MACHINE_ONLINE`, `MACHINE_OFFLINE`, `MACHINE_STATE_CHANGED`, `MACHINE_ORDER_STARTED`, `MACHINE_ORDER_FINISHED`, `MACHINE_PIECES_REPORTED`.
+- New event types go in `EventType` enum in `src/bdx/models/events.py` and are added to `ORDER_EVENT_TYPES` or `MACHINE_EVENT_TYPES`.
+- Payloads are JSON, decimals as strings (`str(qty)`), dates as ISO strings.
+
+## Test pattern (mandatory)
+
+- Every new code path in `collector/`, `adapters/`, `sap_sl/`, `db/`, `publish/` gets a pytest test.
+- Tests run on SQLite in-memory (`conftest.py` sets `POSTGRES_DSN=sqlite:///:memory:`). No real Postgres/SAP required.
+- Use `respx` for HTTP mocks (SCADA, SL), `fakeredis` only if needed. SAP rows are mocked as dicts (see `mock_sap_rows` fixture).
+- Quantity comparisons use `Decimal` with `_QTY_EPSILON` tolerance — mirror this in tests.
+- Target: keep coverage ≥ 80 % (CI gate). Aim for 90 % on `sap_sl/` and `collector/`.
+
+## Code style
+
+- Python 3.11+, `from __future__ import annotations` at top of every module.
+- `structlog` for logging (`logger = structlog.get_logger(__name__)`), structured kwargs not f-strings.
+- Pydantic v2 for DTOs, SQLAlchemy 2.0 typed mappings (`Mapped[...]`).
+- `tenacity` for retries on external calls (SAP, SL, SCADA).
+- Type hints required on all public functions in `sap_sl/`, `db/`, `collector/` (mypy strict in CI).
+- `ruff check` and `ruff format --check` must pass (CI + pre-commit).
+
+## When implementing a feature
+
+1. Run `explore` subagent (quick) to find the relevant module and existing patterns.
+2. Add the code + a test.
+3. Run `ruff check . && ruff format --check . && mypy src/bdx && pytest` locally.
+4. Open a PR; CI runs the same gates. Trivial PRs (tests/docs/refactors) auto-merge; PRs touching `sap_sl/`, `db/`, `alembic/` need CODEOWNER review.
+
+## When fixing a bug
+
+1. Write a failing pytest that reproduces the bug.
+2. Fix the code until the test passes.
+3. Confirm no regression in the full suite.
+
+## Never
+
+- Commit `.env` or real credentials.
+- Set `SL_DRY_RUN=false` in any committed file.
+- Add a write method to the MSSQL channel.
+- Change SAP status code mappings without verifying against OWOR.
+- Bypass the `sl_operations` audit for SL writes.

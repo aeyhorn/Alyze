@@ -1,0 +1,63 @@
+# Pre-commit hooks for BDX-Intelligence.
+#
+# The project lives in the `bdx-intelligence/` subdirectory of this repo.
+# Hooks are scoped to that directory via `cd` in the entrypoint.
+#
+# Install once:  pre-commit install
+# Run manually: pre-commit run --all-files
+#               pre-commit run --all-files --config .pre-commit-config.yaml
+#
+# CI runs the same checks in .github/workflows/ci.yml.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+        files: ^bdx-intelligence/
+      - id: trailing-whitespace
+        files: ^bdx-intelligence/
+      - id: check-added-large-files
+        name: check-large-files (block .env / dumps)
+        args: ["--maxkb=512"]
+        files: ^bdx-intelligence/
+      - id: check-merge-conflict
+        files: ^bdx-intelligence/
+      - id: check-yaml
+        files: ^bdx-intelligence/
+      - id: check-toml
+        files: ^bdx-intelligence/
+      - id: debug-statements
+        files: ^bdx-intelligence/
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff (bdx-intelligence)
+        args: ["--config", "bdx-intelligence/pyproject.toml", "check", "bdx-intelligence"]
+        files: ^bdx-intelligence/
+        types: [python]
+      - id: ruff-format
+        name: ruff-format (bdx-intelligence)
+        args: ["--config", "bdx-intelligence/pyproject.toml", "format", "bdx-intelligence"]
+        files: ^bdx-intelligence/
+        types: [python]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (bdx-intelligence)
+        entry: bash -c 'cd bdx-intelligence && mypy src/bdx'
+        language: system
+        types: [python]
+        files: ^bdx-intelligence/src/
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: no-secrets-in-env
+        name: block real .env from being committed
+        entry: bash -c 'if git diff --cached --name-only | grep -E "^bdx-intelligence/\.env$"; then echo "ERROR: .env is gitignored and must not be committed"; exit 1; fi'
+        language: system
+        pass_filenames: false

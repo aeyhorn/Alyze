@@ -106,3 +106,26 @@ def build_publisher(settings: MqttSettings | None = None) -> EventPublisher:
     if settings.enabled and settings.host:
         return MqttPublisher(settings)
     return NullPublisher()
+
+
+def build_all_publishers() -> EventPublisher:
+    """Return a publisher covering every configured transport (MQTT + Kafka).
+
+    A single transport returns its publisher directly; multiple transports
+    return a composite that publishes to all of them.  Null when none are on.
+    """
+    from bdx.config import load_kafka_settings, load_mqtt_settings
+    from bdx.publish.kafka import KafkaPublisher, _Composite
+
+    publishers: list[EventPublisher] = []
+    mqtt = load_mqtt_settings()
+    if mqtt.enabled and mqtt.host:
+        publishers.append(MqttPublisher(mqtt))
+    kafka = load_kafka_settings()
+    if kafka.configured:
+        publishers.append(KafkaPublisher(kafka))
+    if not publishers:
+        return NullPublisher()
+    if len(publishers) == 1:
+        return publishers[0]
+    return _Composite(publishers)

@@ -172,3 +172,48 @@ class DomainEventDTO(BaseModel):
     snapshot_run_id: str
 
     model_config = {"from_attributes": True}
+
+
+# ── Service Layer write-back audit log ────────────────────────────────────────
+
+class SLOperation(Base):
+    """Audit trail for every Service Layer write attempt (success or failure).
+
+    One row per call, regardless of DRY_RUN.  ``dry_run=true`` rows document
+    what *would* have been sent.
+    """
+
+    __tablename__ = "sl_operations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    operation_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    operation: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    mode: Mapped[str] = mapped_column(String(8), nullable=False)
+    company_db: Mapped[str] = mapped_column(String(64), nullable=False)
+    doc_entry: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    doc_num: Mapped[Optional[int]] = mapped_column(Integer)
+    payload: Mapped[Optional[dict]] = mapped_column(JSON)
+    dry_run: Mapped[bool] = mapped_column(nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)  # success | failed | dry_run
+    http_status: Mapped[Optional[int]] = mapped_column(Integer)
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    operator: Mapped[Optional[str]] = mapped_column(String(64))
+
+
+class SLOperationDTO(BaseModel):
+    operation_id: str
+    occurred_at: datetime
+    operation: str
+    mode: str
+    company_db: str
+    doc_entry: Optional[int] = None
+    doc_num: Optional[int] = None
+    payload: Optional[dict[str, Any]] = None
+    dry_run: bool
+    status: str
+    http_status: Optional[int] = None
+    error: Optional[str] = None
+    operator: Optional[str] = None
+
+    model_config = {"from_attributes": True}

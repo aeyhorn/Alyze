@@ -29,12 +29,19 @@ dependencies = [
 mqtt = [
     "paho-mqtt>=2.0.0",
 ]
+kafka = [
+    "confluent-kafka>=2.5.0",
+]
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
     "respx>=0.21.0",
     "fakeredis>=2.23.0",
+    "ruff>=0.6.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+    "types-requests>=2.32.0",
 ]
 
 [project.scripts]
@@ -51,3 +58,61 @@ addopts = "-v --tb=short"
 [tool.coverage.run]
 source = ["src/bdx"]
 omit = ["*/tests/*"]
+
+# ── Ruff: lint + format ──────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",       # pycodestyle / pyflakes
+    "I",                  # isort
+    "B",                  # bugbear
+    "UP",                 # pyupgrade
+    "SIM",                # simplify
+    "C4",                 # comprehensions
+    "TID",                # tidy-imports
+    "RUF",                # ruff-specific
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "B008",   # FastAPI Depends() in defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]      # asserts allowed in tests
+"alembic/*" = ["E402"]    # module-level imports after alembic config
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ── mypy: type checking ──────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = ["bdx"]
+namespace_packages = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = false       # opt-in strict per-module below
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+pretty = true
+
+# Strict modules: SAP write channel, DB layer, collector (high blast radius)
+[[tool.mypy.overrides]]
+module = ["bdx.sap_sl.*", "bdx.db.*", "bdx.collector.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+
+# Third-party libs without stubs
+[[tool.mypy.overrides]]
+module = ["pyodbc.*", "paho.mqtt.*", "confluent_kafka.*"]
+ignore_missing_imports = true

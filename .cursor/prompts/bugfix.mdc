@@ -1,0 +1,54 @@
+---
+description: Fix a bug — repro test first, then fix, then PR-ready
+argument: bug_description
+---
+
+# Bug Fix
+
+You are fixing a bug in the BDX-Intelligence project.
+
+**Bug:** $ARGUMENTS
+
+## Workflow
+
+1. **Reproduce first.** Write a failing pytest in `bdx-intelligence/tests/`
+   that demonstrates the bug. Run it and confirm it fails for the right reason.
+   Use SQLite in-memory fixtures; `respx` for HTTP; `mock_sap_rows` for SAP.
+
+2. **Investigate.** Launch an `explore` subagent (quick) if you need to find
+   the root cause across modules. Read `bdx-intelligence/AGENTS.md` for
+   invariants you must not break.
+
+3. **Create a branch** `fix/<short-slug>` from `main`.
+
+4. **Fix** the smallest reasonable change. Follow `bdx-intelligence/AGENTS.md`:
+   - SAP safety, parameterized SQL, `SL_DRY_RUN`, no write to MSSQL
+   - structlog, Pydantic v2, SQLAlchemy 2.0 typed mappings
+   - Type hints on public functions in `sap_sl/`, `db/`, `collector/`
+
+5. **Run the repro test** — it must pass now.
+
+6. **Run the full suite + gates**:
+   ```
+   ruff check . && ruff format --check . && mypy src/bdx && pytest -v --cov=bdx --cov-fail-under=80
+   ```
+   No regressions allowed.
+
+7. **Commit** with:
+   ```
+   fix(<scope>): <imperative summary>
+
+   Root cause: <one line>
+   Fix: <one line>
+   Test: <test name that reproduces it>
+   ```
+
+8. **Push and open a PR**. Note in the description that a regression test was
+   added. Do not merge — CI + review gates apply.
+
+## Hard rules
+
+- Never set `SL_DRY_RUN=false` in any committed file.
+- Never add a write method to the MSSQL channel.
+- Never change SAP status code mappings without verifying against OWOR.
+- Never delete a test to make the suite green.

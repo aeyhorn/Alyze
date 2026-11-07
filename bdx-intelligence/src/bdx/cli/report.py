@@ -386,7 +386,7 @@ def collect(
     from bdx.db.postgres import create_pg_engine, make_session_factory
     from bdx.db.sap import create_sap_engine
     from bdx.logging_config import configure_logging
-    from bdx.publish.mqtt import build_publisher
+    from bdx.publish.mqtt import build_all_publishers
 
     configure_logging()
 
@@ -396,7 +396,7 @@ def collect(
     pg_engine = create_pg_engine(pg_dsn)
     factory = make_session_factory(pg_engine)
     collector_cfg = load_collector_settings()
-    publisher = build_publisher(load_mqtt_settings())
+    publisher = build_all_publishers()
 
     if once:
         orders, events = run_once(sap_engine, factory, collector_cfg, force_full=full, publisher=publisher)
@@ -415,6 +415,120 @@ def collect(
         run_polling_loop(sap_engine, factory, collector_cfg, machine_adapter, m_cfg, publisher)
     finally:
         publisher.close()
+
+
+@app.command("release")
+def release_order(
+    doc_entry: int = typer.Argument(..., help="Production order DocEntry to release (P → R)"),
+):
+    """Release a planned production order via the Service Layer (DRY_RUN-safe)."""
+    _run_sl_op("release", doc_entry)
+
+
+@app.command("close")
+def close_order(
+    doc_entry: int = typer.Argument(..., help="Production order DocEntry to close (→ L)"),
+):
+    """Close a production order via the Service Layer (DRY_RUN-safe)."""
+    _run_sl_op("close", doc_entry)
+
+
+@app.command("cancel")
+def cancel_order(
+    doc_entry: int = typer.Argument(..., help="Production order DocEntry to cancel (→ C)"),
+):
+    """Cancel a production order via the Service Layer (DRY_RUN-safe)."""
+    _run_sl_op("cancel", doc_entry)
+
+
+@app.command("report-production")
+def report_production(
+    doc_entry: int = typer.Argument(..., help="Production order DocEntry"),
+    quantity: float = typer.Option(..., "--quantity", "-q", help="Completed quantity to book"),
+    warehouse: str = typer.Option(..., "--warehouse", "-w", help="Target warehouse code"),
+    batch: Optional[str] = typer.Option(None, "--batch", help="Batch number (optional)"),
+):
+    """Report produced quantity against a production order (Receipt from Production)."""
+    from bdx.config import load_sap_mode_settings, load_service_layer_settings
+    from bdx.logging_config import configure_logging
+    from bdx.sap_sl.client import ServiceLayerClient
+    from bdx.sap_sl.operations import report_production as rp
+
+    configure_logging("WARNING", "console")
+    sl_cfg = load_service_layer_settings()
+    if not sl_cfg.configured:
+        err_console.print("[red]Service Layer not configured (SL_BASE_URL / SL_USERNAME / SL_PASSWORD)[/red]")
+        raise typer.Exit(1)
+    mode_cfg = load_sap_mode_settings()
+    client = ServiceLayerClient(sl_cfg, mode=mode_cfg.sap_mode)
+    factory = _get_pg_factory()
+    with factory() as session:
+        res = rp(session, client, doc_entry, quantity, warehouse, batch_number=batch)
+        _print_op_result(res, doc_entry)
+
+
+def _run_sl_op(operation: str, doc_entry: int) -> None:
+    from bdx.config import load_sap_mode_settings, load_service_layer_settings
+    from bdx.logging_config import configure_logging
+    from bdx.sap_sl.client import ServiceLayerClient
+    from bdx.sap_sl import operations as sl_ops
+
+    configure_logging("WARNING", "console")
+    sl_cfg = load_service_layer_settings()
+    if not sl_cfg.configured:
+        err_console.print("[red]Service Layer not configured (SL_BASE_URL / SL_USERNAME / SL_PASSWORD)[/red]")
+        raise typer.Exit(1)
+    mode_cfg = load_sap_mode_settings()
+    client = ServiceLayerClient(sl_cfg, mode=mode_cfg.sap_mode)
+    factory = _get_pg_factory()
+    fn = {"release": sl_ops.release_order, "close": sl_ops.close_order, "cancel": sl_ops.cancel_order}[operation]
+    with factory() as session:
+        res = fn(session, client, doc_entry)
+        _print_op_result(res, doc_entry)
+
+
+def _print_op_result(res, doc_entry: int) -> None:
+    color = {"success": "green", "dry_run": "cyan", "failed": "red"}.get(res.status, "white")
+    console.print(
+        f"[{color}]{res.status.upper()}[/{color}] {res.operation} FA {doc_entry}  "
+        f"(op {res.operation_id}, dry_run={res.dry_run})"
+        + (f"  http={res.http_status}" if res.http_status else "")
+        + (f"  error={res.error}" if res.error else "")
+    )
+
+
+@app.command("sl-operations")
+def sl_operations(limit: int = typer.Option(20, "--limit", "-n")):
+    """Print the Service Layer write-back audit log."""
+    from sqlalchemy import select
+
+    from bdx.logging_config import configure_logging
+    from bdx.models.events import SLOperation
+
+    configure_logging("WARNING", "console")
+    session = _session_or_exit()
+    rows = session.execute(
+        select(SLOperation).order_by(SLOperation.occurred_at.desc()).limit(limit)
+    ).scalars().all()
+    if not rows:
+        console.print("[yellow]No Service Layer operations recorded yet.[/yellow]")
+        raise typer.Exit(0)
+    table = Table(show_header=True, header_style="bold cyan")
+    for col in ["Time", "Operation", "DocEntry", "Status", "DryRun", "HTTP", "Error"]:
+        table.add_column(col)
+    for r in rows:
+        color = {"success": "green", "dry_run": "cyan", "failed": "red"}.get(r.status, "white")
+        table.add_row(
+            r.occurred_at.strftime("%Y-%m-%d %H:%M:%S"),
+            r.operation,
+            str(r.doc_entry or "–"),
+            f"[{color}]{r.status}[/{color}]",
+            "yes" if r.dry_run else "no",
+            str(r.http_status or "–"),
+            (r.error or "")[:50],
+        )
+    console.print(table)
+    session.close()
 
 
 @app.command("serve")

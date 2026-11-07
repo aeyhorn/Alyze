@@ -1,0 +1,97 @@
+name: CI
+
+# BDX-Intelligence – Continuous Integration
+#
+# Runs on every push to main and on every pull request:
+#   * ruff (lint + format check)
+#   * mypy (type check, strict for sap_sl/, db/, collector/)
+#   * pytest with coverage gate (>= 80 %)
+#   * Docker build smoke test
+#
+# The project lives in the `bdx-intelligence/` subdirectory of the repo.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: bdx-intelligence
+
+jobs:
+  lint:
+    name: Lint & Format (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: bdx-intelligence/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: pip install "ruff>=0.6.0"
+      - run: ruff check .
+      - run: ruff format --check .
+
+  typecheck:
+    name: Type Check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: bdx-intelligence/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      # Install runtime deps + mypy. pyodbc wheels exist for linux x64.
+      - run: pip install ".[dev]" mypy
+      - run: mypy src/bdx
+
+  test:
+    name: Tests (pytest + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: bdx-intelligence/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: pip install ".[dev]"
+      - name: Run pytest
+        run: pytest -v --cov=bdx --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+        env:
+          POSTGRES_DSN: "sqlite:///:memory:"
+          SAP_DB_HOST: localhost
+          SAP_DB_NAME: TEST
+          SAP_DB_USER: test
+          SAP_DB_PASSWORD: test
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: bdx-intelligence/coverage.xml
+          if-no-files-found: warn
+
+  docker-build:
+    name: Docker Build Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        working-directory: bdx-intelligence
+        run: docker build -t bdx-intelligence:ci-smoke .
+      - name: Verify entrypoint
+        working-directory: bdx-intelligence
+        run: |
+          docker run --rm --entrypoint python bdx-intelligence:ci-smoke -c "import bdx; print('import ok')"

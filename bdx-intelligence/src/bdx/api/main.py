@@ -136,7 +136,8 @@ def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> Non
         app.state.bde_adapter = None
 
     try:
-        app.state.publisher = publisher or build_publisher(load_mqtt_settings())
+        from bdx.publish.mqtt import build_all_publishers
+        app.state.publisher = publisher or build_all_publishers()
     except Exception as exc:  # noqa: BLE001
         logger.warning("publisher.init_failed", error=str(exc))
         app.state.publisher = None

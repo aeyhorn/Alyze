@@ -5,6 +5,7 @@ No production credentials must ever appear in this file or anywhere in the repos
 from __future__ import annotations
 
 import enum
+import os
 
 from dotenv import load_dotenv
 from pydantic import Field, model_validator
@@ -82,6 +83,26 @@ class PostgresSettings(BaseSettings):
     postgres_dsn: str = Field(
         "postgresql+psycopg2://bdx:bdx_local@localhost:5432/bdx_intelligence"
     )
+    # Separate event store for PROD mode (empty = reuse postgres_dsn for both modes)
+    postgres_dsn_prod: str = Field("")
+
+
+def _active_sap_mode() -> str:
+    """Return the SAP mode from the environment (cheap, pre-DB).
+
+    The authoritative mode lives in ``app_setting.sapMode`` (resolved by the
+    registry at runtime); this is only used at startup before the DB is
+    available to pick the right PG DSN.
+    """
+    return (os.environ.get("SAP_MODE") or "dev").lower()
+
+
+def load_postgres_settings() -> PostgresSettings:
+    """Return PG settings, selecting the PROD DSN when SAP_MODE=prod and one is set."""
+    settings = PostgresSettings()
+    if _active_sap_mode() == "prod" and settings.postgres_dsn_prod:
+        settings.postgres_dsn = settings.postgres_dsn_prod
+    return settings
 
 
 class CollectorSettings(BaseSettings):
@@ -150,6 +171,29 @@ class MqttSettings(BaseSettings):
     qos: int = Field(1, ge=0, le=2)
 
 
+class KafkaSettings(BaseSettings):
+    """Optional Kafka event publishing (alternative to MQTT)."""
+
+    model_config = SettingsConfigDict(env_prefix="KAFKA_", case_sensitive=False)
+
+    enabled: bool = Field(False)
+    bootstrap_servers: str = Field("")
+    topic: str = Field("bdx-intelligence-events")
+    username: str = Field("")
+    password: str = Field("")
+    security_protocol: str = Field("PLAINTEXT", pattern=r"^(PLAINTEXT|SASL_PLAINTEXT|SASL_SSL|SSL)$")
+    sasl_mechanism: str = Field("PLAIN", pattern=r"^(PLAIN|SCRAM-SHA-256|SCRAM-SHA-512)$")
+    client_id: str = Field("bdx-intelligence")
+    # Round-up acks: 0 = fire-and-forget, 1 = leader, -1 = all ISR (default)
+    acks: str = Field("1")
+    # How long to block waiting for the broker (seconds)
+    request_timeout: float = Field(10.0, ge=1.0, le=120.0)
+
+    @property
+    def configured(self) -> bool:
+        return self.enabled and bool(self.bootstrap_servers)
+
+
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False)
 
@@ -173,12 +217,12 @@ def load_mqtt_settings() -> MqttSettings:
     return MqttSettings()
 
 
+def load_kafka_settings() -> KafkaSettings:
+    return KafkaSettings()
+
+
 def load_sap_settings() -> SAPSettings:
     return SAPSettings()  # type: ignore[call-arg]
-
-
-def load_postgres_settings() -> PostgresSettings:
-    return PostgresSettings()
 
 
 def load_collector_settings() -> CollectorSettings:

@@ -1,0 +1,25 @@
+# CODEOWNERS for BDX-Intelligence
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Every PR touching these paths requires a CODEOWNER review (in addition to
+# green CI). Branch protection on `main` enforces this.
+
+# Default owner for the whole repo
+*                           @aeyhorn
+
+# SAP write channel – highest blast radius (writes to SAP when SL_DRY_RUN=false)
+bdx-intelligence/src/bdx/sap_sl/   @aeyhorn
+bdx-intelligence/src/bdx/api/routes/service_layer.py  @aeyhorn
+
+# DB layer + migrations – schema changes affect the event store
+bdx-intelligence/src/bdx/db/       @aeyhorn
+bdx-intelligence/alembic/          @aeyhorn
+
+# Collector core – change detection / snapshots / fingerprint logic
+bdx-intelligence/src/bdx/collector/  @aeyhorn
+
+# Deployment + secrets surface
+bdx-intelligence/Dockerfile        @aeyhorn
+bdx-intelligence/docker-compose.yml @aeyhorn
+bdx-intelligence/.env.example      @aeyhorn
+bdx-intelligence/pyproject.toml    @aeyhorn

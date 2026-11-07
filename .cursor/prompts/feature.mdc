@@ -1,0 +1,56 @@
+---
+description: Implement a feature from a spec/issue — explore, code, test, PR-ready
+argument: feature_spec
+---
+
+# Feature Implementation
+
+You are implementing a feature for the BDX-Intelligence project.
+
+**Feature spec / issue:** $ARGUMENTS
+
+## Workflow
+
+1. **Reasearch first.** Launch an `explore` subagent (quick) to find:
+   - The relevant module under `bdx-intelligence/src/bdx/`
+   - Existing patterns (event types, adapters, routes) you should mirror
+   - The test fixtures in `bdx-intelligence/tests/conftest.py`
+
+2. **Create a branch** `feat/<short-slug>` from `main`.
+
+3. **Implement** following `bdx-intelligence/AGENTS.md`:
+   - SAP safety rules (read-only MSSQL, `SL_DRY_RUN`, parameterized SQL)
+   - Architecture invariants (`order_state` fingerprint upsert, idempotent events)
+   - Event naming (`ORDER_*` / `MACHINE_*` in the `EventType` enum)
+   - structlog logging, Pydantic v2 DTOs, SQLAlchemy 2.0 typed mappings
+
+4. **Add a pytest test** on SQLite in-memory fixtures. Use `respx` for HTTP mocks.
+   Every new code path needs coverage.
+
+5. **Run local gates** (must pass before commit):
+   ```
+   ruff check . && ruff format --check . && mypy src/bdx && pytest -v --cov=bdx --cov-fail-under=80
+   ```
+
+6. **Commit** with a conventional message:
+   ```
+   feat(<scope>): <imperative summary>
+
+   <body: what + why>
+   ```
+   Pre-commit hooks run ruff + mypy + secret-blocker.
+
+7. **Push and open a PR** with a description containing:
+   - What changed and why
+   - Test evidence (coverage delta)
+   - Risk note if touching `sap_sl/`, `db/`, or `alembic/`
+
+8. **Do not merge.** Trivial PRs auto-merge; everything else waits for CODEOWNER
+   review. `bugbot` and `security-review` subagents run automatically on the PR.
+
+## Hard rules
+
+- Never set `SL_DRY_RUN=false` in any committed file.
+- Never add a write method to the MSSQL channel.
+- Never change SAP status code mappings without verifying against OWOR.
+- Never commit `.env` or real credentials.

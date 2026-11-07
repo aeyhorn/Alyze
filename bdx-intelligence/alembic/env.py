@@ -17,6 +17,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from bdx.db.postgres import Base  # noqa: E402  – after sys.path adjustment
 import bdx.models.events  # noqa: F401,E402  – register ORM models with metadata
+from bdx.config import load_postgres_settings  # noqa: E402
 
 config = context.config
 
@@ -25,8 +26,9 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override the placeholder URL with the real DSN from the environment
-_dsn = os.environ.get("POSTGRES_DSN", "")
+# Override the placeholder URL with the real DSN from the environment.
+# When SAP_MODE=prod and POSTGRES_DSN_PROD is set, use the PROD event store.
+_dsn = load_postgres_settings().postgres_dsn
 if not _dsn:
     raise EnvironmentError("POSTGRES_DSN environment variable is required for Alembic migrations.")
 

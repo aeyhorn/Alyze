@@ -24,7 +24,7 @@ COPY src ./src
 COPY alembic.ini ./
 COPY alembic ./alembic
 
-RUN pip install --upgrade pip && pip install ".[mqtt]"
+RUN pip install --upgrade pip && pip install ".[mqtt,kafka]"
 
 # Non-root runtime user
 RUN useradd --create-home --uid 10001 bdx && chown -R bdx:bdx /app
