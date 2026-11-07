@@ -28,6 +28,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # ghcr.io requires lowercase image paths. github.repository preserves case
+  # (e.g. "aeyhorn/Alyze"), so we lowercase it in the meta step below and pass
+  # the result to the deploy job via outputs. Do NOT use github.repository
+  # directly in a tag — it produces an invalid reference (build fails in ~10s).
   IMAGE: ghcr.io/${{ github.repository }}/bdx-intelligence
 
 jobs:
@@ -39,12 +43,16 @@ jobs:
       contents: read
     outputs:
       sha_tag: ${{ steps.meta.outputs.sha_tag }}
+      image: ${{ steps.meta.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Short sha
+      - name: Meta
         id: meta
-        run: echo "sha_tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          REPO_LC=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${REPO_LC}/bdx-intelligence" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -59,18 +67,19 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            --tag "${IMAGE}:dev" \
-            --tag "${IMAGE}:${SHA_TAG}" \
+            --tag "${{ steps.meta.outputs.image }}:dev" \
+            --tag "${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha_tag }}" \
             --push \
             .
-        env:
-          SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
 
   deploy:
     name: Deploy to DEV host
     needs: build
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      # Pull the exact image the build job just pushed (lowercased path).
+      BDX_IMAGE: ${{ needs.build.outputs.image }}:dev
     steps:
       - name: SSH deploy + smoke test
         uses: appleboy/ssh-action@v1.0.3
@@ -78,6 +87,7 @@ jobs:
           host: ${{ secrets.DEV_SSH_HOST }}
           username: ${{ secrets.DEV_SSH_USER }}
           key: ${{ secrets.DEV_SSH_KEY }}
+          envs: BDX_IMAGE
           script: |
             set -euo pipefail
             cd "${{ secrets.DEV_DEPLOY_PATH }}"
@@ -86,8 +96,11 @@ jobs:
               echo "ABORT: DEV .env has SL_DRY_RUN=false — refusing to deploy." >&2
               exit 1
             fi
+            # Export the freshly built image so docker compose pulls it.
+            export BDX_IMAGE="${BDX_IMAGE}"
+            echo "Deploying image: ${BDX_IMAGE}"
             # Pull the freshly built image.
-            docker compose pull || true
+            docker compose pull
             # Run migrations against the event store.
             docker compose run --rm migrate
             # Restart collector + API.

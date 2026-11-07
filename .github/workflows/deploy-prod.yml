@@ -39,6 +39,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # ghcr.io requires lowercase image paths; github.repository preserves case.
+  # The deploy job lowercases this before pulling. Do NOT use github.repository
+  # directly in a tag — it produces an invalid reference.
   IMAGE: ghcr.io/${{ github.repository }}/bdx-intelligence
 
 jobs:
@@ -63,6 +66,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: prod
     steps:
+      - name: Lowercase image name
+        id: meta
+        run: |
+          REPO_LC=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${REPO_LC}/bdx-intelligence" >> "$GITHUB_OUTPUT"
       - name: SSH deploy + smoke test
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -73,7 +81,8 @@ jobs:
             set -euo pipefail
             cd "${{ secrets.PROD_DEPLOY_PATH }}"
             # Pull the chosen tag.
-            export BDX_IMAGE="${IMAGE}:${{ inputs.image_tag }}"
+            export BDX_IMAGE="${{ steps.meta.outputs.image }}:${{ inputs.image_tag }}"
+            echo "Deploying image: ${BDX_IMAGE}"
             docker compose pull
             # Optional migrations (extra approval input).
             # ALEMBIC_ALLOW_PROD=1 satisfies the prod-DSN guard in alembic/env.py;
@@ -92,5 +101,3 @@ jobs:
             done
             curl -fsS http://127.0.0.1:8085/health/live || (echo "health failed" >&2; exit 1)
             echo "PROD deploy complete. tag=${{ inputs.image_tag }}"
-        env:
-          IMAGE: ghcr.io/${{ github.repository }}/bdx-intelligence
