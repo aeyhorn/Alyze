@@ -1,0 +1,18 @@
+# BDX Intelligence – Anforderungen
+
+Eingang für neue Anforderungen. Desktop und Cloud (einschließlich mobiler Cloud Agents) hängen Zeilen nur an. Bestehende Zeilen bleiben stehen; geliefert wird über die Spalte `Status`.
+
+Offene Punkte, die schon in `docs/PROJECT_GOALS.md` stehen, werden hier nicht wiederholt.
+
+| ID | Quelle | Aufgenommen | Ziel | Status | Text |
+|---|---|---|---|---|---|
+
+Quellen: `desktop` oder `cloud`. Status: `open`, `in-progress`, `done`.
+
+Nächste freie ID: `R001`.
+
+Abgleich 2026-11-08 17:17 (CET): keine Anforderungszeilen. `origin/main` `2796032` hat Quote-to-Promise gemergt, ohne eine Zeile hier. Nächste ID bleibt `R001`. Zeilen nicht löschen und nicht umnummerieren.
+
+Abgleich 2026-11-08 17:22 (CET): weiterhin keine Anforderungszeilen. `origin/main` `283ee4b` hat die KPI-Engine (PR #5) gemergt, ohne eine Zeile hier. Quote-to-Promise bleibt ohne Zeile. Nächste ID bleibt `R001`. Kein neues Ziel angelegt.
+
+Abgleich 2026-11-08 20:45 (CET): weiterhin keine Anforderungszeilen. `origin/main` `0de31a7` hat die bdx-quoter-Verdrahtung (PR #39) gemergt, ohne eine Zeile hier. Quote-to-Promise und die KPI-Engine bleiben ohne Zeile. Nächste ID bleibt `R001`. Kein neues Ziel angelegt. Der DEV-Deploy dieses Commits ist an der doppelten Alembic-Revision `005` gescheitert; das ändert die Anforderungsliste nicht.
