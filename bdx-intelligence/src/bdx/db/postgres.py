@@ -1,4 +1,5 @@
 """PostgreSQL connection and session factory for the BDX event store."""
+
 from __future__ import annotations
 
 import structlog
@@ -12,7 +13,7 @@ class Base(DeclarativeBase):
     """Shared declarative base for all ORM models."""
 
 
-def create_pg_engine(dsn: str):  # noqa: ANN201
+def create_pg_engine(dsn: str):
     """Create a SQLAlchemy engine for the local PostgreSQL event store."""
     is_sqlite = dsn.startswith("sqlite")
     kwargs: dict = {"pool_pre_ping": True, "echo": False}
@@ -24,11 +25,12 @@ def create_pg_engine(dsn: str):  # noqa: ANN201
     return engine
 
 
-def make_session_factory(engine) -> sessionmaker[Session]:  # noqa: ANN001
+def make_session_factory(engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def _redact_dsn(dsn: str) -> str:
     """Remove password from DSN string for safe logging."""
     import re
+
     return re.sub(r"://([^:]+):([^@]+)@", r"://\1:***@", dsn)

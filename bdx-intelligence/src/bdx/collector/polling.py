@@ -11,12 +11,13 @@ SAP cycle (``run_once``)
 
 Machine cycle (``run_machine_cycle``) runs on its own, shorter interval.
 """
+
 from __future__ import annotations
 
 import signal
 import time
-from datetime import date, datetime, timedelta, timezone
-from typing import Callable
+from collections.abc import Callable
+from datetime import UTC, date, datetime, timedelta
 
 import structlog
 from tenacity import (
@@ -52,13 +53,13 @@ _SHUTDOWN = False
 _CYCLE_COUNTER = 0
 
 
-def _handle_signal(signum: int, frame) -> None:  # noqa: ANN001
+def _handle_signal(signum: int, frame) -> None:
     global _SHUTDOWN
     logger.info("collector.shutdown_requested", signal=signum)
     _SHUTDOWN = True
 
 
-def _state_to_dict(row) -> dict:  # noqa: ANN001
+def _state_to_dict(row) -> dict:
     """Convert an OrderState ORM row to the plain dict used by detect_changes."""
     return {
         "status": row.status,
@@ -68,26 +69,32 @@ def _state_to_dict(row) -> dict:  # noqa: ANN001
     }
 
 
-def _decide_mode(session, settings: CollectorSettings | None, force_full: bool) -> tuple[str, date | None]:  # noqa: ANN001
+def _decide_mode(
+    session, settings: CollectorSettings | None, force_full: bool
+) -> tuple[str, date | None]:
     global _CYCLE_COUNTER
     _CYCLE_COUNTER += 1
     if force_full or state_is_empty(session):
         return "full", None
-    if settings and settings.full_reload_every_cycles and _CYCLE_COUNTER % settings.full_reload_every_cycles == 0:
+    if (
+        settings
+        and settings.full_reload_every_cycles
+        and _CYCLE_COUNTER % settings.full_reload_every_cycles == 0
+    ):
         return "full", None
     lookback = settings.incremental_lookback_days if settings else 2
     newest = max_sap_update_date(session)
-    base = date.fromisoformat(newest) if newest else datetime.now(timezone.utc).date()
-    since = min(base, datetime.now(timezone.utc).date()) - timedelta(days=lookback)
+    base = date.fromisoformat(newest) if newest else datetime.now(UTC).date()
+    since = min(base, datetime.now(UTC).date()) - timedelta(days=lookback)
     return "incremental", since
 
 
 def run_once(
-    sap_engine,  # noqa: ANN001
-    pg_session_factory,  # noqa: ANN001
+    sap_engine,
+    pg_session_factory,
     settings: CollectorSettings | None = None,
     force_full: bool = False,
-    publisher=None,  # noqa: ANN001
+    publisher=None,
 ) -> tuple[list[WorkOrder], list[DomainEvent]]:
     """Execute a single SAP collector cycle: read → compare → persist → publish.
 
@@ -123,7 +130,11 @@ def run_once(
 
             logger.info("sap.read.complete", mode=mode, order_count=len(orders))
 
-            previous = load_state(session, [wo.source_key for wo in orders]) if mode == "incremental" else load_state(session)
+            previous = (
+                load_state(session, [wo.source_key for wo in orders])
+                if mode == "incremental"
+                else load_state(session)
+            )
             prev_as_dicts = {k: _state_to_dict(v) for k, v in previous.items()}
 
             events = detect_changes(prev_as_dicts, orders, run_id=run_id)
@@ -138,17 +149,17 @@ def run_once(
     if publisher is not None and new_events:
         try:
             publisher.publish(new_events)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("publish.failed", error=str(exc))
 
     return orders, new_events
 
 
 def build_retry_run_once(
-    sap_engine,  # noqa: ANN001
-    pg_session_factory,  # noqa: ANN001
+    sap_engine,
+    pg_session_factory,
     settings: CollectorSettings,
-    publisher=None,  # noqa: ANN001
+    publisher=None,
 ) -> Callable:
     """Wrap run_once with tenacity retry logic."""
 
@@ -168,12 +179,12 @@ def build_retry_run_once(
 
 
 def run_polling_loop(
-    sap_engine,  # noqa: ANN001
-    pg_session_factory,  # noqa: ANN001
+    sap_engine,
+    pg_session_factory,
     settings: CollectorSettings,
-    machine_adapter=None,  # noqa: ANN001
+    machine_adapter=None,
     machine_settings: MachineSettings | None = None,
-    publisher=None,  # noqa: ANN001
+    publisher=None,
 ) -> None:
     """Block and poll SAP (and the machine feed) until SIGTERM/SIGINT."""
     global _SHUTDOWN
@@ -185,7 +196,11 @@ def run_polling_loop(
     retried_run = build_retry_run_once(sap_engine, pg_session_factory, settings, publisher)
 
     machine_enabled = machine_adapter is not None and machine_settings is not None
-    machine_interval = machine_settings.poll_interval_seconds if machine_enabled else settings.poll_interval_seconds
+    machine_interval = (
+        machine_settings.poll_interval_seconds
+        if machine_enabled
+        else settings.poll_interval_seconds
+    )
     tick = min(settings.poll_interval_seconds, machine_interval)
 
     logger.info(
@@ -220,7 +235,7 @@ def run_polling_loop(
                     offline_after_seconds=machine_settings.offline_after_seconds,  # type: ignore[union-attr]
                     publisher=publisher,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.error("machine.cycle.failed", error=str(exc))
             next_machine = time.monotonic() + machine_interval
 

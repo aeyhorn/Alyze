@@ -1,7 +1,8 @@
 """Health-check endpoints."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
@@ -45,10 +46,12 @@ def health(
     else:
         checks["publisher"] = "disabled"
 
-    status = "ok" if (pg_ok and collector.get("status") in ("ok", "unknown", "empty")) else "degraded"
+    status = (
+        "ok" if (pg_ok and collector.get("status") in ("ok", "unknown", "empty")) else "degraded"
+    )
     return {
         "status": status,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "checks": checks,
     }
 
@@ -62,6 +65,7 @@ def liveness():
 def _check_postgres(session: Session) -> bool:
     try:
         from sqlalchemy import text
+
         session.execute(text("SELECT 1"))
         return True
     except Exception:
@@ -73,15 +77,17 @@ def _collector_status(session: Session, stale_after: timedelta = timedelta(hours
     try:
         from bdx.models.events import SnapshotRun
 
-        last = session.execute(
-            select(SnapshotRun).order_by(SnapshotRun.started_at.desc()).limit(1)
-        ).scalars().first()
+        last = (
+            session.execute(select(SnapshotRun).order_by(SnapshotRun.started_at.desc()).limit(1))
+            .scalars()
+            .first()
+        )
     except Exception:
         return {"status": "unknown"}
     if last is None:
         return {"status": "empty"}
-    now = datetime.now(timezone.utc)
-    started = last.started_at if last.started_at.tzinfo else last.started_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(UTC)
+    started = last.started_at if last.started_at.tzinfo else last.started_at.replace(tzinfo=UTC)
     stale = now - started > stale_after
     status = "error" if last.error else ("stale" if stale else "ok")
     return {
@@ -96,7 +102,7 @@ def _collector_status(session: Session, stale_after: timedelta = timedelta(hours
     }
 
 
-def _safe(fn) -> bool:  # noqa: ANN001
+def _safe(fn) -> bool:
     try:
         return bool(fn())
     except Exception:

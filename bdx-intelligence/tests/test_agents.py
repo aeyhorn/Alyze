@@ -4,6 +4,7 @@ These tests exercise the agents against a small on-disk fixture project so
 they don't depend on the real bdx-intelligence tree, the dev database, SAP,
 or any external system.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -129,8 +130,10 @@ def test_status_from_findings():
     assert Status.from_findings([Finding("X", "m", severity=Severity.WARNING)]) is Status.WARNED
     assert Status.from_findings([Finding("X", "m", severity=Severity.ERROR)]) is Status.FAILED
     # error wins over warning
-    both = [Finding("X", "m", severity=Severity.WARNING),
-            Finding("Y", "m", severity=Severity.ERROR)]
+    both = [
+        Finding("X", "m", severity=Severity.WARNING),
+        Finding("Y", "m", severity=Severity.ERROR),
+    ]
     assert Status.from_findings(both) is Status.FAILED
 
 
@@ -316,18 +319,16 @@ def test_runner_crash_is_caught(tmp_path: Path):
             raise RuntimeError("kaboom")
 
     report = RunnerReport()
-    AgentRunner(RunnerConfig(root=tmp_path, run_docs=False, run_tests=False, run_quality=False))._timed(
-        report, BoomAgent()
-    )
+    AgentRunner(
+        RunnerConfig(root=tmp_path, run_docs=False, run_tests=False, run_quality=False)
+    )._timed(report, BoomAgent())
     assert report.results[0].agent == "boom"
     assert report.results[0].error_count == 1
     assert report.status is Status.FAILED
 
 
 def test_runner_report_json_serialisable(sample_project: Path):
-    cfg = RunnerConfig(
-        root=sample_project, run_tests=False, enable_mypy=False, enable_ruff=False
-    )
+    cfg = RunnerConfig(root=sample_project, run_tests=False, enable_mypy=False, enable_ruff=False)
     report = AgentRunner(cfg).run()
     data = report.to_dict()
     assert data["status"] in ("passed", "warned", "failed")

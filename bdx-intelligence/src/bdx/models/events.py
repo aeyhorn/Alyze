@@ -1,10 +1,11 @@
 """Domain event models and ORM table definitions."""
+
 from __future__ import annotations
 
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import JSON, DateTime, Float, Integer, Numeric, String, Text
@@ -45,6 +46,7 @@ MACHINE_EVENT_TYPES = frozenset(set(EventType) - ORDER_EVENT_TYPES)
 
 # ── ORM models (PostgreSQL tables) ───────────────────────────────────────────
 
+
 class _OrderColumns:
     """Columns shared by order_state (current) and order_snapshots (history)."""
 
@@ -56,13 +58,13 @@ class _OrderColumns:
     planned_qty: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
     completed_qty: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
     rejected_qty: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
-    due_date: Mapped[Optional[str]] = mapped_column(String(10))
-    start_date: Mapped[Optional[str]] = mapped_column(String(10))
-    u_type: Mapped[Optional[str]] = mapped_column(String(50))
-    u_priority: Mapped[Optional[str]] = mapped_column(String(50))
-    comments: Mapped[Optional[str]] = mapped_column(Text)
-    sap_update_date: Mapped[Optional[str]] = mapped_column(String(10))
-    sap_update_ts: Mapped[Optional[int]] = mapped_column(Integer)
+    due_date: Mapped[str | None] = mapped_column(String(10))
+    start_date: Mapped[str | None] = mapped_column(String(10))
+    u_type: Mapped[str | None] = mapped_column(String(50))
+    u_priority: Mapped[str | None] = mapped_column(String(50))
+    comments: Mapped[str | None] = mapped_column(Text)
+    sap_update_date: Mapped[str | None] = mapped_column(String(10))
+    sap_update_ts: Mapped[int | None] = mapped_column(Integer)
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     snapshot_run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 
@@ -94,13 +96,13 @@ class SnapshotRun(Base):
 
     run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     mode: Mapped[str] = mapped_column(String(16), nullable=False)  # full | incremental
     orders_read: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     orders_changed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     events_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    since_date: Mapped[Optional[str]] = mapped_column(String(10))
-    error: Mapped[Optional[str]] = mapped_column(Text)
+    since_date: Mapped[str | None] = mapped_column(String(10))
+    error: Mapped[str | None] = mapped_column(Text)
 
 
 class MachineState(Base):
@@ -111,28 +113,30 @@ class MachineState(Base):
     machine_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     online: Mapped[bool] = mapped_column(nullable=False, default=True)
     mde_enabled: Mapped[bool] = mapped_column(nullable=False, default=True)
-    exec_state: Mapped[Optional[str]] = mapped_column(String(32))     # XMSK Exec: AUS / Bereit / ...
-    state: Mapped[Optional[str]] = mapped_column(String(32))          # XMSK State: Fertigen / Auftrag / Ruesten ...
-    mode: Mapped[Optional[str]] = mapped_column(String(16))           # MEM / RAPID / 0 ...
-    order_ref: Mapped[Optional[str]] = mapped_column(String(64))      # raw XMSK Order string
-    operation: Mapped[Optional[str]] = mapped_column(String(64))
-    part: Mapped[Optional[str]] = mapped_column(String(64))
-    nc_program: Mapped[Optional[str]] = mapped_column(String(64))
-    pieces: Mapped[Optional[int]] = mapped_column(Integer)
-    pieces_raw: Mapped[Optional[str]] = mapped_column(String(32))
-    operator: Mapped[Optional[str]] = mapped_column(String(64))
-    feed_override: Mapped[Optional[int]] = mapped_column(Integer)
-    spindle_override: Mapped[Optional[int]] = mapped_column(Integer)
-    rapid_override: Mapped[Optional[int]] = mapped_column(Integer)
-    load_spindle: Mapped[Optional[float]] = mapped_column(Float)
-    load_axis_1: Mapped[Optional[float]] = mapped_column(Float)
-    load_axis_2: Mapped[Optional[float]] = mapped_column(Float)
-    last_message: Mapped[Optional[str]] = mapped_column(Text)
-    last_prod_end: Mapped[Optional[str]] = mapped_column(String(32))
+    exec_state: Mapped[str | None] = mapped_column(String(32))  # XMSK Exec: AUS / Bereit / ...
+    state: Mapped[str | None] = mapped_column(
+        String(32)
+    )  # XMSK State: Fertigen / Auftrag / Ruesten ...
+    mode: Mapped[str | None] = mapped_column(String(16))  # MEM / RAPID / 0 ...
+    order_ref: Mapped[str | None] = mapped_column(String(64))  # raw XMSK Order string
+    operation: Mapped[str | None] = mapped_column(String(64))
+    part: Mapped[str | None] = mapped_column(String(64))
+    nc_program: Mapped[str | None] = mapped_column(String(64))
+    pieces: Mapped[int | None] = mapped_column(Integer)
+    pieces_raw: Mapped[str | None] = mapped_column(String(32))
+    operator: Mapped[str | None] = mapped_column(String(64))
+    feed_override: Mapped[int | None] = mapped_column(Integer)
+    spindle_override: Mapped[int | None] = mapped_column(Integer)
+    rapid_override: Mapped[int | None] = mapped_column(Integer)
+    load_spindle: Mapped[float | None] = mapped_column(Float)
+    load_axis_1: Mapped[float | None] = mapped_column(Float)
+    load_axis_2: Mapped[float | None] = mapped_column(Float)
+    last_message: Mapped[str | None] = mapped_column(Text)
+    last_prod_end: Mapped[str | None] = mapped_column(String(32))
     # Link to SAP (resolved via order_state.doc_num when order_ref is numeric)
-    sap_doc_entry: Mapped[Optional[int]] = mapped_column(Integer)
-    sap_item_code: Mapped[Optional[str]] = mapped_column(String(50))
-    source_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    sap_doc_entry: Mapped[int | None] = mapped_column(Integer)
+    sap_item_code: Mapped[str | None] = mapped_column(String(50))
+    source_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -144,30 +148,33 @@ class DomainEvent(Base):
     __tablename__ = "domain_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    event_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, default=lambda: str(uuid.uuid4()))
+    event_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True, default=lambda: str(uuid.uuid4())
+    )
     event_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     source_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     # Order link – nullable for machine events without a resolvable SAP order
-    doc_entry: Mapped[Optional[int]] = mapped_column(Integer)
-    doc_num: Mapped[Optional[int]] = mapped_column(Integer)
-    item_code: Mapped[Optional[str]] = mapped_column(String(50))
-    machine_id: Mapped[Optional[str]] = mapped_column(String(64), index=True)
-    payload: Mapped[Optional[dict]] = mapped_column(JSON)
+    doc_entry: Mapped[int | None] = mapped_column(Integer)
+    doc_num: Mapped[int | None] = mapped_column(Integer)
+    item_code: Mapped[str | None] = mapped_column(String(50))
+    machine_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    payload: Mapped[dict | None] = mapped_column(JSON)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     snapshot_run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 
 
 # ── Pydantic DTOs ─────────────────────────────────────────────────────────────
 
+
 class DomainEventDTO(BaseModel):
     event_id: str
     event_type: EventType
     source_key: str
-    doc_entry: Optional[int] = None
-    doc_num: Optional[int] = None
-    item_code: Optional[str] = None
-    machine_id: Optional[str] = None
-    payload: Optional[dict[str, Any]] = None
+    doc_entry: int | None = None
+    doc_num: int | None = None
+    item_code: str | None = None
+    machine_id: str | None = None
+    payload: dict[str, Any] | None = None
     occurred_at: datetime
     snapshot_run_id: str
 
@@ -175,6 +182,7 @@ class DomainEventDTO(BaseModel):
 
 
 # ── Service Layer write-back audit log ────────────────────────────────────────
+
 
 class SLOperation(Base):
     """Audit trail for every Service Layer write attempt (success or failure).
@@ -187,18 +195,20 @@ class SLOperation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     operation_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     operation: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     mode: Mapped[str] = mapped_column(String(8), nullable=False)
     company_db: Mapped[str] = mapped_column(String(64), nullable=False)
-    doc_entry: Mapped[Optional[int]] = mapped_column(Integer, index=True)
-    doc_num: Mapped[Optional[int]] = mapped_column(Integer)
-    payload: Mapped[Optional[dict]] = mapped_column(JSON)
+    doc_entry: Mapped[int | None] = mapped_column(Integer, index=True)
+    doc_num: Mapped[int | None] = mapped_column(Integer)
+    payload: Mapped[dict | None] = mapped_column(JSON)
     dry_run: Mapped[bool] = mapped_column(nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)  # success | failed | dry_run
-    http_status: Mapped[Optional[int]] = mapped_column(Integer)
-    error: Mapped[Optional[str]] = mapped_column(Text)
-    operator: Mapped[Optional[str]] = mapped_column(String(64))
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    operator: Mapped[str | None] = mapped_column(String(64))
 
 
 class SLOperationDTO(BaseModel):
@@ -207,13 +217,13 @@ class SLOperationDTO(BaseModel):
     operation: str
     mode: str
     company_db: str
-    doc_entry: Optional[int] = None
-    doc_num: Optional[int] = None
-    payload: Optional[dict[str, Any]] = None
+    doc_entry: int | None = None
+    doc_num: int | None = None
+    payload: dict[str, Any] | None = None
     dry_run: bool
     status: str
-    http_status: Optional[int] = None
-    error: Optional[str] = None
-    operator: Optional[str] = None
+    http_status: int | None = None
+    error: str | None = None
+    operator: str | None = None
 
     model_config = {"from_attributes": True}

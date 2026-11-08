@@ -16,14 +16,14 @@ XML shape (one ``<Device>`` per machine)::
       </Devices>
     </XMSK>
 """
+
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import structlog
 
@@ -37,33 +37,33 @@ class MachineStatus:
     machine_id: str
     timestamp: datetime
     state: str  # normalised: running | idle | setup | off | unknown
-    program_name: Optional[str] = None
-    spindle_rpm: Optional[float] = None        # not available from XMSK (override % instead)
-    feed_rate: Optional[float] = None          # not available from XMSK (override % instead)
-    alarm_code: Optional[str] = None
+    program_name: str | None = None
+    spindle_rpm: float | None = None  # not available from XMSK (override % instead)
+    feed_rate: float | None = None  # not available from XMSK (override % instead)
+    alarm_code: str | None = None
     # ── XMSK raw / extended fields ───────────────────────────────────────────
     mde_enabled: bool = True
-    exec_state: Optional[str] = None           # Exec: AUS / Bereit / ...
-    raw_state: Optional[str] = None            # State: Fertigen / Auftrag / Ruesten / ''
-    mode: Optional[str] = None                 # MEM / RAPID / 0
-    order_ref: Optional[str] = None            # Order as reported (may be SAP DocNum)
-    operation: Optional[str] = None
-    part: Optional[str] = None
-    pieces: Optional[int] = None               # first number of "243 / 44"
-    pieces_raw: Optional[str] = None
-    operator: Optional[str] = None
-    feed_override: Optional[int] = None
-    spindle_override: Optional[int] = None
-    rapid_override: Optional[int] = None
-    load_spindle: Optional[float] = None
-    load_axis_1: Optional[float] = None
-    load_axis_2: Optional[float] = None
-    last_message: Optional[str] = None
-    last_prod_end: Optional[str] = None
+    exec_state: str | None = None  # Exec: AUS / Bereit / ...
+    raw_state: str | None = None  # State: Fertigen / Auftrag / Ruesten / ''
+    mode: str | None = None  # MEM / RAPID / 0
+    order_ref: str | None = None  # Order as reported (may be SAP DocNum)
+    operation: str | None = None
+    part: str | None = None
+    pieces: int | None = None  # first number of "243 / 44"
+    pieces_raw: str | None = None
+    operator: str | None = None
+    feed_override: int | None = None
+    spindle_override: int | None = None
+    rapid_override: int | None = None
+    load_spindle: float | None = None
+    load_axis_1: float | None = None
+    load_axis_2: float | None = None
+    last_message: str | None = None
+    last_prod_end: str | None = None
     extra: dict = field(default_factory=dict, compare=False)
 
     @property
-    def sap_doc_num(self) -> Optional[int]:
+    def sap_doc_num(self) -> int | None:
         """Return the order reference as SAP DocNum when it is purely numeric."""
         if self.order_ref and re.fullmatch(r"\d{1,9}", self.order_ref.strip()):
             return int(self.order_ref.strip())
@@ -79,7 +79,7 @@ class MachineAdapter(ABC):
     """
 
     @abstractmethod
-    def get_status(self, machine_id: str) -> Optional[MachineStatus]:
+    def get_status(self, machine_id: str) -> MachineStatus | None:
         """Return current status of the given machine, or None if unreachable."""
         raise NotImplementedError
 
@@ -106,7 +106,7 @@ class MachineAdapter(ABC):
 class NullMachineAdapter(MachineAdapter):
     """No-op implementation used when no machine network is configured."""
 
-    def get_status(self, machine_id: str) -> Optional[MachineStatus]:
+    def get_status(self, machine_id: str) -> MachineStatus | None:
         return None
 
     def list_machines(self) -> list[str]:
@@ -118,7 +118,8 @@ class NullMachineAdapter(MachineAdapter):
 
 # ── XMSK ─────────────────────────────────────────────────────────────────────
 
-def _to_int(v: Optional[str]) -> Optional[int]:
+
+def _to_int(v: str | None) -> int | None:
     if v is None or str(v).strip() == "":
         return None
     try:
@@ -127,7 +128,7 @@ def _to_int(v: Optional[str]) -> Optional[int]:
         return None
 
 
-def _to_float(v: Optional[str]) -> Optional[float]:
+def _to_float(v: str | None) -> float | None:
     if v is None or str(v).strip() == "":
         return None
     try:
@@ -136,7 +137,7 @@ def _to_float(v: Optional[str]) -> Optional[float]:
         return None
 
 
-def _first_int(v: Optional[str]) -> Optional[int]:
+def _first_int(v: str | None) -> int | None:
     """'243 / 44' → 243 ; '0' → 0 ; '' → None."""
     if not v:
         return None
@@ -144,7 +145,7 @@ def _first_int(v: Optional[str]) -> Optional[int]:
     return int(m.group()) if m else None
 
 
-def normalise_state(exec_state: Optional[str], raw_state: Optional[str], mde: bool) -> str:
+def normalise_state(exec_state: str | None, raw_state: str | None, mde: bool) -> str:
     """Map XMSK Exec/State pairs onto a small vocabulary."""
     if not mde:
         return "unknown"
@@ -165,7 +166,7 @@ def normalise_state(exec_state: Optional[str], raw_state: Optional[str], mde: bo
 
 def parse_xmsk(xml_text: str, now: datetime | None = None) -> list[MachineStatus]:
     """Parse a ``machstates`` XML document into MachineStatus objects."""
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     text = xml_text.strip()
     if not text:
         return []
@@ -176,7 +177,7 @@ def parse_xmsk(xml_text: str, now: datetime | None = None) -> list[MachineStatus
         source_ts = datetime.fromisoformat(ts_attr) if ts_attr else now
         if source_ts.tzinfo is None:
             source_ts = source_ts.replace(tzinfo=datetime.now().astimezone().tzinfo)
-        source_ts = source_ts.astimezone(timezone.utc)
+        source_ts = source_ts.astimezone(UTC)
     except ValueError:
         source_ts = now
 
@@ -221,11 +222,13 @@ def parse_xmsk(xml_text: str, now: datetime | None = None) -> list[MachineStatus
 class XmskMachineAdapter(MachineAdapter):
     """Reads all machines from a single XMSK ``machstates`` endpoint."""
 
-    def __init__(self, url: str, timeout: float = 10.0, client=None) -> None:  # noqa: ANN001
+    def __init__(self, url: str, timeout: float = 10.0, client=None) -> None:
         import httpx
 
         self._url = url
-        self._http = client or httpx.Client(timeout=timeout, headers={"Accept": "text/plain, application/xml"})
+        self._http = client or httpx.Client(
+            timeout=timeout, headers={"Accept": "text/plain, application/xml"}
+        )
         self._cache: dict[str, MachineStatus] = {}
 
     def fetch(self) -> list[MachineStatus]:
@@ -240,11 +243,11 @@ class XmskMachineAdapter(MachineAdapter):
     def get_all_status(self) -> list[MachineStatus]:
         try:
             return self.fetch()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("xmsk.fetch_failed", error=str(exc))
             return []
 
-    def get_status(self, machine_id: str) -> Optional[MachineStatus]:
+    def get_status(self, machine_id: str) -> MachineStatus | None:
         if not self._cache:
             self.get_all_status()
         return self._cache.get(machine_id)
@@ -258,6 +261,6 @@ class XmskMachineAdapter(MachineAdapter):
         try:
             self.fetch()
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("xmsk.health_failed", error=str(exc))
             return False

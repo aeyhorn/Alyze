@@ -1,4 +1,5 @@
 """Tests for the SAP collector cycle (full + incremental) with a mocked SAP layer."""
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -17,11 +18,21 @@ from bdx.models.events import DomainEvent, OrderSnapshot, OrderState, SnapshotRu
 
 def _row(doc_entry: int, status: str = "R", planned="100", completed="0", update_date=None) -> dict:
     return {
-        "doc_entry": doc_entry, "doc_num": doc_entry, "status": status, "item_code": "PART-A",
-        "planned_qty": Decimal(planned), "completed_qty": Decimal(completed), "rejected_qty": Decimal("0"),
-        "due_date": date(2026, 12, 1), "start_date": None, "post_date": None,
-        "u_type": None, "u_priority": None, "comments": None,
-        "update_date": update_date, "update_ts": None,
+        "doc_entry": doc_entry,
+        "doc_num": doc_entry,
+        "status": status,
+        "item_code": "PART-A",
+        "planned_qty": Decimal(planned),
+        "completed_qty": Decimal(completed),
+        "rejected_qty": Decimal("0"),
+        "due_date": date(2026, 12, 1),
+        "start_date": None,
+        "post_date": None,
+        "u_type": None,
+        "u_priority": None,
+        "comments": None,
+        "update_date": update_date,
+        "update_ts": None,
     }
 
 
@@ -83,7 +94,12 @@ def test_first_cycle_is_full_then_incremental(sap, factory):
         assert s.execute(select(OrderState)).scalars().all().__len__() == 3
         assert s.execute(select(OrderSnapshot)).scalars().all().__len__() == 3
         run = s.execute(select(SnapshotRun)).scalars().one()
-        assert run.mode == "full" and run.orders_read == 3 and run.events_created == 3 and run.error is None
+        assert (
+            run.mode == "full"
+            and run.orders_read == 3
+            and run.events_created == 3
+            and run.error is None
+        )
 
     # second cycle: incremental, nothing changed → no events, no history rows
     sap.incremental = [_row(1, "R"), _row(2, "P")]
@@ -129,9 +145,9 @@ def test_incremental_detects_release_partial_and_vanished_close(sap, factory):
 def test_full_reload_every_n_cycles_and_force_full(sap, factory):
     sap.full = [_row(1, "R")]
     settings = _settings(full_reload_every_cycles=2)
-    polling.run_once(sap, factory, settings)              # cycle 1: full (empty state)
-    polling.run_once(sap, factory, settings)              # cycle 2: full (every 2)
-    polling.run_once(sap, factory, settings)              # cycle 3: incremental
+    polling.run_once(sap, factory, settings)  # cycle 1: full (empty state)
+    polling.run_once(sap, factory, settings)  # cycle 2: full (every 2)
+    polling.run_once(sap, factory, settings)  # cycle 3: incremental
     polling.run_once(sap, factory, settings, force_full=True)
     modes = [c[0] for c in sap.calls if c[0] != "by_docentries"]
     assert modes == ["full", "full", "incremental", "full"]
@@ -140,6 +156,7 @@ def test_full_reload_every_n_cycles_and_force_full(sap, factory):
 def test_error_is_recorded_in_run(sap, factory):
     def boom(conn):
         raise RuntimeError("sap down")
+
     sap.fetch_all = boom
     polling.fetch_all_orders_snapshot = boom
     with pytest.raises(RuntimeError):

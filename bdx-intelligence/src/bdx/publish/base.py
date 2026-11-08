@@ -1,9 +1,10 @@
 """Publisher interface and helpers."""
+
 from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from typing import Iterable
+from collections.abc import Iterable
 
 import structlog
 

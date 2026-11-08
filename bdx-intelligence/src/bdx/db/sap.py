@@ -1,4 +1,5 @@
 """SAP Business One SQL Server connection factory (read-only, no writes permitted)."""
+
 from __future__ import annotations
 
 import structlog
@@ -19,7 +20,9 @@ def _assert_readonly(statement: str) -> None:
     upper = statement.upper().strip()
     for kw in _FORBIDDEN_KEYWORDS:
         if kw in upper.split():
-            raise PermissionError(f"Write operation '{kw}' is not allowed on the SAP read-only connection.")
+            raise PermissionError(
+                f"Write operation '{kw}' is not allowed on the SAP read-only connection."
+            )
 
 
 def create_sap_engine(settings: SAPSettings) -> Engine:
@@ -45,7 +48,7 @@ def create_sap_engine(settings: SAPSettings) -> Engine:
     )
 
     @event.listens_for(engine, "before_cursor_execute")
-    def _guard_writes(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001
+    def _guard_writes(conn, cursor, statement, parameters, context, executemany):
         _assert_readonly(statement)
         logger.debug("sap.query", statement=statement[:200])
 

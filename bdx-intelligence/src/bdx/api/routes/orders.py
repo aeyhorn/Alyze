@@ -1,8 +1,8 @@
 """REST endpoints for production orders and domain events."""
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -17,10 +17,14 @@ router = APIRouter(tags=["orders"], dependencies=[Depends(require_api_key)])
 
 @router.get("/orders", summary="List current state of production orders")
 def list_orders(
-    status: Optional[str] = Query(None, description="SAP status: P (planned), R (released), L (closed), C (cancelled)"),
-    open_only: bool = Query(True, description="Only open orders (P/R). Ignored when status is given."),
-    item_code: Optional[str] = Query(None),
-    doc_num: Optional[int] = Query(None),
+    status: str | None = Query(
+        None, description="SAP status: P (planned), R (released), L (closed), C (cancelled)"
+    ),
+    open_only: bool = Query(
+        True, description="Only open orders (P/R). Ignored when status is given."
+    ),
+    item_code: str | None = Query(None),
+    doc_num: int | None = Query(None),
     limit: int = Query(1000, ge=1, le=50000),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_pg_session),
@@ -37,7 +41,11 @@ def list_orders(
         q = q.where(OrderState.doc_num == doc_num)
 
     total = session.execute(select(func.count()).select_from(q.subquery())).scalar() or 0
-    rows = session.execute(q.order_by(OrderState.doc_num.desc()).offset(offset).limit(limit)).scalars().all()
+    rows = (
+        session.execute(q.order_by(OrderState.doc_num.desc()).offset(offset).limit(limit))
+        .scalars()
+        .all()
+    )
     latest_ts = session.execute(select(func.max(OrderState.captured_at))).scalar()
     return {
         "snapshot_at": latest_ts.isoformat() if latest_ts else None,
@@ -68,21 +76,33 @@ def get_order(
     doc_entry: int,
     session: Session = Depends(get_pg_session),
 ):
-    row = session.execute(select(OrderState).where(OrderState.doc_entry == doc_entry)).scalars().first()
+    row = (
+        session.execute(select(OrderState).where(OrderState.doc_entry == doc_entry))
+        .scalars()
+        .first()
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="order not found")
-    history = session.execute(
-        select(OrderSnapshot)
-        .where(OrderSnapshot.doc_entry == doc_entry)
-        .order_by(OrderSnapshot.captured_at.desc())
-        .limit(50)
-    ).scalars().all()
-    events = session.execute(
-        select(DomainEvent)
-        .where(DomainEvent.doc_entry == doc_entry)
-        .order_by(DomainEvent.occurred_at.desc())
-        .limit(100)
-    ).scalars().all()
+    history = (
+        session.execute(
+            select(OrderSnapshot)
+            .where(OrderSnapshot.doc_entry == doc_entry)
+            .order_by(OrderSnapshot.captured_at.desc())
+            .limit(50)
+        )
+        .scalars()
+        .all()
+    )
+    events = (
+        session.execute(
+            select(DomainEvent)
+            .where(DomainEvent.doc_entry == doc_entry)
+            .order_by(DomainEvent.occurred_at.desc())
+            .limit(100)
+        )
+        .scalars()
+        .all()
+    )
     return {
         "order": _order_to_dict(row),
         "history": [_order_to_dict(h) for h in history],
@@ -92,11 +112,11 @@ def get_order(
 
 @router.get("/events", summary="List domain events")
 def list_events(
-    event_type: Optional[str] = Query(None, description="e.g. ORDER_CREATED, MACHINE_STATE_CHANGED"),
-    source_key: Optional[str] = Query(None),
-    machine_id: Optional[str] = Query(None),
-    doc_entry: Optional[int] = Query(None),
-    since: Optional[datetime] = Query(None),
+    event_type: str | None = Query(None, description="e.g. ORDER_CREATED, MACHINE_STATE_CHANGED"),
+    source_key: str | None = Query(None),
+    machine_id: str | None = Query(None),
+    doc_entry: int | None = Query(None),
+    since: datetime | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     session: Session = Depends(get_pg_session),
 ):
@@ -125,9 +145,9 @@ def events_summary(
     hours: int = Query(24, ge=1, le=24 * 90),
     session: Session = Depends(get_pg_session),
 ):
-    from datetime import timedelta, timezone
+    from datetime import timedelta
 
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
     recent = session.execute(
         select(DomainEvent.event_type, func.count())
         .where(DomainEvent.occurred_at >= since)
@@ -143,7 +163,7 @@ def events_summary(
     }
 
 
-def _order_to_dict(snap) -> dict:  # noqa: ANN001
+def _order_to_dict(snap) -> dict:
     d = {
         "source_key": snap.source_key,
         "doc_entry": snap.doc_entry,

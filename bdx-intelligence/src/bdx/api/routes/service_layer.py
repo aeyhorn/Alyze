@@ -8,10 +8,10 @@ POST /api/v1/service-layer/orders/{doc_entry}/cancel
 POST /api/v1/service-layer/orders/{doc_entry}/report-production
 GET  /api/v1/service-layer/operations            → audit log
 """
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -26,6 +26,7 @@ router = APIRouter(tags=["service-layer"], dependencies=[Depends(require_api_key
 
 
 # ── Response / request schemas ────────────────────────────────────────────────
+
 
 class ServiceLayerStatus(BaseModel):
     mode: str
@@ -43,14 +44,15 @@ class ModeSwitch(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _get_client(request: Request):  # noqa: ANN201
+
+def _get_client(request: Request):
     client = getattr(request.app.state, "sl_client", None)
     if client is None:
         raise HTTPException(503, "Service Layer client not initialised")
     return client
 
 
-def _get_registry(request: Request):  # noqa: ANN201
+def _get_registry(request: Request):
     registry = getattr(request.app.state, "sap_mode_registry", None)
     if registry is None:
         raise HTTPException(503, "SAP mode registry not initialised")
@@ -58,6 +60,7 @@ def _get_registry(request: Request):  # noqa: ANN201
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
 
 @router.get("/service-layer", response_model=ServiceLayerStatus)
 def get_service_layer_status(
@@ -76,7 +79,7 @@ def get_service_layer_status(
         configured=client.configured,
         dry_run=client.dry_run,
         write_enabled=client.write_enabled,
-        session_active=bool(client._cookies),  # noqa: SLF001
+        session_active=bool(client._cookies),
     )
 
 
@@ -107,19 +110,20 @@ def set_service_layer_mode(
 
 # ── Write-back ───────────────────────────────────────────────────────────────
 
+
 class ReportProductionBody(BaseModel):
     completed_quantity: float = Field(..., gt=0)
     warehouse: str = Field(..., min_length=1, max_length=8)
-    batch_number: Optional[str] = None
-    operator: Optional[str] = None
+    batch_number: str | None = None
+    operator: str | None = None
 
 
 class WriteResult(BaseModel):
     operation_id: str
     operation: str
     status: str
-    http_status: Optional[int] = None
-    error: Optional[str] = None
+    http_status: int | None = None
+    error: str | None = None
     dry_run: bool
 
 
@@ -136,8 +140,12 @@ def _run_write(request: Request, session: Session, operation, doc_entry: int) ->
     if res.status == "failed":
         raise HTTPException(status_code=502, detail=res.error or "Service Layer error")
     return WriteResult(
-        operation_id=res.operation_id, operation=res.operation, status=res.status,
-        http_status=res.http_status, error=res.error, dry_run=res.dry_run,
+        operation_id=res.operation_id,
+        operation=res.operation,
+        status=res.status,
+        http_status=res.http_status,
+        error=res.error,
+        dry_run=res.dry_run,
     )
 
 
@@ -171,22 +179,31 @@ def sl_report_production(
 
     client = _get_client(request)
     res = sl_ops.report_production(
-        session, client, doc_entry, body.completed_quantity, body.warehouse,
-        batch_number=body.batch_number, operator=body.operator,
+        session,
+        client,
+        doc_entry,
+        body.completed_quantity,
+        body.warehouse,
+        batch_number=body.batch_number,
+        operator=body.operator,
     )
     if res.status == "failed":
         raise HTTPException(status_code=502, detail=res.error or "Service Layer error")
     return WriteResult(
-        operation_id=res.operation_id, operation=res.operation, status=res.status,
-        http_status=res.http_status, error=res.error, dry_run=res.dry_run,
+        operation_id=res.operation_id,
+        operation=res.operation,
+        status=res.status,
+        http_status=res.http_status,
+        error=res.error,
+        dry_run=res.dry_run,
     )
 
 
 @router.get("/service-layer/operations")
 def sl_operations(
-    operation: Optional[str] = Query(None),
-    doc_entry: Optional[int] = Query(None),
-    status: Optional[str] = Query(None),
+    operation: str | None = Query(None),
+    doc_entry: int | None = Query(None),
+    status: str | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     session: Session = Depends(get_pg_session),
 ):

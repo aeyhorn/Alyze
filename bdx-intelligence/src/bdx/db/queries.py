@@ -3,10 +3,12 @@
 Only SELECT statements are defined here.  All queries are parameterized to
 prevent SQL injection.  Table/column names follow SAP B1 conventions.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
-from typing import Any, Sequence
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -116,6 +118,7 @@ OITM_BY_ITEMCODE_SQL = text(
 
 # ── Query helpers ─────────────────────────────────────────────────────────────
 
+
 def fetch_open_orders(conn: Connection) -> list[dict[str, Any]]:
     """Return all open production orders as a list of dicts."""
     result = conn.execute(OWOR_OPEN_ORDERS_SQL)
@@ -141,7 +144,9 @@ def fetch_order_by_docentry(conn: Connection, doc_entry: int) -> dict[str, Any] 
     return dict(row._mapping) if row else None
 
 
-def fetch_orders_by_docentries(conn: Connection, doc_entries: Sequence[int]) -> list[dict[str, Any]]:
+def fetch_orders_by_docentries(
+    conn: Connection, doc_entries: Sequence[int]
+) -> list[dict[str, Any]]:
     """Return the given orders by DocEntry (chunked, parameterized)."""
     rows: list[dict[str, Any]] = []
     entries = [int(d) for d in doc_entries]

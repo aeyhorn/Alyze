@@ -4,6 +4,7 @@ Produces a single :class:`RunnerReport` that the CLI renders. The runner is
 the only piece the outside world needs to know about; it wires sensible
 defaults for the three agents based on the project root.
 """
+
 from __future__ import annotations
 
 import json
@@ -106,19 +107,23 @@ class AgentRunner:
     def run(self) -> RunnerReport:
         report = RunnerReport()
         if self.cfg.run_docs:
-            self._timed(report, DocumentationAgent(
-                DocumentationConfig(root=self.cfg.root)
-            ))
+            self._timed(report, DocumentationAgent(DocumentationConfig(root=self.cfg.root)))
         if self.cfg.run_tests:
-            self._timed(report, TestAgent(
-                TestConfig(root=self.cfg.root, min_coverage=self.cfg.min_coverage)
-            ))
+            self._timed(
+                report,
+                TestAgent(TestConfig(root=self.cfg.root, min_coverage=self.cfg.min_coverage)),
+            )
         if self.cfg.run_quality:
-            self._timed(report, QualityAgent(
-                QualityConfig(root=self.cfg.root,
-                              enable_mypy=self.cfg.enable_mypy,
-                              enable_ruff=self.cfg.enable_ruff)
-            ))
+            self._timed(
+                report,
+                QualityAgent(
+                    QualityConfig(
+                        root=self.cfg.root,
+                        enable_mypy=self.cfg.enable_mypy,
+                        enable_ruff=self.cfg.enable_ruff,
+                    )
+                ),
+            )
         return report
 
     def _timed(self, report: RunnerReport, agent: Any) -> None:

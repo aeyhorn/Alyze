@@ -3,10 +3,10 @@
 The persisted value overrides the SAP_MODE environment variable.
 Switching mode invalidates the Service Layer session and forces a SQL pool rebuild.
 """
+
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 import structlog
 from sqlalchemy import text
@@ -22,20 +22,23 @@ _lock = threading.Lock()
 
 # ── ORM-less helpers using raw SQL ────────────────────────────────────────────
 
+
 def _ensure_table(session: Session) -> None:
     """Create AppSetting table if it doesn't exist (idempotent)."""
-    session.execute(text(
-        """
+    session.execute(
+        text(
+            """
         CREATE TABLE IF NOT EXISTS app_setting (
             key   VARCHAR(64) PRIMARY KEY,
             value VARCHAR(256) NOT NULL
         )
         """
-    ))
+        )
+    )
     session.commit()
 
 
-def get_persisted_mode(session: Session) -> Optional[SapMode]:
+def get_persisted_mode(session: Session) -> SapMode | None:
     """Return the persisted SAP mode, or None if not set."""
     _ensure_table(session)
     row = session.execute(
@@ -82,7 +85,7 @@ class SapModeRegistry:
         default_mode: SapMode = SapMode.DEV,
     ) -> None:
         self._sl = sl_settings
-        self._active_mode: Optional[SapMode] = None
+        self._active_mode: SapMode | None = None
         self._default_mode = default_mode
 
     def resolve(self, session: Session) -> SapMode:
@@ -106,13 +109,13 @@ class SapModeRegistry:
             self._active_mode = mode
 
     @property
-    def active_mode(self) -> Optional[SapMode]:
+    def active_mode(self) -> SapMode | None:
         return self._active_mode
 
-    def company_db(self, mode: Optional[SapMode] = None) -> str:
+    def company_db(self, mode: SapMode | None = None) -> str:
         m = mode or self._active_mode or self._default_mode
         return self._sl.company_db_for_mode(m)
 
-    def sql_database(self, mode: Optional[SapMode] = None) -> str:
+    def sql_database(self, mode: SapMode | None = None) -> str:
         """Return the MSSQL database name for the given mode."""
         return self.company_db(mode)

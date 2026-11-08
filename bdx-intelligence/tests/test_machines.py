@@ -1,7 +1,8 @@
 """Tests for the XMSK machine adapter and the machine collector."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import select
@@ -58,14 +59,18 @@ class TestParse:
         assert parse_xmsk("") == []
 
     def test_non_numeric_order_not_linked(self):
-        st = MachineStatus(machine_id="x", timestamp=datetime.now(timezone.utc), state="idle", order_ref="AB-12")
+        st = MachineStatus(
+            machine_id="x", timestamp=datetime.now(UTC), state="idle", order_ref="AB-12"
+        )
         assert st.sap_doc_num is None
 
 
 class TestAdapter:
     def _adapter(self, xml: str) -> XmskMachineAdapter:
         transport = httpx.MockTransport(lambda req: httpx.Response(200, text=xml))
-        return XmskMachineAdapter("http://scada/api/machstates", client=httpx.Client(transport=transport))
+        return XmskMachineAdapter(
+            "http://scada/api/machstates", client=httpx.Client(transport=transport)
+        )
 
     def test_fetch_and_cache(self):
         adapter = self._adapter(XML)
@@ -77,19 +82,40 @@ class TestAdapter:
     def test_transport_error_returns_empty(self):
         def boom(req):
             raise httpx.ConnectError("down")
-        adapter = XmskMachineAdapter("http://x", client=httpx.Client(transport=httpx.MockTransport(boom)))
+
+        adapter = XmskMachineAdapter(
+            "http://x", client=httpx.Client(transport=httpx.MockTransport(boom))
+        )
         assert adapter.get_all_status() == []
         assert adapter.health_check() is False
 
 
 def _seed_order(session, doc_entry: int = 38574):
-    now = datetime.now(timezone.utc)
-    session.add(OrderState(
-        source_key=f"OWOR:{doc_entry}", doc_entry=doc_entry, doc_num=doc_entry, status="R", item_code="10886",
-        planned_qty=300, completed_qty=0, rejected_qty=0, due_date=None, start_date=None, u_type=None,
-        u_priority=None, comments=None, sap_update_date=None, sap_update_ts=None, captured_at=now,
-        snapshot_run_id="r", fingerprint="f", first_seen_at=now, last_changed_at=now,
-    ))
+    now = datetime.now(UTC)
+    session.add(
+        OrderState(
+            source_key=f"OWOR:{doc_entry}",
+            doc_entry=doc_entry,
+            doc_num=doc_entry,
+            status="R",
+            item_code="10886",
+            planned_qty=300,
+            completed_qty=0,
+            rejected_qty=0,
+            due_date=None,
+            start_date=None,
+            u_type=None,
+            u_priority=None,
+            comments=None,
+            sap_update_date=None,
+            sap_update_ts=None,
+            captured_at=now,
+            snapshot_run_id="r",
+            fingerprint="f",
+            first_seen_at=now,
+            last_changed_at=now,
+        )
+    )
     session.commit()
 
 
@@ -121,7 +147,9 @@ class TestCollector:
         assert ev[0].payload["delta"] == 2
         session.commit()
 
-        ev = detect_machine_changes(session, parse_xmsk(_xml_with("38574", "12 / 0", state="")), "r3")
+        ev = detect_machine_changes(
+            session, parse_xmsk(_xml_with("38574", "12 / 0", state="")), "r3"
+        )
         assert [e.event_type for e in ev] == [EventType.MACHINE_STATE_CHANGED.value]
         assert ev[0].payload["new_state"] == "idle"
         session.commit()
@@ -134,7 +162,7 @@ class TestCollector:
         assert finished.payload["order_ref"] == "38574" and finished.payload["pieces"] == 12
 
     def test_offline_and_back_online(self, session):
-        t0 = datetime.now(timezone.utc)
+        t0 = datetime.now(UTC)
         detect_machine_changes(session, parse_xmsk(XML), "r1", now=t0)
         session.commit()
         # still within grace period → nothing

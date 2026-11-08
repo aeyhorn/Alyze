@@ -2,6 +2,7 @@
 
 No production credentials must ever appear in this file or anywhere in the repository.
 """
+
 from __future__ import annotations
 
 import enum
@@ -41,19 +42,25 @@ class SAPSettings(BaseSettings):
     )
 
     @model_validator(mode="after")
-    def _credentials_present(self) -> "SAPSettings":
+    def _credentials_present(self) -> SAPSettings:
         if self.trusted_connection != "yes":
             if not self.user:
                 raise ValueError("SAP_DB_USER must be set (or SAP_DB_TRUSTED_CONNECTION=yes)")
             if not self.password:
-                raise ValueError("SAP_DB_PASSWORD must not be empty (or SAP_DB_TRUSTED_CONNECTION=yes)")
+                raise ValueError(
+                    "SAP_DB_PASSWORD must not be empty (or SAP_DB_TRUSTED_CONNECTION=yes)"
+                )
         return self
 
     def odbc_connection_string(self) -> str:
         """Build an ODBC connection string.  TLS is enforced when tls='yes'."""
         encrypt = "yes" if self.tls == "yes" else "no"
         trust_cert = "no" if self.tls_ca_cert else "yes"
-        ca_part = f";TrustServerCertificate=no;ServerCertificate={self.tls_ca_cert}" if self.tls_ca_cert else ""
+        ca_part = (
+            f";TrustServerCertificate=no;ServerCertificate={self.tls_ca_cert}"
+            if self.tls_ca_cert
+            else ""
+        )
         if self.trusted_connection == "yes":
             auth_part = "Trusted_Connection=yes;"
         else:
@@ -73,6 +80,7 @@ class SAPSettings(BaseSettings):
     def sqlalchemy_url(self) -> str:
         """Return a SQLAlchemy connection URL using pyodbc."""
         from urllib.parse import quote_plus
+
         cs = quote_plus(self.odbc_connection_string())
         return f"mssql+pyodbc:///?odbc_connect={cs}"
 
@@ -80,9 +88,7 @@ class SAPSettings(BaseSettings):
 class PostgresSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False)
 
-    postgres_dsn: str = Field(
-        "postgresql+psycopg2://bdx:bdx_local@localhost:5432/bdx_intelligence"
-    )
+    postgres_dsn: str = Field("postgresql+psycopg2://bdx:bdx_local@localhost:5432/bdx_intelligence")
     # Separate event store for PROD mode (empty = reuse postgres_dsn for both modes)
     postgres_dsn_prod: str = Field("")
 
@@ -181,7 +187,9 @@ class KafkaSettings(BaseSettings):
     topic: str = Field("bdx-intelligence-events")
     username: str = Field("")
     password: str = Field("")
-    security_protocol: str = Field("PLAINTEXT", pattern=r"^(PLAINTEXT|SASL_PLAINTEXT|SASL_SSL|SSL)$")
+    security_protocol: str = Field(
+        "PLAINTEXT", pattern=r"^(PLAINTEXT|SASL_PLAINTEXT|SASL_SSL|SSL)$"
+    )
     sasl_mechanism: str = Field("PLAIN", pattern=r"^(PLAIN|SCRAM-SHA-256|SCRAM-SHA-512)$")
     client_id: str = Field("bdx-intelligence")
     # Round-up acks: 0 = fire-and-forget, 1 = leader, -1 = all ISR (default)
@@ -272,7 +280,7 @@ class ServiceLayerSettings(BaseSettings):
     def timeout_seconds(self) -> float:
         return self.timeout_ms / 1000.0
 
-    def company_db_for_mode(self, mode: "SapMode") -> str:
+    def company_db_for_mode(self, mode: SapMode) -> str:
         """Return the correct company DB for the given mode."""
         if mode == SapMode.DEV:
             return self.company_db_dev or self.company_db

@@ -1,9 +1,9 @@
 """Pydantic models representing SAP Business One entities (read-only DTOs)."""
+
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -33,14 +33,14 @@ class WorkOrder(BaseModel):
     planned_qty: Decimal
     completed_qty: Decimal
     rejected_qty: Decimal
-    due_date: Optional[date]
-    start_date: Optional[date]
-    post_date: Optional[date]
-    u_type: Optional[str] = None
-    u_priority: Optional[str] = None
-    comments: Optional[str] = None
-    update_date: Optional[date] = None
-    update_ts: Optional[int] = None
+    due_date: date | None
+    start_date: date | None
+    post_date: date | None
+    u_type: str | None = None
+    u_priority: str | None = None
+    comments: str | None = None
+    update_date: date | None = None
+    update_ts: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -87,9 +87,9 @@ class ItemMaster(BaseModel):
 
     item_code: str
     item_name: str
-    item_group_code: Optional[int] = None
-    inventory_item: Optional[str] = None
-    mrp_item: Optional[str] = None
-    machine_id: Optional[str] = None
+    item_group_code: int | None = None
+    inventory_item: str | None = None
+    mrp_item: str | None = None
+    machine_id: str | None = None
 
     model_config = {"from_attributes": True}

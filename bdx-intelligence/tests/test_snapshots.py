@@ -1,10 +1,9 @@
 """Tests for snapshot persistence and retrieval."""
+
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-
-import pytest
 
 from bdx.collector.snapshots import load_latest_snapshot, save_snapshot
 from bdx.models.sap import WorkOrder

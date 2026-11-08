@@ -6,6 +6,7 @@ smells that the linters do not flag by default. The agent never imports the
 runtime package, so it works in a clean CI image with only the dev extras
 installed.
 """
+
 from __future__ import annotations
 
 import ast
@@ -63,8 +64,16 @@ class QualityAgent:
 
     # ── ruff ───────────────────────────────────────────────────────────────
     def _run_ruff(self, result: CheckResult) -> None:
-        cmd = [sys.executable, "-m", "ruff", "check", "--output-format=json",
-               "src/bdx", "tests", *self.cfg.ruff_args]
+        cmd = [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--output-format=json",
+            "src/bdx",
+            "tests",
+            *self.cfg.ruff_args,
+        ]
         try:
             completed = subprocess.run(
                 cmd, cwd=str(self.cfg.root), capture_output=True, text=True, timeout=180
@@ -147,9 +156,13 @@ class QualityAgent:
                 continue
             level = m.group("level")
             counts[level] = counts.get(level, 0) + 1
-            sev = {"error": Severity.ERROR, "warning": Severity.WARNING, "note": Severity.INFO}[level]
+            sev = {"error": Severity.ERROR, "warning": Severity.WARNING, "note": Severity.INFO}[
+                level
+            ]
             code = f"MYPY.{m.group('code') or 'ISSUE'}"
-            result.add(code, m.group("msg"), location=f"{m.group('file')}:{m.group('line')}", severity=sev)
+            result.add(
+                code, m.group("msg"), location=f"{m.group('file')}:{m.group('line')}", severity=sev
+            )
         result.summary = (
             f"mypy: {counts['error']} error, {counts['warning']} warning, {counts['note']} note"
         )
@@ -197,10 +210,7 @@ class QualityAgent:
                 if not isinstance(node, ast.ExceptHandler):
                     continue
                 body = node.body
-                if (
-                    len(body) == 1
-                    and isinstance(body[0], ast.Pass)
-                ):
+                if len(body) == 1 and isinstance(body[0], ast.Pass):
                     result.add(
                         "SMELL.EMPTY_EXCEPT",
                         f"empty except (line {node.lineno}) swallows errors",

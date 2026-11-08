@@ -6,6 +6,7 @@ mypy) so they can be used as an independent pre-merge / CI check against the
 state of development. None of them require a database, SAP, or any external
 system.
 """
+
 from __future__ import annotations
 
 from bdx.agents.base import CheckResult, Finding, Severity, Status

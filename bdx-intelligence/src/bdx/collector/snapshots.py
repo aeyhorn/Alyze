@@ -9,12 +9,13 @@ Two tables work together:
                         all orders per cycle)
 * ``snapshot_runs``   – bookkeeping, one row per collector cycle
 """
+
 from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import select, update
@@ -54,10 +55,11 @@ def _order_columns(wo: WorkOrder, captured_at: datetime, run_id: str) -> dict:
 
 # ── Runs ─────────────────────────────────────────────────────────────────────
 
+
 def start_run(session: Session, mode: str, since_date: str | None = None) -> SnapshotRun:
     run = SnapshotRun(
         run_id=str(uuid.uuid4()),
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
         mode=mode,
         since_date=since_date,
     )
@@ -74,7 +76,7 @@ def finish_run(
     events_created: int,
     error: str | None = None,
 ) -> None:
-    run.finished_at = datetime.now(timezone.utc)
+    run.finished_at = datetime.now(UTC)
     run.orders_read = orders_read
     run.orders_changed = orders_changed
     run.events_created = events_created
@@ -84,6 +86,7 @@ def finish_run(
 
 
 # ── State ────────────────────────────────────────────────────────────────────
+
 
 def load_state(session: Session, source_keys: Iterable[str] | None = None) -> dict[str, OrderState]:
     """Return current order state as {source_key: OrderState}.
@@ -98,7 +101,11 @@ def load_state(session: Session, source_keys: Iterable[str] | None = None) -> di
     result: dict[str, OrderState] = {}
     for i in range(0, len(keys), 1000):
         chunk = keys[i : i + 1000]
-        rows = session.execute(select(OrderState).where(OrderState.source_key.in_(chunk))).scalars().all()
+        rows = (
+            session.execute(select(OrderState).where(OrderState.source_key.in_(chunk)))
+            .scalars()
+            .all()
+        )
         result.update({r.source_key: r for r in rows})
     return result
 
@@ -107,7 +114,11 @@ def load_open_state(session: Session) -> dict[str, OrderState]:
     """Return all orders that BDX currently believes to be open (P/R)."""
     from bdx.models.sap import OPEN_STATUSES
 
-    rows = session.execute(select(OrderState).where(OrderState.status.in_(list(OPEN_STATUSES)))).scalars().all()
+    rows = (
+        session.execute(select(OrderState).where(OrderState.status.in_(list(OPEN_STATUSES))))
+        .scalars()
+        .all()
+    )
     return {r.source_key: r for r in rows}
 
 
@@ -132,8 +143,10 @@ def apply_orders(
 
     Returns the number of orders that were new or changed.
     """
-    captured_at = captured_at or datetime.now(timezone.utc)
-    previous = previous if previous is not None else load_state(session, [wo.source_key for wo in orders])
+    captured_at = captured_at or datetime.now(UTC)
+    previous = (
+        previous if previous is not None else load_state(session, [wo.source_key for wo in orders])
+    )
 
     changed = 0
     history: list[OrderSnapshot] = []
@@ -144,7 +157,9 @@ def apply_orders(
         prev = previous.get(wo.source_key)
         if prev is None:
             session.add(
-                OrderState(**cols, fingerprint=fp, first_seen_at=captured_at, last_changed_at=captured_at)
+                OrderState(
+                    **cols, fingerprint=fp, first_seen_at=captured_at, last_changed_at=captured_at
+                )
             )
             history.append(OrderSnapshot(**cols))
             changed += 1
@@ -179,6 +194,7 @@ def apply_orders(
 
 # ── Backwards-compatible helpers (used by tests / older callers) ─────────────
 
+
 def save_snapshot(session: Session, orders: Sequence[WorkOrder], run_id: str | None = None) -> str:
     """Apply *orders* to the state tables and return the run_id."""
     run_id = run_id or str(uuid.uuid4())
@@ -193,5 +209,9 @@ def load_latest_snapshot(session: Session) -> dict[str, OrderState]:
 
 def load_snapshot_by_run_id(session: Session, run_id: str) -> dict[str, OrderSnapshot]:
     """Load the history rows written by a specific run."""
-    rows = session.execute(select(OrderSnapshot).where(OrderSnapshot.snapshot_run_id == run_id)).scalars().all()
+    rows = (
+        session.execute(select(OrderSnapshot).where(OrderSnapshot.snapshot_run_id == run_id))
+        .scalars()
+        .all()
+    )
     return {row.source_key: row for row in rows}

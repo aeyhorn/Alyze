@@ -5,6 +5,7 @@ it walks the source tree with :mod:`ast` and reads the markdown docs as plain
 text. That keeps it independent from the development environment and safe to
 run in CI without secrets.
 """
+
 from __future__ import annotations
 
 import ast
@@ -60,8 +61,7 @@ class DocumentationAgent:
         self._check_api_routes_documented(result)
         self._check_config_documented(result)
         result.summary = (
-            f"scanned {self._scanned_files} source files, "
-            f"{self._public_symbols} public symbols"
+            f"scanned {self._scanned_files} source files, {self._public_symbols} public symbols"
         )
         return result
 

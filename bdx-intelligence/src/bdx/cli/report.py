@@ -11,16 +11,18 @@ Usage examples
   bdx-collect collect --once   – single SAP cycle (use --full to force a full reload)
   bdx-collect machines --live  – one machine cycle against the XMSK feed
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-app = typer.Typer(name="bdx-collect", help="BDX Intelligence CLI – SAP B1 collector and reporting tool.")
+app = typer.Typer(
+    name="bdx-collect", help="BDX Intelligence CLI – SAP B1 collector and reporting tool."
+)
 console = Console()
 err_console = Console(stderr=True)
 
@@ -51,9 +53,11 @@ def _session_or_exit():
 
 @app.command("report")
 def report_orders(
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by SAP status (P, R, L, C)"),
+    status: str | None = typer.Option(
+        None, "--status", "-s", help="Filter by SAP status (P, R, L, C)"
+    ),
     all_orders: bool = typer.Option(False, "--all", "-a", help="Include closed/cancelled orders"),
-    item_code: Optional[str] = typer.Option(None, "--item", "-i", help="Filter by item code"),
+    item_code: str | None = typer.Option(None, "--item", "-i", help="Filter by item code"),
     limit: int = typer.Option(50, "--limit", "-n", help="Max rows to display"),
 ):
     """Print a table of production orders from the current state table (open by default)."""
@@ -68,7 +72,9 @@ def report_orders(
 
     latest_ts = session.execute(select(func.max(OrderState.captured_at))).scalar()
     if latest_ts is None:
-        console.print("[yellow]No order state found. Run 'bdx-collect collect --once' first.[/yellow]")
+        console.print(
+            "[yellow]No order state found. Run 'bdx-collect collect --once' first.[/yellow]"
+        )
         raise typer.Exit(0)
 
     q = select(OrderState)
@@ -81,10 +87,22 @@ def report_orders(
     total = session.execute(select(func.count()).select_from(q.subquery())).scalar()
     rows = session.execute(q.order_by(OrderState.doc_num.desc()).limit(limit)).scalars().all()
 
-    console.print(f"\n[bold]State as of:[/bold] {latest_ts.isoformat()}  |  [bold]Orders:[/bold] {total} (showing {len(rows)})\n")
+    console.print(
+        f"\n[bold]State as of:[/bold] {latest_ts.isoformat()}  |  [bold]Orders:[/bold] {total} (showing {len(rows)})\n"
+    )
 
     table = Table(show_header=True, header_style="bold cyan")
-    for col in ["DocEntry", "DocNum", "Status", "ItemCode", "PlannedQty", "CmpltQty", "DueDate", "SAP-Upd", "Changed"]:
+    for col in [
+        "DocEntry",
+        "DocNum",
+        "Status",
+        "ItemCode",
+        "PlannedQty",
+        "CmpltQty",
+        "DueDate",
+        "SAP-Upd",
+        "Changed",
+    ]:
         table.add_column(col)
 
     for r in rows:
@@ -107,9 +125,11 @@ def report_orders(
 
 @app.command("events")
 def report_events(
-    event_type: Optional[str] = typer.Option(None, "--type", "-t", help="e.g. ORDER_CREATED, MACHINE_STATE_CHANGED"),
-    source_key: Optional[str] = typer.Option(None, "--key", "-k"),
-    machine_id: Optional[str] = typer.Option(None, "--machine", "-m"),
+    event_type: str | None = typer.Option(
+        None, "--type", "-t", help="e.g. ORDER_CREATED, MACHINE_STATE_CHANGED"
+    ),
+    source_key: str | None = typer.Option(None, "--key", "-k"),
+    machine_id: str | None = typer.Option(None, "--machine", "-m"),
     limit: int = typer.Option(50, "--limit", "-n"),
 ):
     """Print recent domain events."""
@@ -170,7 +190,9 @@ def report_events(
 
 @app.command("machines")
 def report_machines(
-    live: bool = typer.Option(False, "--live", help="Run one machine cycle against the XMSK feed first"),
+    live: bool = typer.Option(
+        False, "--live", help="Run one machine cycle against the XMSK feed first"
+    ),
 ):
     """Print the current machine state (optionally refreshing it from the feed)."""
     from sqlalchemy import select
@@ -190,8 +212,12 @@ def report_machines(
         if not m_cfg.configured:
             err_console.print("[red]MACHINE_ENABLED/MACHINE_XMSK_URL not configured[/red]")
             raise typer.Exit(1)
-        statuses, events = run_machine_cycle(build_machine_adapter(m_cfg), factory, m_cfg.offline_after_seconds)
-        console.print(f"[green]Machine cycle:[/green] {len(statuses)} machines, {len(events)} events")
+        statuses, events = run_machine_cycle(
+            build_machine_adapter(m_cfg), factory, m_cfg.offline_after_seconds
+        )
+        console.print(
+            f"[green]Machine cycle:[/green] {len(statuses)} machines, {len(events)} events"
+        )
 
     session = factory()
     rows = session.execute(select(MachineState).order_by(MachineState.machine_id)).scalars().all()
@@ -200,9 +226,27 @@ def report_machines(
         raise typer.Exit(0)
 
     table = Table(show_header=True, header_style="bold cyan")
-    for col in ["Machine", "Online", "State", "Exec", "Order", "SAP", "Part", "NC", "Pieces", "F/S/R %", "LastSeen"]:
+    for col in [
+        "Machine",
+        "Online",
+        "State",
+        "Exec",
+        "Order",
+        "SAP",
+        "Part",
+        "NC",
+        "Pieces",
+        "F/S/R %",
+        "LastSeen",
+    ]:
         table.add_column(col)
-    state_colors = {"running": "green", "idle": "yellow", "setup": "cyan", "fault": "red", "off": "dim"}
+    state_colors = {
+        "running": "green",
+        "idle": "yellow",
+        "setup": "cyan",
+        "fault": "red",
+        "off": "dim",
+    }
     for m in rows:
         c = state_colors.get(m.state or "", "white")
         table.add_row(
@@ -232,13 +276,19 @@ def report_runs(limit: int = typer.Option(20, "--limit", "-n")):
 
     configure_logging("WARNING", "console")
     session = _session_or_exit()
-    rows = session.execute(select(SnapshotRun).order_by(SnapshotRun.started_at.desc()).limit(limit)).scalars().all()
+    rows = (
+        session.execute(select(SnapshotRun).order_by(SnapshotRun.started_at.desc()).limit(limit))
+        .scalars()
+        .all()
+    )
 
     table = Table(show_header=True, header_style="bold cyan")
     for col in ["Started", "Mode", "Since", "Duration", "Read", "Changed", "Events", "Error"]:
         table.add_column(col)
     for r in rows:
-        dur = f"{(r.finished_at - r.started_at).total_seconds():.1f}s" if r.finished_at else "running"
+        dur = (
+            f"{(r.finished_at - r.started_at).total_seconds():.1f}s" if r.finished_at else "running"
+        )
         table.add_row(
             r.started_at.strftime("%Y-%m-%d %H:%M:%S"),
             r.mode,
@@ -269,7 +319,13 @@ def diagnose(
     try:
         from sqlalchemy import func, select, text
 
-        from bdx.models.events import DomainEvent, MachineState, OrderSnapshot, OrderState, SnapshotRun
+        from bdx.models.events import (
+            DomainEvent,
+            MachineState,
+            OrderSnapshot,
+            OrderState,
+            SnapshotRun,
+        )
 
         session = _get_pg_session()
         session.execute(text("SELECT 1"))
@@ -327,7 +383,9 @@ def diagnose(
             if statuses:
                 console.print(f"   [green]✓ {len(statuses)} machines[/green] from {m_cfg.xmsk_url}")
                 for s in statuses:
-                    console.print(f"     - {s.machine_id}: {s.state} exec={s.exec_state} order={s.order_ref or '–'} pieces={s.pieces_raw or '–'}")
+                    console.print(
+                        f"     - {s.machine_id}: {s.state} exec={s.exec_state} order={s.order_ref or '–'} pieces={s.pieces_raw or '–'}"
+                    )
             else:
                 console.print("   [red]✗ no machines returned[/red]")
     except Exception as exc:
@@ -361,7 +419,11 @@ def diagnose(
         else:
             pub = build_publisher(q_cfg)
             ok = pub.health_check()
-            console.print(f"   [green]✓ Connected to {q_cfg.host}:{q_cfg.port}[/green]" if ok else "   [red]✗ Unreachable[/red]")
+            console.print(
+                f"   [green]✓ Connected to {q_cfg.host}:{q_cfg.port}[/green]"
+                if ok
+                else "   [red]✗ Unreachable[/red]"
+            )
             pub.close()
     except Exception as exc:
         console.print(f"   [red]✗ Failed: {exc}[/red]")
@@ -373,14 +435,15 @@ def diagnose(
 def collect(
     once: bool = typer.Option(False, "--once", help="Run a single SAP cycle then exit"),
     full: bool = typer.Option(False, "--full", help="Force a full reload (ignored without --once)"),
-    no_machines: bool = typer.Option(False, "--no-machines", help="Disable the machine collector for this run"),
+    no_machines: bool = typer.Option(
+        False, "--no-machines", help="Disable the machine collector for this run"
+    ),
 ):
     """Start the collector (SAP polling + machine feed; runs until SIGTERM/SIGINT)."""
     from bdx.collector.polling import run_once, run_polling_loop
     from bdx.config import (
         load_collector_settings,
         load_machine_settings,
-        load_mqtt_settings,
         load_postgres_settings,
         load_sap_settings,
     )
@@ -400,8 +463,12 @@ def collect(
     publisher = build_all_publishers()
 
     if once:
-        orders, events = run_once(sap_engine, factory, collector_cfg, force_full=full, publisher=publisher)
-        console.print(f"[green]Cycle complete:[/green] {len(orders)} orders read, {len(events)} events")
+        orders, events = run_once(
+            sap_engine, factory, collector_cfg, force_full=full, publisher=publisher
+        )
+        console.print(
+            f"[green]Cycle complete:[/green] {len(orders)} orders read, {len(events)} events"
+        )
         publisher.close()
         return
 
@@ -447,7 +514,7 @@ def report_production(
     doc_entry: int = typer.Argument(..., help="Production order DocEntry"),
     quantity: float = typer.Option(..., "--quantity", "-q", help="Completed quantity to book"),
     warehouse: str = typer.Option(..., "--warehouse", "-w", help="Target warehouse code"),
-    batch: Optional[str] = typer.Option(None, "--batch", help="Batch number (optional)"),
+    batch: str | None = typer.Option(None, "--batch", help="Batch number (optional)"),
 ):
     """Report produced quantity against a production order (Receipt from Production)."""
     from bdx.config import load_sap_mode_settings, load_service_layer_settings
@@ -458,7 +525,9 @@ def report_production(
     configure_logging("WARNING", "console")
     sl_cfg = load_service_layer_settings()
     if not sl_cfg.configured:
-        err_console.print("[red]Service Layer not configured (SL_BASE_URL / SL_USERNAME / SL_PASSWORD)[/red]")
+        err_console.print(
+            "[red]Service Layer not configured (SL_BASE_URL / SL_USERNAME / SL_PASSWORD)[/red]"
+        )
         raise typer.Exit(1)
     mode_cfg = load_sap_mode_settings()
     client = ServiceLayerClient(sl_cfg, mode=mode_cfg.sap_mode)
@@ -471,18 +540,24 @@ def report_production(
 def _run_sl_op(operation: str, doc_entry: int) -> None:
     from bdx.config import load_sap_mode_settings, load_service_layer_settings
     from bdx.logging_config import configure_logging
-    from bdx.sap_sl.client import ServiceLayerClient
     from bdx.sap_sl import operations as sl_ops
+    from bdx.sap_sl.client import ServiceLayerClient
 
     configure_logging("WARNING", "console")
     sl_cfg = load_service_layer_settings()
     if not sl_cfg.configured:
-        err_console.print("[red]Service Layer not configured (SL_BASE_URL / SL_USERNAME / SL_PASSWORD)[/red]")
+        err_console.print(
+            "[red]Service Layer not configured (SL_BASE_URL / SL_USERNAME / SL_PASSWORD)[/red]"
+        )
         raise typer.Exit(1)
     mode_cfg = load_sap_mode_settings()
     client = ServiceLayerClient(sl_cfg, mode=mode_cfg.sap_mode)
     factory = _get_pg_factory()
-    fn = {"release": sl_ops.release_order, "close": sl_ops.close_order, "cancel": sl_ops.cancel_order}[operation]
+    fn = {
+        "release": sl_ops.release_order,
+        "close": sl_ops.close_order,
+        "cancel": sl_ops.cancel_order,
+    }[operation]
     with factory() as session:
         res = fn(session, client, doc_entry)
         _print_op_result(res, doc_entry)
@@ -508,9 +583,11 @@ def sl_operations(limit: int = typer.Option(20, "--limit", "-n")):
 
     configure_logging("WARNING", "console")
     session = _session_or_exit()
-    rows = session.execute(
-        select(SLOperation).order_by(SLOperation.occurred_at.desc()).limit(limit)
-    ).scalars().all()
+    rows = (
+        session.execute(select(SLOperation).order_by(SLOperation.occurred_at.desc()).limit(limit))
+        .scalars()
+        .all()
+    )
     if not rows:
         console.print("[yellow]No Service Layer operations recorded yet.[/yellow]")
         raise typer.Exit(0)
@@ -534,8 +611,8 @@ def sl_operations(limit: int = typer.Option(20, "--limit", "-n")):
 
 @app.command("serve")
 def serve(
-    host: Optional[str] = typer.Option(None, "--host"),
-    port: Optional[int] = typer.Option(None, "--port"),
+    host: str | None = typer.Option(None, "--host"),
+    port: int | None = typer.Option(None, "--port"),
 ):
     """Start the REST API + dashboard (uvicorn)."""
     import uvicorn
@@ -544,7 +621,9 @@ def serve(
     from bdx.config import load_app_settings
 
     cfg = load_app_settings()
-    uvicorn.run(create_app(), host=host or cfg.api_host, port=port or cfg.api_port, log_level="info")
+    uvicorn.run(
+        create_app(), host=host or cfg.api_host, port=port or cfg.api_port, log_level="info"
+    )
 
 
 # ── Quality-gate agents ─────────────────────────────────────────────────────
@@ -561,7 +640,7 @@ def check(
     min_coverage: float = typer.Option(80.0, "--min-coverage", help="Coverage gate (%)"),
     no_mypy: bool = typer.Option(False, "--no-mypy", help="Disable mypy in the quality agent"),
     no_ruff: bool = typer.Option(False, "--no-ruff", help="Disable ruff in the quality agent"),
-    json_out: Optional[Path] = typer.Option(
+    json_out: Path | None = typer.Option(
         None, "--json", help="Write a JSON report to this path (CI artifact)"
     ),
 ):
@@ -587,7 +666,7 @@ def check(
 
 @app.command("check-docs")
 def check_docs(
-    json_out: Optional[Path] = typer.Option(None, "--json", help="Write JSON report to this path"),
+    json_out: Path | None = typer.Option(None, "--json", help="Write JSON report to this path"),
 ):
     """Run only the documentation agent."""
     from bdx.agents.docs import DocumentationAgent
@@ -605,11 +684,11 @@ def check_docs(
 @app.command("check-tests")
 def check_tests(
     min_coverage: float = typer.Option(80.0, "--min-coverage", help="Coverage gate (%)"),
-    json_out: Optional[Path] = typer.Option(None, "--json", help="Write JSON report to this path"),
+    json_out: Path | None = typer.Option(None, "--json", help="Write JSON report to this path"),
 ):
     """Run only the test agent (pytest + coverage)."""
     from bdx.agents.runner import RunnerReport, write_json_report
-    from bdx.agents.tests import TestConfig, TestAgent
+    from bdx.agents.tests import TestAgent, TestConfig
 
     result = TestAgent(TestConfig(root=Path.cwd(), min_coverage=min_coverage)).run()
     console.print(result.render())
@@ -624,15 +703,15 @@ def check_tests(
 def check_quality(
     no_mypy: bool = typer.Option(False, "--no-mypy", help="Disable mypy"),
     no_ruff: bool = typer.Option(False, "--no-ruff", help="Disable ruff"),
-    json_out: Optional[Path] = typer.Option(None, "--json", help="Write JSON report to this path"),
+    json_out: Path | None = typer.Option(None, "--json", help="Write JSON report to this path"),
 ):
     """Run only the quality agent (ruff + mypy + smell scan)."""
     from bdx.agents.quality import QualityAgent, QualityConfig
     from bdx.agents.runner import RunnerReport, write_json_report
 
-    result = QualityAgent(QualityConfig(
-        root=Path.cwd(), enable_mypy=not no_mypy, enable_ruff=not no_ruff
-    )).run()
+    result = QualityAgent(
+        QualityConfig(root=Path.cwd(), enable_mypy=not no_mypy, enable_ruff=not no_ruff)
+    ).run()
     console.print(result.render())
     if json_out is not None:
         report = RunnerReport(results=[result], durations={result.agent: 0.0})
@@ -641,9 +720,10 @@ def check_quality(
     raise typer.Exit(code=_exit_code_for(result))
 
 
-def _exit_code_for(result) -> int:  # noqa: ANN001
+def _exit_code_for(result) -> int:
     """0 = passed, 1 = warnings only, 2 = at least one error."""
     from bdx.agents.base import Status
+
     if result.status is Status.PASSED:
         return 0
     if result.status is Status.WARNED:

@@ -1,20 +1,21 @@
 """Tests for the idempotent change detector."""
+
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
-
-import pytest
 
 from bdx.collector.change_detector import detect_changes, persist_events
 from bdx.models.events import EventType
 from bdx.models.sap import WorkOrder
 
-_NOW = datetime(2026, 11, 7, 12, 0, 0, tzinfo=timezone.utc)
+_NOW = datetime(2026, 11, 7, 12, 0, 0, tzinfo=UTC)
 _RUN = "test-run-001"
 
 
-def _make_wo(doc_entry: int, status: str = "R", planned: str = "100", due: date | None = None) -> WorkOrder:
+def _make_wo(
+    doc_entry: int, status: str = "R", planned: str = "100", due: date | None = None
+) -> WorkOrder:
     return WorkOrder(
         doc_entry=doc_entry,
         doc_num=doc_entry * 10,
@@ -147,7 +148,9 @@ class TestPersistEvents:
         persist_events(session, events)
 
         from sqlalchemy import select
+
         from bdx.models.events import DomainEvent
+
         stored = session.execute(select(DomainEvent)).scalars().all()
         assert len(stored) == 1
         assert stored[0].event_type == EventType.ORDER_CREATED
@@ -159,6 +162,8 @@ class TestPersistEvents:
         persist_events(session, events)  # second call must be a no-op
 
         from sqlalchemy import select
+
         from bdx.models.events import DomainEvent
+
         stored = session.execute(select(DomainEvent)).scalars().all()
         assert len(stored) == 1

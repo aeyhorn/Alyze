@@ -13,13 +13,14 @@ telemetry point per machine every few seconds (``state``, ``order``,
 Source: ``GET <scada>/api/machines`` and ``GET <scada>/api/machines/{id}/telemetry?hours=N``
 (read-only; the SCADA backend persists to SQL Server ``BXProduction``).
 """
+
 from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Iterable, Optional
+from datetime import UTC, datetime
 from urllib.parse import quote
 
 import structlog
@@ -35,16 +36,16 @@ class BDERecord:
     order_id: str
     operation_id: str
     start_time: datetime
-    end_time: Optional[datetime]
+    end_time: datetime | None
     quantity_good: float
     quantity_scrap: float
-    operator_id: Optional[str]
+    operator_id: str | None
     # extended
     sample_count: int = 0
-    last_state: Optional[str] = None
+    last_state: str | None = None
 
     @property
-    def sap_doc_num(self) -> Optional[int]:
+    def sap_doc_num(self) -> int | None:
         return int(self.order_id) if self.order_id.isdigit() else None
 
     @property
@@ -79,9 +80,10 @@ class NullBDEAdapter(BDEAdapter):
 
 # ── SCADA telemetry → BDE records ────────────────────────────────────────────
 
+
 def _parse_ts(value: str) -> datetime:
     ts = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    return ts if ts.tzinfo else ts.replace(tzinfo=UTC)
 
 
 def telemetry_to_records(
@@ -118,7 +120,9 @@ def telemetry_to_records(
             continue
         ts = _parse_ts(p["timestamp"])
         pieces = p.get("pieces")
-        if current and (current["order"] != order or (ts - current["end"]).total_seconds() > gap_seconds):
+        if current and (
+            current["order"] != order or (ts - current["end"]).total_seconds() > gap_seconds
+        ):
             close(current)
             current = None
         if current is None:
@@ -148,7 +152,9 @@ def telemetry_to_records(
 class ScadaTelemetryBDEAdapter(BDEAdapter):
     """Derives BDE records from the SCADA telemetry REST API."""
 
-    def __init__(self, base_url: str, timeout: float = 30.0, gap_seconds: int = 900, client=None) -> None:  # noqa: ANN001
+    def __init__(
+        self, base_url: str, timeout: float = 30.0, gap_seconds: int = 900, client=None
+    ) -> None:
         import httpx
 
         self._base = base_url.rstrip("/")
@@ -168,18 +174,18 @@ class ScadaTelemetryBDEAdapter(BDEAdapter):
 
     def fetch_recent(self, since: datetime) -> list[BDERecord]:
         if since.tzinfo is None:
-            since = since.replace(tzinfo=timezone.utc)
-        hours = max(1, math.ceil((datetime.now(timezone.utc) - since).total_seconds() / 3600))
+            since = since.replace(tzinfo=UTC)
+        hours = max(1, math.ceil((datetime.now(UTC) - since).total_seconds() / 3600))
         records: list[BDERecord] = []
         try:
             machines = self.list_machines()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("bde.machines_failed", error=str(exc))
             return []
         for mid in machines:
             try:
                 points = self.fetch_telemetry(mid, hours)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("bde.telemetry_failed", machine_id=mid, error=str(exc))
                 continue
             recs = telemetry_to_records(mid, points, self._gap)
@@ -191,21 +197,23 @@ class ScadaTelemetryBDEAdapter(BDEAdapter):
         try:
             self.list_machines()
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("bde.health_failed", error=str(exc))
             return False
 
 
-def build_bde_adapter(settings=None) -> BDEAdapter:  # noqa: ANN001
+def build_bde_adapter(settings=None) -> BDEAdapter:
     from bdx.config import load_bde_settings
 
     settings = settings or load_bde_settings()
     if settings.configured:
-        return ScadaTelemetryBDEAdapter(settings.scada_base_url, settings.timeout_seconds, settings.gap_seconds)
+        return ScadaTelemetryBDEAdapter(
+            settings.scada_base_url, settings.timeout_seconds, settings.gap_seconds
+        )
     return NullBDEAdapter()
 
 
-def build_machine_adapter(settings=None):  # noqa: ANN001, ANN201
+def build_machine_adapter(settings=None):
     from bdx.adapters.machine import NullMachineAdapter, XmskMachineAdapter
     from bdx.config import load_machine_settings
 
@@ -216,11 +224,11 @@ def build_machine_adapter(settings=None):  # noqa: ANN001, ANN201
 
 
 __all__ = [
-    "BDERecord",
     "BDEAdapter",
+    "BDERecord",
     "NullBDEAdapter",
     "ScadaTelemetryBDEAdapter",
-    "telemetry_to_records",
     "build_bde_adapter",
     "build_machine_adapter",
+    "telemetry_to_records",
 ]

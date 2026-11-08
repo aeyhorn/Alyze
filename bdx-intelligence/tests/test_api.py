@@ -1,8 +1,9 @@
 """Tests for the FastAPI application using TestClient."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +19,7 @@ from bdx.models.events import DomainEvent, EventType, MachineState, OrderState, 
 @pytest.fixture(scope="module")
 def test_engine():
     from sqlalchemy.pool import StaticPool
+
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -48,7 +50,7 @@ def client(test_engine, test_session_factory):
 
 
 def _order_state(doc_entry: int, status: str = "R", now=None) -> OrderState:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     return OrderState(
         source_key=f"OWOR:{doc_entry}",
         doc_entry=doc_entry,
@@ -146,7 +148,7 @@ def test_events_with_data(client, test_session_factory):
         doc_num=1,
         item_code="PART-A",
         payload={"status": "R"},
-        occurred_at=datetime.now(timezone.utc),
+        occurred_at=datetime.now(UTC),
         snapshot_run_id="run-test",
     )
     session.add(ev)
@@ -165,15 +167,35 @@ def test_events_with_data(client, test_session_factory):
 
 
 def test_machines_and_runs(client, test_session_factory):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session = test_session_factory()
-    session.add(MachineState(
-        machine_id="QT 250MY", online=True, mde_enabled=True, exec_state="Bereit", state="running",
-        order_ref="1001", pieces=5, sap_doc_entry=1001, sap_item_code="PART-A",
-        first_seen_at=now, last_seen_at=now, last_changed_at=now,
-    ))
-    session.add(SnapshotRun(run_id="run-test", started_at=now, finished_at=now, mode="full",
-                            orders_read=2, orders_changed=2, events_created=1))
+    session.add(
+        MachineState(
+            machine_id="QT 250MY",
+            online=True,
+            mde_enabled=True,
+            exec_state="Bereit",
+            state="running",
+            order_ref="1001",
+            pieces=5,
+            sap_doc_entry=1001,
+            sap_item_code="PART-A",
+            first_seen_at=now,
+            last_seen_at=now,
+            last_changed_at=now,
+        )
+    )
+    session.add(
+        SnapshotRun(
+            run_id="run-test",
+            started_at=now,
+            finished_at=now,
+            mode="full",
+            orders_read=2,
+            orders_changed=2,
+            events_created=1,
+        )
+    )
     session.commit()
     session.close()
 
