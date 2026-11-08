@@ -34,6 +34,7 @@ def create_app(
     machine_adapter=None,
     bde_adapter=None,
     publisher=None,
+    quoter_client=None,
     api_key: str | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
@@ -46,6 +47,7 @@ def create_app(
         machine_adapter:     Inject a MachineAdapter (default: built from MACHINE_* env).
         bde_adapter:         Inject a BDEAdapter (default: built from BDE_* env).
         publisher:           Inject an EventPublisher (default: built from MQTT_* env).
+        quoter_client:       Inject a QuoterClient (default: built from QUOTER_* env).
         api_key:             Override API_KEY (empty string disables auth).
     """
     app_cfg = load_app_settings()
@@ -93,18 +95,20 @@ def create_app(
     else:
         _init_service_layer(app)
 
-    # ── Machine / BDE adapters, publisher ─────────────────────────────────────
+    # ── Machine / BDE adapters, publisher, quoter ─────────────────────────────
     _init_adapters(app, machine_adapter, bde_adapter, publisher)
+    if quoter_client is not None:
+        app.state.quoter_client = quoter_client
+    else:
+        try:
+            from bdx.adapters.quoter import build_quoter_client
 
-    # ── Quoter client (optional) ──────────────────────────────────────────────
-    try:
-        from bdx.adapters.quoter import NullQuoterClient, build_quoter_client
+            app.state.quoter_client = build_quoter_client(load_quoter_settings())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("quoter.init_failed", error=str(exc))
+            from bdx.adapters.quoter import NullQuoterClient
 
-        qcfg = load_quoter_settings()
-        app.state.quoter_client = build_quoter_client(qcfg) if qcfg.configured else NullQuoterClient()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("quoter.init_failed", error=str(exc))
-        app.state.quoter_client = None
+            app.state.quoter_client = NullQuoterClient()
 
     # ── Routes ────────────────────────────────────────────────────────────────
     app.include_router(health.router)

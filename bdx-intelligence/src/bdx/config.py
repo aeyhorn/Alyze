@@ -214,14 +214,18 @@ def load_bde_settings() -> BdeSettings:
 
 
 class QuoterSettings(BaseSettings):
-    """bdx-quoter HTTP integration (Docker, typically :8020)."""
+    """bdx-quoter HTTP integration (Docker container, typically :8020)."""
 
     model_config = SettingsConfigDict(env_prefix="QUOTER_", case_sensitive=False)
 
     enabled: bool = Field(False)
-    base_url: str = Field("", description="e.g. http://192.168.82.33:8020")
-    api_key: str = Field("")
+    base_url: str = Field(
+        "",
+        description="e.g. http://192.168.82.33:8020 (no trailing slash)",
+    )
+    api_key: str = Field("", description="Optional X-API-Key for the quoter API")
     timeout_seconds: float = Field(120.0, ge=5)
+    # Override path discovery when the real web/server.py routes are known
     health_path: str = Field("/api/health")
     run_path: str = Field("/api/run")
     projekt_path: str = Field("/api/projekt")

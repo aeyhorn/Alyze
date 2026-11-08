@@ -36,6 +36,9 @@ def create_inquiry(session: Session, body: InquiryCreate) -> Q2PInquiry:
         requested_date=body.requested_date.isoformat() if body.requested_date else None,
         notes=body.notes,
         owner=body.owner,
+        datenraum=(body.datenraum.strip() if body.datenraum else None),
+        kunde=(body.kunde.strip() if body.kunde else None),
+        use_llm=bool(body.use_llm),
         open_questions=[],
     )
     session.add(row)

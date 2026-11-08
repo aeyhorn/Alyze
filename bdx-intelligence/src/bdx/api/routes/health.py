@@ -45,6 +45,12 @@ def health(
     else:
         checks["publisher"] = "disabled"
 
+    quoter = getattr(request.app.state, "quoter_client", None)
+    if quoter is not None and type(quoter).__name__ != "NullQuoterClient":
+        checks["quoter"] = "ok" if _safe(quoter.health) else "error"
+    else:
+        checks["quoter"] = "disabled"
+
     status = "ok" if (pg_ok and collector.get("status") in ("ok", "unknown", "empty")) else "degraded"
     return {
         "status": status,

@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from bdx.adapters.quoter import NullQuoterClient, QuoterClient
+from bdx.adapters.quoter import QuoterClient
 from bdx.promise.agents.base import AgentResult
 from bdx.promise.models import Offer
 from bdx.q2p.service import evaluate_promise
@@ -32,78 +32,35 @@ def run_quote_agent(
     quoter: QuoterClient | None = None,
 ) -> AgentResult:
     req = date.fromisoformat(offer.requested_date) if offer.requested_date else None
+    # Quoter pricing is owned by evaluate_promise when datenraum is set (#39).
     result = evaluate_promise(
         item_code=offer.item_code,
         qty=Decimal(str(offer.qty)),
         requested_date=req,
         sap_engine=sap_engine,
         pg_session=session,
+        quoter=quoter,
+        datenraum=offer.datenraum,
+        kunde=offer.kunde,
+        use_llm=bool(offer.use_llm),
     )
     payload = result.model_dump(mode="json")
 
-    # If datenraum set and quoter available, enrich pricing via quoter
-    quoter_client = quoter or NullQuoterClient()
-    if offer.datenraum and not isinstance(quoter_client, NullQuoterClient):
-        q = quoter_client.quote(
-            datenraum=offer.datenraum,
-            kunde=offer.kunde,
-            llm=bool(offer.use_llm),
-            item_code=offer.item_code,
-            qty=float(offer.qty),
-        )
-        payload["quoter"] = {
-            "ok": q.ok,
-            "netto_eur": q.netto_eur,
-            "brutto_eur": q.brutto_eur,
-            "offen": q.offen,
-            "position_count": q.position_count,
-            "error": q.error,
-            "source_path": q.source_path,
-            "status": q.status,
-        }
-        # Replace/augment pricing domain
-        domains = list(payload.get("domains") or [])
-        domains = [d for d in domains if d.get("domain") != "pricing"]
-        if q.ok:
-            status = "warn" if q.offen else "ok"
-            domains.append(
-                {
-                    "domain": "pricing",
-                    "status": status,
-                    "summary": (
-                        f"Quoter Netto {q.netto_eur:g} EUR"
-                        if q.netto_eur is not None
-                        else "Quoter-Kalkulation"
-                    ),
-                    "details": {
-                        "provider": "bdx-quoter",
-                        "netto_eur": q.netto_eur,
-                        "brutto_eur": q.brutto_eur,
-                        "offen": q.offen,
-                        "position_count": q.position_count,
-                    },
-                    "source": "system",
-                    "needs_human": bool(q.offen),
-                    "question": q.offen[0] if q.offen else None,
+    # Surface quoter details from the pricing domain for Offer.evaluation.quoter
+    for d in payload.get("domains") or []:
+        if d.get("domain") == "pricing":
+            details = d.get("details") or {}
+            if details.get("provider") == "bdx-quoter" or "netto_eur" in details:
+                payload["quoter"] = {
+                    "ok": d.get("status") in ("ok", "warn"),
+                    "netto_eur": details.get("netto_eur"),
+                    "brutto_eur": details.get("brutto_eur"),
+                    "offen": details.get("offen") or [],
+                    "position_count": details.get("position_count") or 0,
+                    "error": details.get("error"),
+                    "status": d.get("status"),
                 }
-            )
-            for o in q.offen:
-                payload.setdefault("open_questions", []).append(
-                    {"domain": "pricing", "question": o}
-                )
-        else:
-            domains.append(
-                {
-                    "domain": "pricing",
-                    "status": "unknown",
-                    "summary": q.error or "Quoter ohne Ergebnis",
-                    "details": {"provider": "bdx-quoter", "error": q.error},
-                    "source": "human",
-                    "needs_human": True,
-                    "question": "Quoter-/Datenraum prüfen",
-                }
-            )
-        payload["domains"] = domains
+            break
 
     gaps: list[dict[str, Any]] = []
     evidence: list[dict[str, Any]] = []
