@@ -1,17 +1,21 @@
-"""Sprint 005 – Analytics tables: kpi_snapshots, metric_thresholds, detected_anomalies,
+"""Sprint 005 - Analytics tables: kpi_snapshots, metric_thresholds, detected_anomalies,
 shift_calendar, machine_state_history.
 
-Revision ID: 004
-Revises: 003
+Revision ID: 005
+Revises: 004
 Create Date: 2026-11-07
+
+Renumbered during the merge with main: revision 004 is the Quote-to-Promise
+migration that already landed on main.
 """
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
-revision = "004"
-down_revision = "003"
+revision = "005"
+down_revision = "004"
 branch_labels = None
 depends_on = None
 
@@ -87,7 +91,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         # NULL machine_id = default for all machines
         sa.Column("machine_id", sa.String(64), nullable=True, index=True),
-        # 0=Mon … 6=Sun (ISO weekday − 1)
+        # 0=Mon ... 6=Sun (ISO weekday - 1)
         sa.Column("weekday", sa.Integer, nullable=False),
         sa.Column("shift_start", sa.String(5), nullable=False),   # HH:MM
         sa.Column("shift_end", sa.String(5), nullable=False),     # HH:MM

@@ -1,14 +1,18 @@
 ﻿# BDX Intelligence – Project Status
 
+> **Zuletzt aktualisiert:** 2026-11-08 16:45 (UTC+1)
+> _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
+
 | Sprint | Scope | Status |
 |---|---|---|
 | 001 | SAP read-only collector, event store, REST/CLI | ✅ complete (operational on DEV) |
 | 002 | BDE adapter, machine adapter, incremental reading | ✅ complete (operational on DEV) |
 | 003 | Event publishing (MQTT/Kafka), dashboard UI, SAP write-back | ✅ complete (MQTT/Kafka built, no broker yet; write-back DRY_RUN-verified) |
 | 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | 🟡 built (uncommitted) — workflows + agents + scripts ready, not yet pushed/merged |
+| 005 | Quote-to-Promise cockpit (parallel inquiry evaluation) | 🟡 implemented on branch – needs migration 004 + Q2P SAP grants on DEV |
 | TBD | Multi-company SAP, SSO/SCIM, container deployment | ⬜ open (SQL login script ready) |
 
-Test suite: **111 tests** (103 unit on SQLite in-memory + 8 integration against DEV SAP/SL). Unit suite green; integration suite skips cleanly when DEV creds are absent.
+Test suite: unit tests on SQLite in-memory + optional integration against DEV SAP/SL. Integration suite skips cleanly when DEV creds are absent.
 
 ---
 
@@ -60,6 +64,28 @@ detect production order changes idempotently, and expose results via REST API an
 | `/health` reports collector freshness, machine feed, publisher | ✅ | |
 | **SAP Service Layer write-back** (release / close / cancel / report-production) | ✅ | `sap_sl/operations.py` with `sl_operations` audit table (migration 003); CLI `release`/`close`/`cancel`/`report-production`/`sl-operations`; REST `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` + `GET /service-layer/operations`. **DRY_RUN-verified against DEV** (no real writes); `SL_DRY_RUN=false` enables real writes |
 | Dockerfile + docker-compose.yml | ✅ written, ⬜ **not deployed** | needs SQL login `bdx_readonly` (script in `docs/sql/create_bdx_readonly.sql`) |
+
+## Sprint 005 – Quote-to-Promise Cockpit  🟡 Implemented (branch)
+
+**Goal**: Replace serial multi-person clarification on inquiries (material, capacity, price, personnel)
+with one inquiry case that answers domains in parallel from SAP + shop floor. Humans only see
+`open_questions` where the system has no data.
+
+| Feature | Status | Notes |
+|---|---|---|
+| Inquiry case store `q2p_inquiries` (Alembic `004`) | ✅ | status draft/ready/blocked/decided; decision audit |
+| Parallel evaluator `bdx.q2p.service.evaluate_promise` | ✅ | item / material / BOM / capacity / pricing / personnel |
+| SAP reads OITW, OPOR/POR1, OITT/ITT1, ITM1/OPLN | ✅ | graceful degrade on missing SELECT |
+| Capacity from `machine_state` + open `order_state` | ✅ | idle vs busy + backlog same item |
+| REST `/api/v1/q2p/*` + ad-hoc `/q2p/promise` | ✅ | create, list, evaluate, decide |
+| Cockpit UI `/q2p` | ✅ | form + case list + domain cards + human questions + decision |
+| `bdx-collect serve` attaches SAP engine | ✅ | without engine → SAP domains become open questions |
+| SQL grant script `docs/sql/grant_q2p_readonly.sql` | ✅ | run on DEV/PROD for live material/price |
+
+**Deploy notes**: `alembic upgrade head` (migration 004); run `grant_q2p_readonly.sql` on LDSAP;
+open `http://<host>:8085/q2p`.
+
+**Still human by design**: personnel/shift qualification (no feed yet); commercial margin beyond list price.
 
 ## Sprint 004 – CI/CD pipeline, quality-gate agents, HOTL workflow  🟡 Built (uncommitted)
 

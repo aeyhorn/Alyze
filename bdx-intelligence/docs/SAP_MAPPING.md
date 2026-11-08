@@ -62,6 +62,19 @@ source_key = f"MACHINE:{machine_id}"      # machine events
 | `PrfrmMrpStep` | `mrp_item` | str(Y/N) | Whether item participates in MRP |
 | `U_BDX_Machine` | `machine_id` | str | **does not exist** at Leisinger → `NULL` |
 
+## Quote-to-Promise tables (read-only)
+
+| SAP object | Purpose in Q2P |
+|---|---|
+| `OITW` | Warehouse stock: `OnHand`, `IsCommited`, `OnOrder` per `WhsCode` |
+| `OPOR` + `POR1` | Open purchase lines: vendor, `OpenQty`, due/ship date, price |
+| `OITT` + `ITT1` | Product tree / BOM components + qty per parent |
+| `ITM1` + `OPLN` | Item price lists (basis for commercial promise) |
+
+Helpers in `src/bdx/db/queries.py` (`fetch_warehouse_stock`, `fetch_open_purchase_lines`,
+`fetch_bom_components`, `fetch_item_prices`) catch permission errors and return
+`([], error)` so the cockpit can degrade gracefully.
+
 ## Domain Events – Evidence Mapping
 
 ### Order events (SAP)
@@ -119,12 +132,14 @@ Currently the collector uses Windows integrated authentication (`SAP_DB_TRUSTED_
 deployment a SQL login is needed:
 
 ```sql
--- Minimum required (SQL Server)
+-- Minimum required (SQL Server) – collector
 GRANT SELECT ON dbo.OWOR TO [bdx_readonly];
 GRANT SELECT ON dbo.OITM TO [bdx_readonly];
+-- Quote-to-Promise (optional but needed for system answers instead of humans)
+GRANT SELECT ON dbo.OITW, dbo.OPOR, dbo.POR1, dbo.OITT, dbo.ITT1, dbo.ITM1, dbo.OPLN TO [bdx_readonly];
 ```
 
-No other permissions are required or should be granted. The user must **not** have INSERT, UPDATE, DELETE, ALTER,
+See also `docs/sql/grant_q2p_readonly.sql`. The user must **not** have INSERT, UPDATE, DELETE, ALTER,
 or EXECUTE permissions on any SAP object.
 
 ## Custom Fields

@@ -69,3 +69,4 @@ This rule applies to every change in `bdx-intelligence/`. Read `bdx-intelligence
 - Add a write method to the MSSQL channel.
 - Change SAP status code mappings without verifying against OWOR.
 - Bypass the `sl_operations` audit for SL writes.
+- Edit `docs/PROJECT_STATUS.md` without updating the **Zuletzt aktualisiert:** timestamp (date + time + timezone) in the blockquote under the title to the current moment.

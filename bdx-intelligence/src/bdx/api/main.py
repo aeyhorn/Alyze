@@ -8,12 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
-from bdx.api.routes import analytics, health, machines, orders, service_layer
+from bdx.api.routes import analytics, health, machines, orders, q2p, service_layer
 from bdx.config import (
     load_app_settings,
     load_bde_settings,
     load_machine_settings,
-    load_mqtt_settings,
     load_postgres_settings,
     load_sap_mode_settings,
     load_service_layer_settings,
@@ -28,12 +27,12 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 def create_app(
     pg_dsn: str | None = None,
-    sap_engine=None,  # noqa: ANN001
-    pg_session_factory=None,  # noqa: ANN001
-    sl_client=None,  # noqa: ANN001  – inject for tests
-    machine_adapter=None,  # noqa: ANN001  – inject for tests
-    bde_adapter=None,  # noqa: ANN001  – inject for tests
-    publisher=None,  # noqa: ANN001  – inject for tests
+    sap_engine=None,
+    pg_session_factory=None,
+    sl_client=None,
+    machine_adapter=None,
+    bde_adapter=None,
+    publisher=None,
     api_key: str | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
@@ -62,7 +61,7 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_methods=["GET", "PUT"],
+        allow_methods=["GET", "PUT", "POST", "PATCH"],
         allow_headers=["*"],
     )
 
@@ -77,9 +76,13 @@ def create_app(
         app.state.pg_session_factory = make_session_factory(pg_engine)
 
     # ── MSSQL (SAP read) ──────────────────────────────────────────────────────
+    # Injected by `bdx-collect serve` for Quote-to-Promise live reads.
+    # Tests leave this None → Q2P degrades SAP domains to open_questions.
     app.state.sap_ok = False
+    app.state.sap_engine = sap_engine
     if sap_engine is not None:
         from bdx.db.sap import probe_sap_connection
+
         app.state.sap_ok = probe_sap_connection(sap_engine)
 
     # ── Service Layer write client ────────────────────────────────────────────
@@ -98,6 +101,7 @@ def create_app(
     app.include_router(machines.router, prefix="/api/v1")
     app.include_router(service_layer.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")
+    app.include_router(q2p.router, prefix="/api/v1")
 
     @app.get("/", include_in_schema=False)
     def _root():
@@ -107,14 +111,21 @@ def create_app(
     def _dashboard():
         return FileResponse(_STATIC_DIR / "dashboard.html", media_type="text/html")
 
+    @app.get("/analytics", include_in_schema=False)
+    def _analytics():
+        return FileResponse(_STATIC_DIR / "analytics.html", media_type="text/html")
+
+    @app.get("/q2p", include_in_schema=False)
+    def _q2p():
+        return FileResponse(_STATIC_DIR / "q2p.html", media_type="text/html")
+
     logger.info("app.ready", host=app_cfg.api_host, port=app_cfg.api_port, api_key_enabled=bool(app.state.api_key))
     return app
 
 
-def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> None:  # noqa: ANN001
+def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> None:
     from bdx.adapters.bde import NullBDEAdapter, build_bde_adapter, build_machine_adapter
     from bdx.adapters.machine import NullMachineAdapter
-    from bdx.publish.mqtt import build_publisher
 
     try:
         machine_cfg = load_machine_settings()
@@ -123,7 +134,7 @@ def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> Non
         )
         if isinstance(app.state.machine_adapter, NullMachineAdapter):
             app.state.machine_adapter = None
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("machine_adapter.init_failed", error=str(exc))
         app.state.machine_adapter = None
 
@@ -132,14 +143,14 @@ def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> Non
         app.state.bde_adapter = bde_adapter or (build_bde_adapter(bde_cfg) if bde_cfg.configured else None)
         if isinstance(app.state.bde_adapter, NullBDEAdapter):
             app.state.bde_adapter = None
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("bde_adapter.init_failed", error=str(exc))
         app.state.bde_adapter = None
 
     try:
         from bdx.publish.mqtt import build_all_publishers
         app.state.publisher = publisher or build_all_publishers()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("publisher.init_failed", error=str(exc))
         app.state.publisher = None
 

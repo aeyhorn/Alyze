@@ -1,8 +1,10 @@
 """Sprint 005 diagnosis layer: measurement quality, flow segments, lateness causes, bottleneck rank.
 
-Revision ID: 005
-Revises: 004
+Revision ID: 006
+Revises: 005
 Create Date: 2026-11-07
+
+Follows the analytics tables (005) after the Quote-to-Promise migration (004).
 """
 from __future__ import annotations
 
@@ -10,8 +12,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "005"
-down_revision = "004"
+revision = "006"
+down_revision = "005"
 branch_labels = None
 depends_on = None
 

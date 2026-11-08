@@ -137,6 +137,20 @@ See `docs/ARCHITECTURE.md` and `docs/PROJECT_STATUS.md` for details.
    (`SL_DRY_RUN=true`) + smoke test (`bdx-collect diagnose`, `/health`).
    Prod-deploy needs manual approval and a `SL_DRY_RUN` pre-check.
 
+## Documentation
+
+- `docs/PROJECT_STATUS.md` ist das living-Dokument zum Projektstand. Die
+  erste Zeile nach der Überschrift enthält ein Blockquote mit
+  **Zuletzt aktualisiert:** <YYYY-MM-DD HH:MM (TZ)>. **Bei jeder Bearbeitung
+  dieses Dokuments muss dieser Zeitstempel auf den aktuellen Zeitpunkt
+  gesetzt werden** — egal wie klein die Änderung ist. Veralteter Zeitstempel
+  = veraltetes Dokument.
+- Die `DocumentationAgent` (`bdx-collect check-docs`) warnt, wenn
+  `PROJECT_STATUS.md` älter als 90 Tage ist (`DOC.STATUS_STALE`).
+- Neue Endpunkte, Env-Vars und Events werden zusätzlich in
+  `docs/ARCHITECTURE.md` bzw. `docs/SAP_MAPPING.md` gepflegt (die Agents
+  prüfen Konsistenz automatisch).
+
 ## Never
 
 - Commit `.env` or real credentials.
