@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-08 16:45 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-08 21:25 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -10,6 +10,7 @@
 | 003 | Event publishing (MQTT/Kafka), dashboard UI, SAP write-back | ✅ complete (MQTT/Kafka built, no broker yet; write-back DRY_RUN-verified) |
 | 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | 🟡 built (uncommitted) — workflows + agents + scripts ready, not yet pushed/merged |
 | 005 | Quote-to-Promise cockpit (parallel inquiry evaluation) | 🟡 implemented on branch – needs migration 004 + Q2P SAP grants on DEV |
+| Vision | Promise Platform → Kundenportal, Einkaufsmaschinen, Vertrag | 📄 `docs/VISION_PROMISE_PLATFORM.md` |
 | TBD | Multi-company SAP, SSO/SCIM, container deployment | ⬜ open (SQL login script ready) |
 
 Test suite: unit tests on SQLite in-memory + optional integration against DEV SAP/SL. Integration suite skips cleanly when DEV creds are absent.
