@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from bdx.adapters.quoter import NullQuoterClient, QuoterClient, QuoterQuote
 from bdx.db import queries as sap_queries
 from bdx.models.events import MachineState, OrderState
 from bdx.models.sap import OPEN_STATUSES
@@ -35,11 +36,16 @@ def evaluate_promise(
     requested_date: Optional[date] = None,
     sap_engine: Engine | None = None,
     pg_session: Session | None = None,
+    quoter: QuoterClient | None = None,
+    datenraum: str | None = None,
+    kunde: str | None = None,
+    use_llm: bool = False,
 ) -> PromiseResult:
     """Run all domain checks and return a consolidated promise result."""
     qty_d = Decimal(str(qty))
     item_code = item_code.strip()
     domains: list[DomainResult] = []
+    quoter_client: QuoterClient = quoter or NullQuoterClient()
 
     # Capacity always from PG (shop floor) – main thread (session not thread-safe).
     if pg_session is not None:
@@ -56,12 +62,23 @@ def evaluate_promise(
             )
         )
 
-    # SAP domains in parallel (each task opens its own connection).
+    # Pricing: prefer bdx-quoter when a datenraum is set; else SAP price list.
+    pricing = _check_pricing_combined(
+        sap_engine=sap_engine,
+        quoter=quoter_client,
+        item_code=item_code,
+        qty=float(qty_d),
+        datenraum=datenraum,
+        kunde=kunde,
+        use_llm=use_llm,
+    )
+    domains.append(pricing)
+
+    # Remaining SAP domains in parallel (each task opens its own connection).
     sap_jobs = {
         "item": lambda conn: _check_item(conn, item_code),
         "material": lambda conn: _check_material(conn, item_code, qty_d),
         "bom": lambda conn: _check_bom(conn, item_code, qty_d),
-        "pricing": lambda conn: _check_pricing(conn, item_code),
     }
 
     if sap_engine is None:
@@ -77,7 +94,7 @@ def evaluate_promise(
                 )
             )
     else:
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
             futures = {
                 pool.submit(_run_sap_domain, sap_engine, name, fn): name
                 for name, fn in sap_jobs.items()
@@ -297,14 +314,162 @@ def _check_bom(conn: Any, item_code: str, qty: Decimal) -> DomainResult:
     )
 
 
-def _check_pricing(conn: Any, item_code: str) -> DomainResult:
+def _check_pricing_combined(
+    *,
+    sap_engine: Engine | None,
+    quoter: QuoterClient,
+    item_code: str,
+    qty: float,
+    datenraum: str | None,
+    kunde: str | None,
+    use_llm: bool,
+) -> DomainResult:
+    """Prefer bdx-quoter kalkulation; fall back to SAP ITM1 list price."""
+    quoter_result: DomainResult | None = None
+    if datenraum:
+        quoter_result = _check_quoter_pricing(
+            quoter,
+            datenraum=datenraum,
+            kunde=kunde,
+            use_llm=use_llm,
+            item_code=item_code,
+            qty=qty,
+        )
+        if quoter_result.status in (DomainStatus.OK, DomainStatus.WARN):
+            return quoter_result
+
+    sap_result: DomainResult | None = None
+    if sap_engine is not None:
+        try:
+            with sap_engine.connect() as conn:
+                sap_result = _check_pricing_sap(conn, item_code)
+        except Exception as exc:  # noqa: BLE001
+            sap_result = DomainResult(
+                domain="pricing",
+                status=DomainStatus.UNKNOWN,
+                summary=f"SAP-Preisfehler: {exc}",
+                needs_human=True,
+                question="Verkaufspreis / Kalkulation manuell ermitteln",
+                source="human",
+            )
+
+    if quoter_result and sap_result and sap_result.status == DomainStatus.OK:
+        # Quoter failed but SAP has a list price – keep SAP, attach quoter error
+        details = dict(sap_result.details)
+        details["quoter"] = {
+            "status": quoter_result.status.value,
+            "summary": quoter_result.summary,
+            "error": quoter_result.details.get("error"),
+        }
+        return DomainResult(
+            domain="pricing",
+            status=sap_result.status,
+            summary=sap_result.summary + " (Quoter nicht nutzbar)",
+            details=details,
+            needs_human=sap_result.needs_human or quoter_result.needs_human,
+            question=quoter_result.question or sap_result.question,
+            source="system",
+        )
+
+    if sap_result is not None:
+        return sap_result
+    if quoter_result is not None:
+        return quoter_result
+
+    return DomainResult(
+        domain="pricing",
+        status=DomainStatus.UNKNOWN,
+        summary="Weder Quoter (Datenraum) noch SAP-Preisliste angebunden",
+        needs_human=True,
+        question="Preis kalkulieren – Datenraum setzen oder SAP ITM1 freigeben",
+        source="human",
+    )
+
+
+def _check_quoter_pricing(
+    quoter: QuoterClient,
+    *,
+    datenraum: str,
+    kunde: str | None,
+    use_llm: bool,
+    item_code: str,
+    qty: float,
+) -> DomainResult:
+    quote: QuoterQuote = quoter.quote(
+        datenraum=datenraum,
+        kunde=kunde,
+        llm=use_llm,
+        item_code=item_code,
+        qty=qty,
+    )
+    details: dict[str, Any] = {
+        "provider": "bdx-quoter",
+        "datenraum": datenraum,
+        "kunde": kunde,
+        "source_path": quote.source_path,
+        "netto_eur": quote.netto_eur,
+        "brutto_eur": quote.brutto_eur,
+        "position_count": quote.position_count,
+        "offen": quote.offen,
+        "status": quote.status,
+    }
+    if quote.error:
+        details["error"] = quote.error
+
+    if quote.status == "running":
+        return DomainResult(
+            domain="pricing",
+            status=DomainStatus.WARN,
+            summary="Quoter-Job läuft noch",
+            details=details,
+            needs_human=True,
+            question="Kalkulation im Quoter abwarten und neu bewerten",
+            source="system",
+        )
+
+    if not quote.ok:
+        return DomainResult(
+            domain="pricing",
+            status=DomainStatus.UNKNOWN,
+            summary=quote.error or "Quoter ohne Ergebnis",
+            details=details,
+            needs_human=True,
+            question="Quoter-Endpunkt/Datenraum prüfen oder manuell kalkulieren",
+            source="human",
+        )
+
+    offen_q = quote.offen
+    summary = f"Quoter Netto {quote.netto_eur:g} EUR" if quote.netto_eur is not None else "Quoter-Kalkulation"
+    if quote.position_count:
+        summary += f" · {quote.position_count} Positionen"
+    if offen_q:
+        summary += f" · {len(offen_q)} offene Punkte"
+        return DomainResult(
+            domain="pricing",
+            status=DomainStatus.WARN,
+            summary=summary,
+            details=details,
+            needs_human=True,
+            question=offen_q[0],
+            source="system",
+        )
+    return DomainResult(
+        domain="pricing",
+        status=DomainStatus.OK,
+        summary=summary,
+        details=details,
+        source="system",
+    )
+
+
+def _check_pricing_sap(conn: Any, item_code: str) -> DomainResult:
     prices, err = sap_queries.fetch_item_prices(conn, item_code)
     if err and not prices:
         return DomainResult(
             domain="pricing",
             status=DomainStatus.UNKNOWN,
             summary="Preisliste nicht lesbar (SELECT auf ITM1 fehlt?)",
-            details={"error": err},
+            details={"error": err, "provider": "sap-itm1"},
             needs_human=True,
             question="Verkaufspreis / Kalkulation manuell ermitteln",
             source="human",
@@ -314,8 +479,9 @@ def _check_pricing(conn: Any, item_code: str) -> DomainResult:
             domain="pricing",
             status=DomainStatus.UNKNOWN,
             summary="Kein Listenpreis > 0 in ITM1",
+            details={"provider": "sap-itm1"},
             needs_human=True,
-            question="Preis kalkulieren (kein SAP-Listenpreis)",
+            question="Preis kalkulieren (kein SAP-Listenpreis) – Datenraum für Quoter setzen",
             source="human",
         )
     normalised = [
@@ -330,7 +496,7 @@ def _check_pricing(conn: Any, item_code: str) -> DomainResult:
         domain="pricing",
         status=DomainStatus.OK,
         summary=f"{len(normalised)} Listenpreis(e) – Basis {normalised[0]['price']:g}",
-        details={"prices": normalised},
+        details={"prices": normalised, "provider": "sap-itm1"},
         source="system",
     )
 
@@ -441,7 +607,12 @@ def _collapse(domains: list[DomainResult], requested_date: Optional[date]) -> Pr
     open_questions: list[dict[str, str]] = []
     blockers: list[str] = []
     for d in domains:
-        if d.needs_human and d.question:
+        # Quoter returns many offen[] items – surface each as a human question
+        offen_list = d.details.get("offen") if isinstance(d.details, dict) else None
+        if isinstance(offen_list, list) and offen_list:
+            for item in offen_list:
+                open_questions.append({"domain": d.domain, "question": str(item)})
+        elif d.needs_human and d.question:
             open_questions.append({"domain": d.domain, "question": d.question})
         if d.status == DomainStatus.BAD:
             blockers.append(f"{d.domain}: {d.summary}")
