@@ -213,6 +213,28 @@ def load_bde_settings() -> BdeSettings:
     return BdeSettings()
 
 
+class QuoterSettings(BaseSettings):
+    """bdx-quoter HTTP integration (Docker, typically :8020)."""
+
+    model_config = SettingsConfigDict(env_prefix="QUOTER_", case_sensitive=False)
+
+    enabled: bool = Field(False)
+    base_url: str = Field("", description="e.g. http://192.168.82.33:8020")
+    api_key: str = Field("")
+    timeout_seconds: float = Field(120.0, ge=5)
+    health_path: str = Field("/api/health")
+    run_path: str = Field("/api/run")
+    projekt_path: str = Field("/api/projekt")
+
+    @property
+    def configured(self) -> bool:
+        return self.enabled and bool(self.base_url)
+
+
+def load_quoter_settings() -> QuoterSettings:
+    return QuoterSettings()
+
+
 def load_mqtt_settings() -> MqttSettings:
     return MqttSettings()
 

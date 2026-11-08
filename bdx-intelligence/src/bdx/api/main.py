@@ -8,12 +8,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
-from bdx.api.routes import analytics, health, machines, orders, q2p, service_layer
+from bdx.api.routes import analytics, health, machines, orders, portal, promise, q2p, service_layer
 from bdx.config import (
     load_app_settings,
     load_bde_settings,
     load_machine_settings,
     load_postgres_settings,
+    load_quoter_settings,
     load_sap_mode_settings,
     load_service_layer_settings,
 )
@@ -95,6 +96,16 @@ def create_app(
     # ── Machine / BDE adapters, publisher ─────────────────────────────────────
     _init_adapters(app, machine_adapter, bde_adapter, publisher)
 
+    # ── Quoter client (optional) ──────────────────────────────────────────────
+    try:
+        from bdx.adapters.quoter import NullQuoterClient, build_quoter_client
+
+        qcfg = load_quoter_settings()
+        app.state.quoter_client = build_quoter_client(qcfg) if qcfg.configured else NullQuoterClient()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("quoter.init_failed", error=str(exc))
+        app.state.quoter_client = None
+
     # ── Routes ────────────────────────────────────────────────────────────────
     app.include_router(health.router)
     app.include_router(orders.router, prefix="/api/v1")
@@ -102,6 +113,8 @@ def create_app(
     app.include_router(service_layer.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")
     app.include_router(q2p.router, prefix="/api/v1")
+    app.include_router(promise.router, prefix="/api/v1")
+    app.include_router(portal.router, prefix="/api/v1")
 
     @app.get("/", include_in_schema=False)
     def _root():
@@ -118,6 +131,19 @@ def create_app(
     @app.get("/q2p", include_in_schema=False)
     def _q2p():
         return FileResponse(_STATIC_DIR / "q2p.html", media_type="text/html")
+
+    @app.get("/promise", include_in_schema=False)
+    def _promise():
+        return FileResponse(_STATIC_DIR / "promise.html", media_type="text/html")
+
+    @app.get("/portal", include_in_schema=False)
+    def _portal_ui():
+        return FileResponse(_STATIC_DIR / "portal.html", media_type="text/html")
+
+    @app.get("/portal/{token}", include_in_schema=False)
+    def _portal_token_ui(token: str):
+        # Serve same SPA shell; JS reads token from path
+        return FileResponse(_STATIC_DIR / "portal.html", media_type="text/html")
 
     logger.info("app.ready", host=app_cfg.api_host, port=app_cfg.api_port, api_key_enabled=bool(app.state.api_key))
     return app
