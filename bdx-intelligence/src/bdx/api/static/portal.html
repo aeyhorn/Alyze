@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alyze – Kundenportal</title>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#182027; --panel2:#1c2733; --line:#263039;
+    --fg:#e6edf3; --muted:#8b98a5;
+    --ok:#2ea043; --warn:#d29922; --bad:#f85149; --info:#58a6ff; --idle:#6e7681;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); min-height:100vh; }
+  .wrap { max-width:720px; margin:0 auto; padding:28px 18px 60px; }
+  header { margin-bottom:28px; }
+  header .brand { font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--info); font-weight:700; }
+  header h1 { font-size:26px; margin:8px 0 6px; font-weight:700; }
+  header p { margin:0; color:var(--muted); font-size:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:14px; }
+  .card h2 { margin:0 0 12px; font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; text-transform:uppercase; }
+  .pill.ok { background:rgba(46,160,67,.2); color:var(--ok); }
+  .pill.warn { background:rgba(210,153,34,.2); color:var(--warn); }
+  .pill.bad { background:rgba(248,81,73,.2); color:var(--bad); }
+  .pill.info { background:rgba(88,166,255,.2); color:var(--info); }
+  .pill.idle { background:rgba(110,118,129,.25); color:#c9d1d9; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; }
+  .kpi { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .kpi .v { font-size:20px; font-weight:700; }
+  .kpi .l { color:var(--muted); font-size:11px; margin-top:2px; }
+  .bar { height:8px; background:#0b0f13; border-radius:4px; overflow:hidden; margin-top:8px; }
+  .bar > span { display:block; height:100%; background:var(--info); }
+  .gap { padding:10px 12px; border-radius:8px; background:rgba(210,153,34,.08); border:1px solid rgba(210,153,34,.25); margin-bottom:8px; font-size:14px; }
+  .gap b { color:var(--warn); font-size:11px; text-transform:uppercase; margin-right:6px; }
+  label { display:block; font-size:11px; color:var(--muted); margin-bottom:4px; }
+  input, textarea, button {
+    font:inherit; color:var(--fg); background:#0b0f13; border:1px solid var(--line); border-radius:6px; padding:8px 10px;
+  }
+  input, textarea { width:100%; }
+  textarea { min-height:70px; resize:vertical; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button { cursor:pointer; }
+  button.ok { background:rgba(46,160,67,.18); border-color:var(--ok); color:var(--ok); font-weight:600; }
+  button.bad { background:rgba(248,81,73,.18); border-color:var(--bad); color:var(--bad); font-weight:600; }
+  .err { color:var(--bad); font-size:13px; margin-top:8px; }
+  .okmsg { color:var(--ok); font-size:13px; margin-top:8px; }
+  .muted { color:var(--muted); font-size:13px; }
+  pre { background:#0b0f13; border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; font-size:12px; max-height:280px; }
+  .token-box { display:flex; gap:8px; }
+  .token-box input { flex:1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Alyze Promise</div>
+    <h1>Ihr Angebot</h1>
+    <p>Dieselbe Wahrheit wie intern: Preisband, Termin, Konfidenz und offene Punkte.</p>
+  </header>
+
+  <section class="card" id="token-card">
+    <h2>Zugang</h2>
+    <label for="token">Portal-Token</label>
+    <div class="token-box">
+      <input id="token" placeholder="Token aus dem Angebotslink">
+      <button id="btn-load">Laden</button>
+    </div>
+    <div class="err" id="load-err"></div>
+  </section>
+
+  <div id="content" style="display:none">
+    <section class="card">
+      <h2>Status <span id="status-pill"></span></h2>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <section class="card">
+      <h2>Offene Punkte (kundensichtbar)</h2>
+      <div id="gaps"></div>
+    </section>
+
+    <section class="card">
+      <h2>Vertrag</h2>
+      <div id="contract"></div>
+      <div id="accept-box" style="display:none;margin-top:14px">
+        <label for="accepted_by">Ihr Name</label>
+        <input id="accepted_by" placeholder="Vor- und Nachname">
+        <div class="actions">
+          <button class="ok" id="btn-accept">Vertrag annehmen</button>
+          <button class="bad" id="btn-reject">Ablehnen</button>
+        </div>
+        <div class="err" id="act-err"></div>
+        <div class="okmsg" id="act-ok"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1';
+let data = null;
+
+function tokenFromPath() {
+  const m = location.pathname.match(/\/portal\/([^\/]+)/);
+  return m ? decodeURIComponent(m[1]) : new URLSearchParams(location.search).get('token');
+}
+
+async function api(path, opts={}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { const j = await res.json(); detail = j.detail || JSON.stringify(j); } catch {}
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+  }
+  return res.json();
+}
+
+function money(a,b) {
+  if (a==null && b==null) return '—';
+  if (a!=null && b!=null) return `${Number(a).toLocaleString('de-DE')}–${Number(b).toLocaleString('de-DE')} €`;
+  return `${Number(a??b).toLocaleString('de-DE')} €`;
+}
+
+function render() {
+  const o = data;
+  document.getElementById('content').style.display = 'block';
+  const map = { promisable:'ok', decided:'ok', contracted:'ok', open:'warn', sent:'info' };
+  document.getElementById('status-pill').innerHTML = `<span class="pill ${map[o.status]||'idle'}">${o.status}</span>`;
+  const thr = o.confidence_threshold || 0.75;
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="v">${o.item_code} × ${o.qty}</div><div class="l">Position</div></div>
+    <div class="kpi"><div class="v">${money(o.price_low_eur,o.price_high_eur)}</div><div class="l">Preisband</div></div>
+    <div class="kpi"><div class="v">${o.date_early||'—'} → ${o.date_late||'—'}</div><div class="l">Terminband</div></div>
+    <div class="kpi"><div class="v">${Math.round((o.confidence||0)*100)}%</div><div class="l">Konfidenz (Schwelle ${Math.round(thr*100)}%)</div>
+      <div class="bar"><span style="width:${Math.min(100,(o.confidence||0)*100)}%"></span></div></div>`;
+
+  const gaps = o.customer_gaps || [];
+  document.getElementById('gaps').innerHTML = gaps.length
+    ? gaps.map(g => `<div class="gap"><b>${g.type||''}</b>${g.title||''}</div>`).join('')
+    : '<p class="muted">Keine offenen kundensichtbaren Punkte.</p>';
+
+  const c = o.contract;
+  const box = document.getElementById('accept-box');
+  if (!c) {
+    document.getElementById('contract').innerHTML = '<p class="muted">Noch kein Vertrag freigegeben.</p>';
+    box.style.display = 'none';
+  } else {
+    document.getElementById('contract').innerHTML = `
+      <div><span class="pill ${c.status==='accepted'?'ok':c.status==='rejected'?'bad':'info'}">${c.status}</span>
+        <strong style="margin-left:8px">${c.title}</strong> · v${c.version}</div>
+      <pre style="margin-top:10px">${JSON.stringify(c.body,null,2)}</pre>`;
+    box.style.display = (c.status === 'sent') ? 'block' : 'none';
+  }
+}
+
+async function load(token) {
+  const err = document.getElementById('load-err'); err.textContent = '';
+  try {
+    data = await api('/portal/' + encodeURIComponent(token));
+    document.getElementById('token').value = token;
+    if (location.pathname.indexOf('/portal/') === -1) {
+      history.replaceState(null, '', '/portal/' + encodeURIComponent(token));
+    }
+    render();
+  } catch (e) { err.textContent = e.message; }
+}
+
+document.getElementById('btn-load').onclick = () => load(document.getElementById('token').value.trim());
+
+document.getElementById('btn-accept').onclick = async () => {
+  const err = document.getElementById('act-err'); const ok = document.getElementById('act-ok');
+  err.textContent = ''; ok.textContent = '';
+  try {
+    const name = document.getElementById('accepted_by').value.trim();
+    if (!name) throw new Error('Name erforderlich');
+    const token = document.getElementById('token').value.trim();
+    await api('/portal/' + encodeURIComponent(token) + '/accept', {
+      method:'POST', body: JSON.stringify({ accepted_by: name })
+    });
+    ok.textContent = 'Vertrag angenommen. Danke.';
+    await load(token);
+  } catch (e) { err.textContent = e.message; }
+};
+
+document.getElementById('btn-reject').onclick = async () => {
+  const err = document.getElementById('act-err'); const ok = document.getElementById('act-ok');
+  err.textContent = ''; ok.textContent = '';
+  try {
+    const name = document.getElementById('accepted_by').value.trim() || 'Kunde';
+    const reason = prompt('Ablehnungsgrund:') || 'abgelehnt';
+    const token = document.getElementById('token').value.trim();
+    await api('/portal/' + encodeURIComponent(token) + '/reject', {
+      method:'POST', body: JSON.stringify({ rejected_by: name, reason })
+    });
+    ok.textContent = 'Ablehnung übermittelt.';
+    await load(token);
+  } catch (e) { err.textContent = e.message; }
+};
+
+const t = tokenFromPath();
+if (t) {
+  document.getElementById('token').value = t;
+  load(t);
+}
+</script>
+</body>
+</html>

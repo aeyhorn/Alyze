@@ -1,16 +1,20 @@
 """Q2P – link inquiries to bdx-quoter datenraum.
 
-Revision ID: 005
-Revises: 004
+Revision ID: 008
+Revises: 007
 Create Date: 2026-11-08
+
+Renumbered from the #39 migration that incorrectly reused revision ``005``
+(already taken by analytics tables). Linear chain:
+004 → 005 analytics → 006 diagnosis → 007 promise → 008 quoter fields.
 """
 from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "005"
-down_revision = "004"
+revision = "008"
+down_revision = "007"
 branch_labels = None
 depends_on = None
 
