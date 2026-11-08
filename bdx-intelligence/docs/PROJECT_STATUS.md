@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-08 16:45 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-08 21:10 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -81,11 +81,13 @@ with one inquiry case that answers domains in parallel from SAP + shop floor. Hu
 | Cockpit UI `/q2p` | ✅ | form + case list + domain cards + human questions + decision |
 | `bdx-collect serve` attaches SAP engine | ✅ | without engine → SAP domains become open questions |
 | SQL grant script `docs/sql/grant_q2p_readonly.sql` | ✅ | run on DEV/PROD for live material/price |
+| bdx-quoter HTTP adapter + pricing domain | ✅ | `QUOTER_*` env; datenraum on inquiry; `offen[]` → open_questions |
+| Migration `005` (datenraum/kunde/use_llm) | ✅ | |
 
-**Deploy notes**: `alembic upgrade head` (migration 004); run `grant_q2p_readonly.sql` on LDSAP;
-open `http://<host>:8085/q2p`.
+**Deploy notes**: `alembic upgrade head` (migrations 004+005); run `grant_q2p_readonly.sql` on LDSAP;
+set `QUOTER_ENABLED=true` + `QUOTER_BASE_URL=http://<docker-host>:8020`; open `http://<host>:8085/q2p`.
 
-**Still human by design**: personnel/shift qualification (no feed yet); commercial margin beyond list price.
+**Still human by design**: personnel/shift qualification (no feed yet). Quoter `offen` stays human until resolved in the datenraum. Confirm `/api/run` paths against real `web/server.py` if aliases miss.
 
 ## Sprint 004 – CI/CD pipeline, quality-gate agents, HOTL workflow  🟡 Built (uncommitted)
 
