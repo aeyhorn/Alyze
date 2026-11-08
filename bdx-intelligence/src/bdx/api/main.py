@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
-from bdx.api.routes import analytics, health, machines, orders, service_layer
+from bdx.api.routes import analytics, health, machines, orders, q2p, service_layer
 from bdx.config import (
     load_app_settings,
     load_bde_settings,
@@ -62,7 +62,7 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_methods=["GET", "PUT"],
+        allow_methods=["GET", "PUT", "POST", "PATCH"],
         allow_headers=["*"],
     )
 
@@ -77,9 +77,13 @@ def create_app(
         app.state.pg_session_factory = make_session_factory(pg_engine)
 
     # ── MSSQL (SAP read) ──────────────────────────────────────────────────────
+    # Injected by `bdx-collect serve` for Quote-to-Promise live reads.
+    # Tests leave this None → Q2P degrades SAP domains to open_questions.
     app.state.sap_ok = False
+    app.state.sap_engine = sap_engine
     if sap_engine is not None:
         from bdx.db.sap import probe_sap_connection
+
         app.state.sap_ok = probe_sap_connection(sap_engine)
 
     # ── Service Layer write client ────────────────────────────────────────────
@@ -98,6 +102,7 @@ def create_app(
     app.include_router(machines.router, prefix="/api/v1")
     app.include_router(service_layer.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")
+    app.include_router(q2p.router, prefix="/api/v1")
 
     @app.get("/", include_in_schema=False)
     def _root():
@@ -110,6 +115,10 @@ def create_app(
     @app.get("/analytics", include_in_schema=False)
     def _analytics():
         return FileResponse(_STATIC_DIR / "analytics.html", media_type="text/html")
+
+    @app.get("/q2p", include_in_schema=False)
+    def _q2p():
+        return FileResponse(_STATIC_DIR / "q2p.html", media_type="text/html")
 
     logger.info("app.ready", host=app_cfg.api_host, port=app_cfg.api_port, api_key_enabled=bool(app.state.api_key))
     return app
