@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -56,6 +56,10 @@ class Q2PInquiry(Base):
     requested_date: Mapped[Optional[str]] = mapped_column(String(10))  # ISO date
     notes: Mapped[Optional[str]] = mapped_column(Text)
     owner: Mapped[Optional[str]] = mapped_column(String(64))
+    # bdx-quoter: path inside the container/SMB datenraum + optional kundenprofil
+    datenraum: Mapped[Optional[str]] = mapped_column(Text)
+    kunde: Mapped[Optional[str]] = mapped_column(String(64))
+    use_llm: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     decision: Mapped[Optional[str]] = mapped_column(String(16))
     decision_note: Mapped[Optional[str]] = mapped_column(Text)
@@ -75,6 +79,12 @@ class InquiryCreate(BaseModel):
     customer_ref: Optional[str] = Field(None, max_length=128)
     notes: Optional[str] = None
     owner: Optional[str] = Field(None, max_length=64)
+    datenraum: Optional[str] = Field(
+        None,
+        description="Pfad zum Quoter-Datenraum (SMB/Container), triggert bdx-quoter",
+    )
+    kunde: Optional[str] = Field(None, max_length=64, description="Quoter-Kundenprofil")
+    use_llm: bool = Field(False, description="Quoter-LLM-Extraktion")
     evaluate: bool = Field(True, description="Run parallel domain checks immediately")
 
 
@@ -90,6 +100,9 @@ class InquiryUpdate(BaseModel):
     owner: Optional[str] = None
     requested_date: Optional[date] = None
     qty: Optional[Decimal] = Field(None, gt=0)
+    datenraum: Optional[str] = None
+    kunde: Optional[str] = None
+    use_llm: Optional[bool] = None
 
 
 class DomainResult(BaseModel):
@@ -124,6 +137,9 @@ class InquiryDTO(BaseModel):
     requested_date: Optional[str] = None
     notes: Optional[str] = None
     owner: Optional[str] = None
+    datenraum: Optional[str] = None
+    kunde: Optional[str] = None
+    use_llm: bool = False
     decision: Optional[str] = None
     decision_note: Optional[str] = None
     decided_at: Optional[datetime] = None

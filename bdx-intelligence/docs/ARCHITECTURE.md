@@ -168,8 +168,13 @@ domain checks in parallel (SAP live + PG machine/order state):
 | material | OITW + OPOR/POR1 | Lager / Bestellung / Liefertermin / Preis |
 | bom | OITT/ITT1 (+ OITW je Komponente) | Stücklisten-Klärung |
 | capacity | `machine_state` + open `order_state` | „Wann können wir fertigen?“ |
-| pricing | ITM1/OPLN | Listenpreis-Basis |
+| pricing | **bdx-quoter** (Datenraum) else ITM1/OPLN | Kalkulation / Listenpreis |
 | personnel | *gap* → open question | Schicht / Qualifikation (noch Mensch) |
+
+**bdx-quoter** (Docker `:8020`): optional `QUOTER_*` settings; adapter
+`src/bdx/adapters/quoter.py`. Inquiry fields `datenraum` / `kunde` / `use_llm`
+trigger a quote; quoter `offen[]` becomes Q2P `open_questions`. See
+[Q2P_QUOTER.md](Q2P_QUOTER.md).
 
 Missing SELECT grants degrade the domain to `unknown` + an explicit `open_questions` entry
 instead of failing the whole evaluation. `bdx-collect serve` attaches the SAP engine so the

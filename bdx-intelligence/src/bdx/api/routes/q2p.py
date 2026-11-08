@@ -33,6 +33,10 @@ def _sap_engine(request: Request):
     return getattr(request.app.state, "sap_engine", None)
 
 
+def _quoter(request: Request):
+    return getattr(request.app.state, "quoter_client", None)
+
+
 def _to_dto(row: q2p_models.Q2PInquiry) -> InquiryDTO:
     return InquiryDTO.model_validate(row)
 
@@ -48,6 +52,10 @@ def _run_and_persist(request: Request, session: Session, row: q2p_models.Q2PInqu
         requested_date=req_date,
         sap_engine=_sap_engine(request),
         pg_session=session,
+        quoter=_quoter(request),
+        datenraum=row.datenraum,
+        kunde=row.kunde,
+        use_llm=bool(row.use_llm),
     )
     status = _status_from_promise(result)
     save_evaluation(
@@ -158,6 +166,9 @@ def get_promise(
     item_code: str = Query(..., min_length=1),
     qty: float = Query(..., gt=0),
     requested_date: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
+    datenraum: Optional[str] = Query(None, description="bdx-quoter datenraum path"),
+    kunde: Optional[str] = Query(None, description="bdx-quoter kundenprofil"),
+    use_llm: bool = Query(False),
     session: Session = Depends(get_pg_session),
 ) -> PromiseResult:
     from datetime import date as date_cls
@@ -170,4 +181,8 @@ def get_promise(
         requested_date=req,
         sap_engine=_sap_engine(request),
         pg_session=session,
+        quoter=_quoter(request),
+        datenraum=datenraum,
+        kunde=kunde,
+        use_llm=use_llm,
     )

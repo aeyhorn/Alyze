@@ -85,6 +85,7 @@
     <a href="/dashboard">Betrieb</a>
     <a href="/analytics">Schwachstellen</a>
     <a class="active" href="/q2p">Q2P</a>
+    <a href="/promise">Promise</a>
   </nav>
 </header>
 
@@ -115,6 +116,17 @@
       <div>
         <label for="owner">Bearbeiter</label>
         <input id="owner" placeholder="optional">
+      </div>
+      <div class="wide">
+        <label for="datenraum">Quoter-Datenraum (Pfad im Container/SMB)</label>
+        <input id="datenraum" placeholder="z.B. /mnt/001 KUNDEN/…/Anfrage-Ordner">
+      </div>
+      <div>
+        <label for="kunde">Quoter-Kunde (Profil)</label>
+        <input id="kunde" placeholder="z.B. meiller">
+      </div>
+      <div>
+        <label for="use_llm"><input id="use_llm" type="checkbox" style="width:auto;margin-right:6px">LLM-Extraktion</label>
       </div>
       <div class="wide">
         <label for="notes">Notiz</label>
@@ -309,6 +321,9 @@ async function createInquiry() {
     customer_ref: document.getElementById('customer_ref').value.trim() || null,
     owner: document.getElementById('owner').value.trim() || null,
     notes: document.getElementById('notes').value.trim() || null,
+    datenraum: document.getElementById('datenraum').value.trim() || null,
+    kunde: document.getElementById('kunde').value.trim() || null,
+    use_llm: document.getElementById('use_llm').checked,
     evaluate: true,
   };
   if (!body.item_code || !(body.qty > 0)) {
@@ -335,6 +350,11 @@ async function adhocCheck() {
   try {
     let path = `/q2p/promise?item_code=${encodeURIComponent(item)}&qty=${encodeURIComponent(qty)}`;
     if (rd) path += `&requested_date=${encodeURIComponent(rd)}`;
+    const dr = document.getElementById('datenraum').value.trim();
+    const kd = document.getElementById('kunde').value.trim();
+    if (dr) path += `&datenraum=${encodeURIComponent(dr)}`;
+    if (kd) path += `&kunde=${encodeURIComponent(kd)}`;
+    if (document.getElementById('use_llm').checked) path += '&use_llm=true';
     adhocSnapshot = await api(path);
     current = { id: null, item_code: item, qty, open_questions: adhocSnapshot.open_questions, status: 'adhoc', promise_snapshot: adhocSnapshot };
     renderDetail(current);
