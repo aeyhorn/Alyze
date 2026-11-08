@@ -184,6 +184,7 @@ bdx-intelligence/
 - [Architecture](docs/ARCHITECTURE.md)
 - [SAP / shop-floor field mapping](docs/SAP_MAPPING.md)
 - [Project status](docs/PROJECT_STATUS.md)
+- [Promise Platform Vision](docs/VISION_PROMISE_PLATFORM.md) – Offer/Gaps → Kundenportal, Einkauf, Vertrag
 
 ---
 
