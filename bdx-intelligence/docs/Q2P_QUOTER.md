@@ -62,3 +62,19 @@ If the real routes differ: set `QUOTER_*_PATH` or adjust
 4. Without `datenraum`, pricing falls back to SAP `ITM1`
 
 UI: `/q2p` form fields **Quoter-Datenraum** / **Quoter-Kunde**.
+
+## Deep Link (Entscheidung)
+
+**Gewählt:** UI Deep Link + `return_url` zwischen Promise-Akte und Quoter
+(nicht nur blinder API-Recompute).
+
+Vollständiger Contract + kopierbarer Prompt für das Quoter-Repo:
+[`docs/QUOTER_DEEP_LINK.md`](QUOTER_DEEP_LINK.md).
+
+Geplante BDX-Env-Ergänzung:
+
+```env
+QUOTER_UI_URL=http://192.168.82.33:8020
+```
+
+(`QUOTER_BASE_URL` bleibt die API-Basis; `QUOTER_UI_URL` steuert den Browser-Einstieg.)
