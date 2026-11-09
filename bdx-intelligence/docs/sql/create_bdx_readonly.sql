@@ -20,16 +20,31 @@ USE [DEV_SBO_LEISINGER];
 CREATE USER [bdx_readonly] FOR LOGIN [bdx_readonly];
 GRANT SELECT ON dbo.OWOR TO [bdx_readonly];
 GRANT SELECT ON dbo.OITM TO [bdx_readonly];
+-- Quote-to-Promise (stock, open POs, BOM, price lists)
+GRANT SELECT ON dbo.OITW TO [bdx_readonly];
+GRANT SELECT ON dbo.OPOR TO [bdx_readonly];
+GRANT SELECT ON dbo.POR1 TO [bdx_readonly];
+GRANT SELECT ON dbo.OITT TO [bdx_readonly];
+GRANT SELECT ON dbo.ITT1 TO [bdx_readonly];
+GRANT SELECT ON dbo.ITM1 TO [bdx_readonly];
+GRANT SELECT ON dbo.OPLN TO [bdx_readonly];
 -- Deny write operations explicitly (belt-and-suspenders).
 -- IMPORTANT: do NOT deny CONTROL — CONTROL encompasses CONNECT + SELECT,
 -- so DENY CONTROL would block the login from opening the database (error 18456 state 38).
 DENY INSERT, UPDATE, DELETE, ALTER TO [bdx_readonly];
 
--- 3. Grant SELECT on OWOR + OITM in the PROD company database
+-- 3. Grant SELECT on OWOR + OITM (+ Q2P tables) in the PROD company database
 USE [SBO_LEISINGER];
 CREATE USER [bdx_readonly] FOR LOGIN [bdx_readonly];
 GRANT SELECT ON dbo.OWOR TO [bdx_readonly];
 GRANT SELECT ON dbo.OITM TO [bdx_readonly];
+GRANT SELECT ON dbo.OITW TO [bdx_readonly];
+GRANT SELECT ON dbo.OPOR TO [bdx_readonly];
+GRANT SELECT ON dbo.POR1 TO [bdx_readonly];
+GRANT SELECT ON dbo.OITT TO [bdx_readonly];
+GRANT SELECT ON dbo.ITT1 TO [bdx_readonly];
+GRANT SELECT ON dbo.ITM1 TO [bdx_readonly];
+GRANT SELECT ON dbo.OPLN TO [bdx_readonly];
 DENY INSERT, UPDATE, DELETE, ALTER TO [bdx_readonly];
 
 -- 4. Verify

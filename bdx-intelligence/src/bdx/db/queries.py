@@ -165,3 +165,107 @@ def fetch_item_by_code(conn: Connection, item_code: str) -> dict[str, Any] | Non
     result = conn.execute(OITM_BY_ITEMCODE_SQL, {"item_code": item_code})
     row = result.fetchone()
     return dict(row._mapping) if row else None
+
+
+# ── Q2P – Inventory / Purchasing / BOM / Price (read-only) ───────────────────
+# These tables need SELECT grants (see docs/sql/create_bdx_readonly.sql).
+# Helpers catch permission / missing-object errors so the API can degrade.
+
+OITW_BY_ITEM_SQL = text(
+    """
+    SELECT
+        w.ItemCode   AS item_code,
+        w.WhsCode    AS warehouse,
+        w.OnHand     AS on_hand,
+        w.IsCommited AS is_committed,
+        w.OnOrder    AS on_order
+    FROM dbo.OITW w
+    WHERE w.ItemCode = :item_code
+    ORDER BY w.WhsCode
+    """
+)
+
+OPOR_OPEN_LINES_BY_ITEM_SQL = text(
+    """
+    SELECT
+        h.DocEntry   AS doc_entry,
+        h.DocNum     AS doc_num,
+        h.CardCode   AS vendor_code,
+        h.CardName   AS vendor_name,
+        h.DocDueDate AS due_date,
+        l.ItemCode   AS item_code,
+        l.Quantity   AS quantity,
+        l.OpenQty    AS open_qty,
+        l.Price      AS price,
+        l.LineTotal  AS line_total,
+        l.ShipDate   AS ship_date
+    FROM dbo.OPOR h
+    INNER JOIN dbo.POR1 l ON l.DocEntry = h.DocEntry
+    WHERE h.DocStatus = 'O'
+      AND l.LineStatus = 'O'
+      AND l.ItemCode = :item_code
+    ORDER BY h.DocDueDate, h.DocNum
+    """
+)
+
+OITT_BOM_COMPONENTS_SQL = text(
+    """
+    SELECT
+        t.Code       AS parent_code,
+        c.Code       AS component_code,
+        c.Quantity   AS quantity,
+        c.Warehouse  AS warehouse,
+        it.ItemName  AS component_name,
+        it.InvntItem AS inventory_item
+    FROM dbo.OITT t
+    INNER JOIN dbo.ITT1 c ON c.Father = t.Code
+    LEFT JOIN dbo.OITM it ON it.ItemCode = c.Code
+    WHERE t.Code = :item_code
+    ORDER BY c.Code
+    """
+)
+
+ITM1_PRICES_SQL = text(
+    """
+    SELECT
+        p.ItemCode  AS item_code,
+        p.PriceList AS price_list,
+        p.Price     AS price,
+        pl.ListName AS list_name
+    FROM dbo.ITM1 p
+    LEFT JOIN dbo.OPLN pl ON pl.ListNum = p.PriceList
+    WHERE p.ItemCode = :item_code
+      AND p.Price IS NOT NULL
+      AND p.Price > 0
+    ORDER BY p.PriceList
+    """
+)
+
+
+def _safe_fetch(conn: Connection, stmt: Any, params: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
+    """Execute *stmt*; on permission/object errors return ([], error_message)."""
+    try:
+        result = conn.execute(stmt, params)
+        return [dict(row._mapping) for row in result], None
+    except Exception as exc:  # noqa: BLE001 – degrade gracefully for missing grants
+        return [], str(exc)
+
+
+def fetch_warehouse_stock(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+    """Return OITW rows for *item_code* (on-hand / committed / on-order)."""
+    return _safe_fetch(conn, OITW_BY_ITEM_SQL, {"item_code": item_code})
+
+
+def fetch_open_purchase_lines(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+    """Return open purchase-order lines (OPOR/POR1) for *item_code*."""
+    return _safe_fetch(conn, OPOR_OPEN_LINES_BY_ITEM_SQL, {"item_code": item_code})
+
+
+def fetch_bom_components(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+    """Return product-tree components (OITT/ITT1) for *item_code*."""
+    return _safe_fetch(conn, OITT_BOM_COMPONENTS_SQL, {"item_code": item_code})
+
+
+def fetch_item_prices(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+    """Return price-list entries (ITM1/OPLN) for *item_code*."""
+    return _safe_fetch(conn, ITM1_PRICES_SQL, {"item_code": item_code})

@@ -4,17 +4,20 @@ name: Deploy to DEV
 # to `main`. Fully automated — no human in the loop for DEV.
 #
 # Pipeline:
-#   1. Build Docker image (bdx-intelligence:<sha> + :dev).
-#   2. Push to GitHub Container Registry (ghcr.io).
-#   3. SSH to DEV host, pull the image, run migrations, restart services.
-#   4. Smoke test: `bdx-collect diagnose` + `GET /health/live` must return 200.
+#   1. Build Docker image (bdx-intelligence:<sha> + :dev) on a GitHub-hosted
+#      runner. Push to GitHub Container Registry (ghcr.io).
+#   2. Deploy job runs on the self-hosted runner ON the DEV host, pulls the
+#      image from ghcr.io, runs migrations, restarts services. No SSH hop.
+#   3. Smoke test: `bdx-collect diagnose` + `GET /health/live` must return 200.
 #
-# Required repo secrets:
-#   DEV_SSH_HOST      e.g. 192.168.82.33
-#   DEV_SSH_USER      ssh user with docker access
-#   DEV_SSH_KEY       private key (PEM)
-#   DEV_DEPLOY_PATH   e.g. /opt/bdx-intelligence (contains docker-compose.yml + .env)
+# Prerequisites:
+#   * Self-hosted runner registered on the DEV host (user docadm, docker group)
+#     with labels [self-hosted, linux]. See scripts/prepare-dev-host.sh.
+#   * Deploy path /home/docadm/bdx-intelligence on the DEV host containing
+#     .env (NOT in the repo — scp'd once, maintained on the host).
+#     docker-compose.yml is refreshed from the repo on each deploy.
 #
+# No SSH secrets needed — the runner IS the DEV host and runs compose directly.
 # DEV is always deployed with SL_DRY_RUN=true (enforced in .env on the host).
 # PROD deploys are a separate, approval-gated workflow (deploy-prod.yml).
 
@@ -75,50 +78,49 @@ jobs:
   deploy:
     name: Deploy to DEV host
     needs: build
-    # Self-hosted runner in the LAN that can reach the DEV host (192.168.82.33).
-    # GitHub-hosted runners cannot SSH to a private-LAN IP. Register a runner:
+    # Self-hosted runner ON the DEV host (192.168.82.33). Runs docker compose
+    # directly — no SSH hop. Register the runner:
     #   Settings → Actions → Runners → New self-hosted runner → Linux x64
-    # Install it on any machine that can SSH to DEV_SSH_HOST (the DEV host
-    # itself works too — it then SSHes to localhost). The runner must have
-    # the `self-hosted` label (default) and `linux` (added by default on Linux).
+    # Install on the DEV host itself (user docadm, in the docker group).
+    # The deploy path (~/bdx-intelligence) holds docker-compose.yml + .env
+    # (the .env is NOT in the repo — it was scp'd once and is maintained on
+    # the host). The compose file is refreshed from the repo on each deploy.
     runs-on: [self-hosted, linux]
     environment: dev
+    permissions:
+      packages: read
     env:
-      # Pull the exact image the build job just pushed (lowercased path).
       BDX_IMAGE: ${{ needs.build.outputs.image }}:dev
+      DEPLOY_PATH: /home/docadm/bdx-intelligence
     steps:
-      - name: SSH deploy + smoke test
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEV_SSH_HOST }}
-          username: ${{ secrets.DEV_SSH_USER }}
-          key: ${{ secrets.DEV_SSH_KEY }}
-          envs: BDX_IMAGE
-          script: |
-            set -euo pipefail
-            cd "${{ secrets.DEV_DEPLOY_PATH }}"
-            # Safety: DEV must keep SL_DRY_RUN=true.
-            if grep -q '^SL_DRY_RUN=false' .env; then
-              echo "ABORT: DEV .env has SL_DRY_RUN=false — refusing to deploy." >&2
-              exit 1
+      - name: Login to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - uses: actions/checkout@v4
+
+      - name: Sync docker-compose.yml to deploy path
+        run: cp bdx-intelligence/docker-compose.yml "$DEPLOY_PATH/docker-compose.yml"
+
+      - name: Deploy + smoke test
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          # Safety: DEV must keep SL_DRY_RUN=true.
+          if grep -q '^SL_DRY_RUN=false' .env; then
+            echo "ABORT: DEV .env has SL_DRY_RUN=false — refusing to deploy." >&2
+            exit 1
+          fi
+          export BDX_IMAGE="${BDX_IMAGE}"
+          echo "Deploying image: ${BDX_IMAGE}"
+          docker compose pull
+          docker compose run --rm migrate
+          docker compose up -d --force-recreate collector api
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8085/health/live >/dev/null; then
+              echo "health ok"; break
             fi
-            # Export the freshly built image so docker compose pulls it.
-            export BDX_IMAGE="${BDX_IMAGE}"
-            echo "Deploying image: ${BDX_IMAGE}"
-            # Pull the freshly built image.
-            docker compose pull
-            # Run migrations against the event store.
-            docker compose run --rm migrate
-            # Restart collector + API.
-            docker compose up -d --force-recreate collector api
-            # Wait for API to be ready.
-            for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:8085/health/live >/dev/null; then
-                echo "health ok"; break
-              fi
-              sleep 2
-            done
-            curl -fsS http://127.0.0.1:8085/health/live || (echo "health failed" >&2; exit 1)
-            # Smoke test: diagnose (PG, SAP, XMSK, SCADA, MQTT).
-            docker compose exec -T collector bdx-collect diagnose || true
-            echo "DEV deploy complete."
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8085/health/live || (echo "health failed" >&2; exit 1)
+          docker compose exec -T collector bdx-collect diagnose || true
+          echo "DEV deploy complete."

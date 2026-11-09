@@ -541,10 +541,24 @@ def serve(
     import uvicorn
 
     from bdx.api.main import create_app
-    from bdx.config import load_app_settings
+    from bdx.config import load_app_settings, load_sap_settings
 
     cfg = load_app_settings()
-    uvicorn.run(create_app(), host=host or cfg.api_host, port=port or cfg.api_port, log_level="info")
+    sap_engine = None
+    try:
+        from bdx.db.sap import create_sap_engine
+
+        sap_engine = create_sap_engine(load_sap_settings())
+        console.print("[green]SAP engine attached for Quote-to-Promise[/green]")
+    except Exception as exc:  # noqa: BLE001
+        err_console.print(f"[yellow]SAP engine not attached (Q2P material/price degrade): {exc}[/yellow]")
+
+    uvicorn.run(
+        create_app(sap_engine=sap_engine),
+        host=host or cfg.api_host,
+        port=port or cfg.api_port,
+        log_level="info",
+    )
 
 
 # ── Quality-gate agents ─────────────────────────────────────────────────────

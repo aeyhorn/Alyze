@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BDX Intelligence – Quote to Promise</title>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#182027; --panel2:#1c2733; --line:#263039;
+    --fg:#e6edf3; --muted:#8b98a5;
+    --ok:#2ea043; --warn:#d29922; --bad:#f85149; --info:#58a6ff; --idle:#6e7681;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; gap:14px; padding:11px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  header .sub { color:var(--muted); font-size:12px; }
+  header .spacer { flex:1; }
+  header nav { display:flex; gap:6px; }
+  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); }
+  header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
+  main { padding:16px 20px; display:grid; gap:16px; grid-template-columns:repeat(12,1fr); }
+  .full { grid-column:span 12; } .half { grid-column:span 6; } .third { grid-column:span 4; }
+  @media (max-width:1000px) { .half,.third { grid-column:span 12; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .card h2 { margin:0 0 12px; font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; text-transform:uppercase; }
+  .pill.ok { background:rgba(46,160,67,.2); color:var(--ok); }
+  .pill.warn { background:rgba(210,153,34,.2); color:var(--warn); }
+  .pill.bad { background:rgba(248,81,73,.2); color:var(--bad); }
+  .pill.info { background:rgba(88,166,255,.2); color:var(--info); }
+  .pill.idle { background:rgba(110,118,129,.25); color:#c9d1d9; }
+  label { display:block; font-size:11px; color:var(--muted); margin-bottom:4px; }
+  input, textarea, select, button {
+    font:inherit; color:var(--fg); background:#0b0f13; border:1px solid var(--line); border-radius:6px; padding:7px 10px;
+  }
+  input, textarea, select { width:100%; }
+  textarea { min-height:64px; resize:vertical; }
+  .form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .form-grid .wide { grid-column:span 2; }
+  @media (max-width:700px) { .form-grid { grid-template-columns:1fr; } .form-grid .wide { grid-column:span 1; } }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button { cursor:pointer; }
+  button.primary { background:rgba(88,166,255,.18); border-color:var(--info); color:var(--info); font-weight:600; }
+  button.ok { background:rgba(46,160,67,.18); border-color:var(--ok); color:var(--ok); }
+  button.bad { background:rgba(248,81,73,.18); border-color:var(--bad); color:var(--bad); }
+  button.warn { background:rgba(210,153,34,.18); border-color:var(--warn); color:var(--warn); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .domain { border:1px solid var(--line); border-left:4px solid var(--idle); border-radius:8px; padding:12px; background:var(--panel2); margin-bottom:10px; }
+  .domain.ok { border-left-color:var(--ok); }
+  .domain.warn { border-left-color:var(--warn); }
+  .domain.bad { border-left-color:var(--bad); }
+  .domain.unknown, .domain.skipped { border-left-color:var(--idle); }
+  .domain .top { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:4px; }
+  .domain .name { font-weight:700; text-transform:uppercase; font-size:12px; letter-spacing:.4px; }
+  .domain .sum { color:var(--fg); font-size:13px; }
+  .domain .meta { color:var(--muted); font-size:11px; margin-top:6px; }
+  .q { padding:8px 10px; border-radius:6px; background:rgba(210,153,34,.1); border:1px solid rgba(210,153,34,.25); margin-bottom:6px; font-size:13px; }
+  .q b { color:var(--warn); text-transform:uppercase; font-size:11px; margin-right:6px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; font-size:11px; }
+  tr { cursor:pointer; }
+  tr:hover td { background:rgba(88,166,255,.06); }
+  tr.active td { background:rgba(88,166,255,.12); }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:12px; }
+  .kpi { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 12px; border-left:4px solid var(--idle); }
+  .kpi.ok { border-left-color:var(--ok); } .kpi.warn { border-left-color:var(--warn); } .kpi.bad { border-left-color:var(--bad); }
+  .kpi .v { font-size:22px; font-weight:700; } .kpi .l { color:var(--muted); font-size:11px; }
+  .err { color:var(--bad); font-size:12px; margin-top:8px; }
+  .empty { color:var(--muted); font-size:12px; padding:8px 0; }
+  .scroll { max-height:420px; overflow:auto; }
+  details { margin-top:8px; }
+  details summary { cursor:pointer; color:var(--muted); font-size:11px; }
+  pre { background:#0b0f13; border:1px solid var(--line); border-radius:6px; padding:8px; overflow:auto; font-size:11px; max-height:180px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BDX Intelligence</h1>
+  <span class="sub">Quote to Promise – parallele Anfragebewertung</span>
+  <span id="health" class="pill idle">…</span>
+  <span class="spacer"></span>
+  <nav>
+    <a href="/dashboard">Betrieb</a>
+    <a href="/analytics">Schwachstellen</a>
+    <a class="active" href="/q2p">Q2P</a>
+    <a href="/promise">Promise</a>
+  </nav>
+</header>
+
+<main>
+  <section class="card half">
+    <h2>Neue Anfrage</h2>
+    <p style="margin:0 0 12px;color:var(--muted);font-size:12px">
+      Eine Akte statt E-Mail-Kette: Material, BOM, Kapazität, Preis und Personal werden parallel geprüft.
+      Offene Punkte erscheinen nur dort, wo noch ein Mensch nötig ist.
+    </p>
+    <div class="form-grid">
+      <div>
+        <label for="item_code">Artikel (SAP ItemCode)</label>
+        <input id="item_code" placeholder="z.B. 10886" autocomplete="off">
+      </div>
+      <div>
+        <label for="qty">Menge</label>
+        <input id="qty" type="number" min="0.001" step="any" value="1">
+      </div>
+      <div>
+        <label for="requested_date">Wunschtermin</label>
+        <input id="requested_date" type="date">
+      </div>
+      <div>
+        <label for="customer_ref">Kunden-/Anfrage-Ref</label>
+        <input id="customer_ref" placeholder="optional">
+      </div>
+      <div>
+        <label for="owner">Bearbeiter</label>
+        <input id="owner" placeholder="optional">
+      </div>
+      <div class="wide">
+        <label for="datenraum">Quoter-Datenraum (Pfad im Container/SMB)</label>
+        <input id="datenraum" placeholder="z.B. /mnt/001 KUNDEN/…/Anfrage-Ordner">
+      </div>
+      <div>
+        <label for="kunde">Quoter-Kunde (Profil)</label>
+        <input id="kunde" placeholder="z.B. meiller">
+      </div>
+      <div>
+        <label for="use_llm"><input id="use_llm" type="checkbox" style="width:auto;margin-right:6px">LLM-Extraktion</label>
+      </div>
+      <div class="wide">
+        <label for="notes">Notiz</label>
+        <textarea id="notes" placeholder="Kontext, Zeichnung, Sonderwünsche…"></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btn-create">Anfrage anlegen &amp; parallel bewerten</button>
+      <button id="btn-adhoc">Nur ad-hoc prüfen (ohne Akte)</button>
+    </div>
+    <div class="err" id="form-err"></div>
+  </section>
+
+  <section class="card half">
+    <h2>Offene Anfragen</h2>
+    <div class="actions" style="margin-top:0;margin-bottom:10px">
+      <button id="btn-refresh">Aktualisieren</button>
+      <select id="filter-status">
+        <option value="">alle Status</option>
+        <option value="ready">ready</option>
+        <option value="blocked">blocked</option>
+        <option value="decided">decided</option>
+        <option value="draft">draft</option>
+      </select>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Zeit</th><th>Artikel</th><th class="num">Menge</th><th>Status</th><th>Fragen</th></tr></thead>
+        <tbody id="inq-list"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card full" id="detail-card">
+    <h2>Bewertung <span id="detail-title" style="color:var(--fg);text-transform:none;letter-spacing:0;font-size:13px;margin-left:8px"></span></h2>
+    <div id="detail-empty" class="empty">Anfrage anlegen oder aus der Liste wählen.</div>
+    <div id="detail" style="display:none">
+      <div class="kpis" id="detail-kpis"></div>
+      <div class="actions" id="detail-actions"></div>
+      <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-top:14px">
+        <div>
+          <h2 style="margin-top:0">Domänen (parallel)</h2>
+          <div id="domains"></div>
+        </div>
+        <div>
+          <h2 style="margin-top:0">Offene Human-Fragen</h2>
+          <div id="questions"></div>
+          <h2>Entscheidung</h2>
+          <div class="actions">
+            <button class="ok" id="btn-accept">Annehmen</button>
+            <button class="warn" id="btn-counter">Gegenangebot</button>
+            <button class="bad" id="btn-reject">Ablehnen</button>
+            <button id="btn-reeval">Neu bewerten</button>
+          </div>
+          <div class="err" id="decide-err"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = '/api/v1';
+const params = new URLSearchParams(location.search);
+let apiKey = params.get('api_key') || localStorage.getItem('bdx_api_key') || '';
+if (params.get('api_key')) localStorage.setItem('bdx_api_key', apiKey);
+
+let current = null;
+let adhocSnapshot = null;
+
+async function api(path, opts = {}) {
+  const headers = Object.assign({'Content-Type': 'application/json'}, opts.headers || {});
+  if (apiKey) headers['X-API-Key'] = apiKey;
+  let url = API + path;
+  if (apiKey && !opts.method) {
+    url += (url.includes('?') ? '&' : '?') + 'api_key=' + encodeURIComponent(apiKey);
+  }
+  const res = await fetch(url, Object.assign({}, opts, { headers }));
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { const j = await res.json(); detail = j.detail || JSON.stringify(j); } catch (_) {}
+    throw new Error(detail);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function pill(status) {
+  const s = (status || 'idle').toLowerCase();
+  const cls = ['ok','warn','bad','info'].includes(s) ? s : (s === 'unknown' || s === 'skipped' ? 'idle' : 'info');
+  return `<span class="pill ${cls}">${s}</span>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function refreshHealth() {
+  try {
+    const h = await fetch('/health').then(r => r.json());
+    const el = document.getElementById('health');
+    el.textContent = h.status;
+    el.className = 'pill ' + (h.status === 'ok' ? 'ok' : 'warn');
+  } catch (_) {
+    document.getElementById('health').textContent = 'offline';
+    document.getElementById('health').className = 'pill bad';
+  }
+}
+
+async function loadList() {
+  const st = document.getElementById('filter-status').value;
+  const q = st ? `?status=${encodeURIComponent(st)}` : '';
+  const rows = await api('/q2p/inquiries' + q);
+  const tb = document.getElementById('inq-list');
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">Noch keine Anfragen</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(r => {
+    const t = (r.created_at || '').replace('T',' ').slice(0,16);
+    const nq = (r.open_questions || []).length;
+    const active = current && current.id === r.id ? 'active' : '';
+    return `<tr class="${active}" data-id="${esc(r.id)}">
+      <td>${esc(t)}</td><td>${esc(r.item_code)}</td>
+      <td class="num">${esc(r.qty)}</td><td>${pill(r.status)}</td>
+      <td class="num">${nq}</td></tr>`;
+  }).join('');
+  tb.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.onclick = () => selectInquiry(tr.dataset.id);
+  });
+}
+
+async function selectInquiry(id) {
+  current = await api('/q2p/inquiries/' + id);
+  adhocSnapshot = null;
+  renderDetail(current);
+  loadList();
+}
+
+function renderDetail(inq) {
+  document.getElementById('detail-empty').style.display = 'none';
+  document.getElementById('detail').style.display = 'block';
+  const snap = inq.promise_snapshot || adhocSnapshot;
+  document.getElementById('detail-title').textContent = inq.id
+    ? `${inq.item_code} × ${inq.qty}` + (inq.customer_ref ? ` · ${inq.customer_ref}` : '')
+    : `Ad-hoc ${inq.item_code || ''}`;
+
+  const overall = snap ? snap.overall : 'idle';
+  const can = snap ? snap.can_promise : false;
+  const conf = snap ? snap.confidence : '–';
+  const qs = (inq.open_questions || (snap && snap.open_questions) || []);
+  document.getElementById('detail-kpis').innerHTML = `
+    <div class="kpi ${overall}"><div class="v">${pill(overall)}</div><div class="l">Gesamt</div></div>
+    <div class="kpi ${can ? 'ok' : 'warn'}"><div class="v">${can ? 'ja' : 'nein'}</div><div class="l">Promise möglich</div></div>
+    <div class="kpi"><div class="v">${esc(conf)}</div><div class="l">Konfidenz</div></div>
+    <div class="kpi ${qs.length ? 'warn' : 'ok'}"><div class="v">${qs.length}</div><div class="l">Human-Fragen</div></div>
+    <div class="kpi"><div class="v">${esc((snap && snap.earliest_hint) || '–')}</div><div class="l">Frühester Hinweis</div></div>
+  `;
+
+  const domains = (snap && snap.domains) || [];
+  document.getElementById('domains').innerHTML = domains.length ? domains.map(d => `
+    <div class="domain ${esc(d.status)}">
+      <div class="top"><span class="name">${esc(d.domain)}</span>${pill(d.status)}</div>
+      <div class="sum">${esc(d.summary)}</div>
+      <div class="meta">${d.needs_human ? '⚠ braucht Mensch' : '✓ System'} · Quelle: ${esc(d.source)}</div>
+      ${d.question ? `<div class="q" style="margin-top:8px"><b>Frage</b>${esc(d.question)}</div>` : ''}
+      <details><summary>Details</summary><pre>${esc(JSON.stringify(d.details || {}, null, 2))}</pre></details>
+    </div>
+  `).join('') : '<div class="empty">Noch nicht bewertet</div>';
+
+  document.getElementById('questions').innerHTML = qs.length
+    ? qs.map(q => `<div class="q"><b>${esc(q.domain)}</b>${esc(q.question)}</div>`).join('')
+    : '<div class="empty">Keine – Kommunikation auf diesen Domänen eliminiert.</div>';
+
+  const decided = inq.status === 'decided';
+  ['btn-accept','btn-counter','btn-reject','btn-reeval'].forEach(id => {
+    const el = document.getElementById(id);
+    el.disabled = !inq.id || decided;
+  });
+  document.getElementById('detail-actions').innerHTML = decided
+    ? `<span class="pill ok">entschieden: ${esc(inq.decision)}</span> ${esc(inq.decision_note || '')}`
+    : '';
+}
+
+async function createInquiry() {
+  const err = document.getElementById('form-err');
+  err.textContent = '';
+  const body = {
+    item_code: document.getElementById('item_code').value.trim(),
+    qty: Number(document.getElementById('qty').value),
+    requested_date: document.getElementById('requested_date').value || null,
+    customer_ref: document.getElementById('customer_ref').value.trim() || null,
+    owner: document.getElementById('owner').value.trim() || null,
+    notes: document.getElementById('notes').value.trim() || null,
+    datenraum: document.getElementById('datenraum').value.trim() || null,
+    kunde: document.getElementById('kunde').value.trim() || null,
+    use_llm: document.getElementById('use_llm').checked,
+    evaluate: true,
+  };
+  if (!body.item_code || !(body.qty > 0)) {
+    err.textContent = 'Artikel und Menge > 0 sind Pflicht.';
+    return;
+  }
+  try {
+    current = await api('/q2p/inquiries', { method: 'POST', body: JSON.stringify(body) });
+    adhocSnapshot = null;
+    renderDetail(current);
+    await loadList();
+  } catch (e) {
+    err.textContent = e.message;
+  }
+}
+
+async function adhocCheck() {
+  const err = document.getElementById('form-err');
+  err.textContent = '';
+  const item = document.getElementById('item_code').value.trim();
+  const qty = Number(document.getElementById('qty').value);
+  const rd = document.getElementById('requested_date').value;
+  if (!item || !(qty > 0)) { err.textContent = 'Artikel und Menge > 0 sind Pflicht.'; return; }
+  try {
+    let path = `/q2p/promise?item_code=${encodeURIComponent(item)}&qty=${encodeURIComponent(qty)}`;
+    if (rd) path += `&requested_date=${encodeURIComponent(rd)}`;
+    const dr = document.getElementById('datenraum').value.trim();
+    const kd = document.getElementById('kunde').value.trim();
+    if (dr) path += `&datenraum=${encodeURIComponent(dr)}`;
+    if (kd) path += `&kunde=${encodeURIComponent(kd)}`;
+    if (document.getElementById('use_llm').checked) path += '&use_llm=true';
+    adhocSnapshot = await api(path);
+    current = { id: null, item_code: item, qty, open_questions: adhocSnapshot.open_questions, status: 'adhoc', promise_snapshot: adhocSnapshot };
+    renderDetail(current);
+  } catch (e) {
+    err.textContent = e.message;
+  }
+}
+
+async function decide(decision) {
+  if (!current || !current.id) return;
+  const note = prompt(decision === 'accept' ? 'Notiz (optional)' : 'Begründung');
+  if (decision !== 'accept' && note === null) return;
+  document.getElementById('decide-err').textContent = '';
+  try {
+    current = await api(`/q2p/inquiries/${current.id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, decision_note: note || null, owner: document.getElementById('owner').value.trim() || null }),
+    });
+    renderDetail(current);
+    await loadList();
+  } catch (e) {
+    document.getElementById('decide-err').textContent = e.message;
+  }
+}
+
+async function reeval() {
+  if (!current || !current.id) return;
+  try {
+    current = await api(`/q2p/inquiries/${current.id}/evaluate`, { method: 'POST', body: '{}' });
+    renderDetail(current);
+    await loadList();
+  } catch (e) {
+    document.getElementById('decide-err').textContent = e.message;
+  }
+}
+
+document.getElementById('btn-create').onclick = createInquiry;
+document.getElementById('btn-adhoc').onclick = adhocCheck;
+document.getElementById('btn-refresh').onclick = loadList;
+document.getElementById('filter-status').onchange = loadList;
+document.getElementById('btn-accept').onclick = () => decide('accept');
+document.getElementById('btn-counter').onclick = () => decide('counter');
+document.getElementById('btn-reject').onclick = () => decide('reject');
+document.getElementById('btn-reeval').onclick = reeval;
+
+refreshHealth();
+loadList().catch(e => { document.getElementById('inq-list').innerHTML = `<tr><td colspan="5" class="err">${esc(e.message)}</td></tr>`; });
+</script>
+</body>
+</html>

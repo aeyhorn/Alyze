@@ -92,7 +92,7 @@ bdx-collect sl-operations             # audit log
 bdx-collect serve                 # uvicorn on API_HOST:API_PORT (8085 on the dev machine)
 ```
 
-- Dashboard: `http://localhost:8085/dashboard` · OpenAPI: `http://localhost:8085/docs`
+- Dashboard: `http://localhost:8085/dashboard` · Q2P: `http://localhost:8085/q2p` · OpenAPI: `http://localhost:8085/docs`
 - `GET /health` – readiness (Postgres, last collector run, machine feed, publisher)
 - `GET /api/v1/orders` (`open_only`, `status`, `item_code`, `doc_num`), `/orders/summary`, `/orders/{doc_entry}`
 - `GET /api/v1/events` (`event_type`, `machine_id`, `doc_entry`, `since`), `/events/summary`
@@ -102,6 +102,9 @@ bdx-collect serve                 # uvicorn on API_HOST:API_PORT (8085 on the de
 - `GET/PUT /api/v1/service-layer[/mode]`
 - `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` — SAP write-back
 - `GET /api/v1/service-layer/operations` — write-back audit log
+- `POST/GET /api/v1/q2p/inquiries` — Quote-to-Promise inquiry cases (parallel evaluate)
+- `POST /api/v1/q2p/inquiries/{id}/evaluate|decide` — re-evaluate / accept|reject|counter
+- `GET /api/v1/q2p/promise?item_code=&qty=` — ad-hoc promise check
 
 Set `API_KEY` to protect `/api/v1/*` (`X-API-Key` header or `?api_key=`; the dashboard stores it from the URL).
 
@@ -181,6 +184,7 @@ bdx-intelligence/
 - [Architecture](docs/ARCHITECTURE.md)
 - [SAP / shop-floor field mapping](docs/SAP_MAPPING.md)
 - [Project status](docs/PROJECT_STATUS.md)
+- [Promise Platform Vision](docs/VISION_PROMISE_PLATFORM.md) – Offer/Gaps → Kundenportal, Einkauf, Vertrag
 
 ---
 

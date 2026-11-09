@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BDX Intelligence – Schwachstellen-Analyse</title>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#182027; --panel2:#1c2733; --line:#263039;
+    --fg:#e6edf3; --muted:#8b98a5;
+    --ok:#2ea043; --warn:#d29922; --bad:#f85149; --info:#58a6ff; --idle:#6e7681;
+    --orange:#e07b30;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+
+  /* ── Header ── */
+  header { display:flex; align-items:center; gap:14px; padding:11px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; letter-spacing:.3px; white-space:nowrap; }
+  header .sub { color:var(--muted); font-size:12px; }
+  header .spacer { flex:1; min-width:12px; }
+  header .meta { color:var(--muted); font-size:12px; }
+  header nav { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); white-space:nowrap; }
+  header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
+
+  /* ── Layout ── */
+  main { padding:16px 20px; display:grid; gap:16px; grid-template-columns:repeat(12,1fr); }
+
+  /* ── KPI bar ── */
+  .kpis { grid-column:span 12; display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:10px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; border-left:4px solid var(--idle); }
+  .kpi.bad  { border-left-color:var(--bad); }
+  .kpi.warn { border-left-color:var(--warn); }
+  .kpi.ok   { border-left-color:var(--ok); }
+  .kpi .v { font-size:28px; font-weight:700; line-height:1; }
+  .kpi .l { color:var(--muted); font-size:11px; margin-top:3px; }
+  .kpi .sub { color:var(--muted); font-size:10px; margin-top:2px; }
+  .kpi.bad  .v { color:var(--bad); }
+  .kpi.warn .v { color:var(--warn); }
+  .kpi.ok   .v { color:var(--ok); }
+
+  /* ── Cards ── */
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .card h2 { margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  .card h2 .badge { font-size:11px; font-weight:700; padding:1px 7px; border-radius:10px; background:rgba(248,81,73,.15); color:var(--bad); }
+  .card h2 .badge.warn { background:rgba(210,153,34,.15); color:var(--warn); }
+  .card h2 .badge.ok   { background:rgba(46,160,67,.15); color:var(--ok); }
+
+  .full  { grid-column:span 12; }
+  .half  { grid-column:span 6; }
+  .third { grid-column:span 4; }
+  @media (max-width:1000px) { .half,.third { grid-column:span 12; } }
+
+  /* ── Tables ── */
+  .scroll { max-height:360px; overflow:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--panel); font-size:11px; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* ── Urgency color helpers ── */
+  .u-low    { color:var(--warn); }
+  .u-mid    { color:var(--orange); }
+  .u-high   { color:var(--bad); font-weight:700; }
+  .u-ok     { color:var(--ok); }
+
+  /* ── Pills ── */
+  .pill { display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:600; text-transform:uppercase; }
+  .pill.ok   { background:rgba(46,160,67,.2);  color:var(--ok);   }
+  .pill.bad  { background:rgba(248,81,73,.2);  color:var(--bad);  }
+  .pill.warn { background:rgba(210,153,34,.2); color:var(--warn); }
+  .pill.info { background:rgba(88,166,255,.2); color:var(--info); }
+  .pill.idle { background:rgba(110,118,129,.25); color:#c9d1d9;   }
+
+  /* ── Progress bar ── */
+  .bar { height:8px; background:#0b0f13; border-radius:4px; overflow:hidden; margin-top:5px; }
+  .bar i { display:block; height:100%; border-radius:4px; }
+  .bar i.bad  { background:var(--bad); }
+  .bar i.warn { background:var(--warn); }
+  .bar i.ok   { background:var(--ok); }
+  .bar i.info { background:var(--info); }
+
+  /* ── Delay heat bar ── */
+  .delay-cell { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+  .delay-bar { width:50px; height:6px; background:#0b0f13; border-radius:3px; overflow:hidden; flex-shrink:0; }
+  .delay-bar i { display:block; height:100%; border-radius:3px; }
+
+  /* ── Delta chip ── */
+  .delta { display:inline-flex; align-items:center; gap:4px; font-size:11px; background:rgba(210,153,34,.12); border:1px solid rgba(210,153,34,.25); border-radius:5px; padding:1px 6px; color:var(--warn); }
+  .delta.bad { background:rgba(248,81,73,.12); border-color:rgba(248,81,73,.25); color:var(--bad); }
+
+  /* ── Tabs ── */
+  .tabs { display:flex; gap:4px; margin-bottom:10px; }
+  .tab { padding:5px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:12px; cursor:pointer; }
+  .tab.active { background:var(--panel2); border-color:var(--info); color:var(--fg); }
+  .tab-cnt { margin-left:5px; padding:1px 5px; border-radius:8px; font-size:10px; font-weight:700; background:var(--line); }
+  .tab.active .tab-cnt.has { background:rgba(248,81,73,.25); color:var(--bad); }
+  .tab.active .tab-cnt.has-warn { background:rgba(210,153,34,.2); color:var(--warn); }
+  .tabpanel { display:none; }
+  .tabpanel.active { display:block; }
+
+  /* ── Machine tiles ── */
+  .m-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; }
+  .mtile { background:var(--panel2); border:1px solid var(--line); border-left:4px solid var(--idle); border-radius:8px; padding:11px 13px; }
+  .mtile.bad  { border-left-color:var(--bad); }
+  .mtile.warn { border-left-color:var(--warn); }
+  .mtile.ok   { border-left-color:var(--ok); }
+  .mtile .name { font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+  .mtile .row  { display:flex; justify-content:space-between; color:var(--muted); font-size:11px; margin-top:4px; }
+  .mtile .row b { color:var(--fg); font-weight:600; }
+  .mtile .dur  { font-size:11px; margin-top:5px; padding:3px 7px; border-radius:5px; background:rgba(210,153,34,.12); color:var(--warn); display:inline-block; }
+  .mtile.bad .dur { background:rgba(248,81,73,.12); color:var(--bad); }
+
+  /* ── Sparkline ── */
+  .spark { display:flex; align-items:flex-end; gap:3px; height:52px; }
+  .spark-bar { flex:1; border-radius:3px 3px 0 0; min-width:6px; background:var(--info); position:relative; cursor:default; }
+  .spark-bar.err  { background:var(--bad); }
+  .spark-bar.full { background:var(--warn); }
+  .spark-bar:hover::after { content:attr(data-tip); position:absolute; bottom:110%; left:50%; transform:translateX(-50%);
+    white-space:nowrap; background:#0b0f13; border:1px solid var(--line); padding:3px 7px; border-radius:5px; font-size:11px; color:var(--fg); z-index:5; pointer-events:none; }
+
+  /* ── Event bars ── */
+  .ev-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px; }
+  .ev-bar-row .label { width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted); }
+  .ev-bar-row .bar-h { flex:1; height:14px; background:#0b0f13; border-radius:3px; overflow:hidden; }
+  .ev-bar-row .bar-h i { display:block; height:100%; border-radius:3px; }
+  .ev-bar-row .cnt { width:40px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+
+  .empty { color:var(--muted); font-size:12px; padding:6px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BDX Intelligence</h1>
+  <span class="sub">Schwachstellen-Analyse</span>
+  <span id="health-pill" class="pill idle">…</span>
+  <nav>
+    <a href="/dashboard">Betrieb</a>
+    <a class="active" href="/analytics">Schwachstellen</a>
+    <a href="/q2p">Q2P</a>
+    <a href="/promise">Promise</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="meta" id="meta">lädt…</span>
+  <span class="meta">Refresh
+    <select id="refresh">
+      <option value="30000" selected>30 s</option>
+      <option value="60000">60 s</option>
+      <option value="120000">2 min</option>
+      <option value="0">aus</option>
+    </select>
+  </span>
+</header>
+
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <!-- Kritische Aufträge (3 tabs) -->
+  <section class="card full">
+    <h2>Kritische Aufträge <span class="badge" id="orders-badge">0</span></h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="overdue">
+        Überfällig <span class="tab-cnt" id="cnt-overdue">0</span>
+      </button>
+      <button class="tab" data-tab="stuck">
+        Festgefahren <span class="tab-cnt" id="cnt-stuck">0</span>
+      </button>
+      <button class="tab" data-tab="plan">
+        Plangeändert (7 T) <span class="tab-cnt" id="cnt-plan">0</span>
+      </button>
+    </div>
+
+    <div class="tabpanel active" id="tab-overdue">
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>DocNum</th><th>Artikel</th><th>Status</th>
+            <th class="num">Geplant</th><th class="num">Fertig</th>
+            <th style="width:120px">Fortschritt</th>
+            <th>Fällig</th><th class="num">Verzug</th>
+          </tr></thead>
+          <tbody id="rows-overdue"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="tab-stuck">
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>DocNum</th><th>Artikel</th>
+            <th class="num">Geplant</th><th class="num">Fertig</th>
+            <th style="width:120px">Fortschritt</th>
+            <th>Fällig</th><th class="num">Unverändert seit</th>
+          </tr></thead>
+          <tbody id="rows-stuck"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="tab-plan">
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>DocNum</th><th>Artikel</th><th>Status</th>
+            <th>Änderung</th><th>Konkret</th>
+            <th>Fällig</th><th>Geändert am</th>
+          </tr></thead>
+          <tbody id="rows-plan"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Maschinen -->
+  <section class="card half">
+    <h2>Maschinen-Effizienz <span class="badge warn" id="idle-badge">0 Leerlauf</span></h2>
+    <div id="machine-tiles" class="m-grid"></div>
+  </section>
+
+  <section class="card half">
+    <h2>Maschinenausfälle 24 h <span class="badge" id="offline-badge">0</span></h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Maschine</th><th class="num">Ausfälle</th><th>Letzter Ausfall</th></tr></thead>
+        <tbody id="rows-offline"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Systemgesundheit -->
+  <section class="card half">
+    <h2>Collector-Trend (letzte 20 Läufe) <span class="badge" id="err-badge">0 Fehler</span></h2>
+    <div style="margin-bottom:8px;">
+      <div class="spark" id="spark"></div>
+      <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin-top:3px;">
+        <span>ältester</span><span>neuester</span>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--muted);">
+        <span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--info);margin-right:4px;vertical-align:middle;"></i>Incremental</span>
+        <span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--warn);margin-right:4px;vertical-align:middle;"></i>Full</span>
+        <span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bad);margin-right:4px;vertical-align:middle;"></i>Fehler</span>
+      </div>
+    </div>
+    <div class="scroll" style="max-height:160px;">
+      <table>
+        <thead><tr><th>Start</th><th>Modus</th><th class="num">Dauer</th><th class="num">Geänd.</th><th>Status</th></tr></thead>
+        <tbody id="rows-runs"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card half">
+    <h2>Ereignisse 24 h</h2>
+    <div id="ev-bars"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const API = '/api/v1';
+const qs = new URLSearchParams(location.search);
+const apiKey = qs.get('api_key') || localStorage.getItem('bdx_api_key') || '';
+if (qs.get('api_key')) localStorage.setItem('bdx_api_key', apiKey);
+
+async function get(path) {
+  const r = await fetch(API + path, { headers: apiKey ? {'X-API-Key': apiKey} : {} });
+  if (!r.ok) throw new Error(path + ' → HTTP ' + r.status);
+  return r.json();
+}
+
+const fmtT  = s => s ? new Date(s).toLocaleString('de-CH', {hour12:false}) : '–';
+const fmtDur = s => s == null ? '–' : s < 90 ? s.toFixed(1)+' s' : s < 5400 ? (s/60).toFixed(1)+' min' : (s/3600).toFixed(1)+' h';
+const esc   = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Duration from a past ISO timestamp to now
+function sinceNow(isoStr) {
+  if (!isoStr) return null;
+  const ms = Date.now() - new Date(isoStr).getTime();
+  if (ms < 0) return null;
+  const s = Math.floor(ms / 1000);
+  if (s < 90)   return s + ' s';
+  if (s < 5400) return (s/60).toFixed(0) + ' min';
+  if (s < 86400) return (s/3600).toFixed(1) + ' h';
+  return (s/86400).toFixed(0) + ' T';
+}
+
+// Delay severity CSS class (for days overdue or days stuck)
+function delayClass(days) {
+  if (days == null) return '';
+  if (days >= 30) return 'u-high';
+  if (days >= 8)  return 'u-mid';
+  return 'u-low';
+}
+
+// Heat bar for delay magnitude (days, maxDays for scaling)
+function delayBar(days, maxDays) {
+  if (days == null || maxDays <= 0) return '';
+  const pct = Math.min(100, days / maxDays * 100);
+  const color = days >= 30 ? 'var(--bad)' : days >= 8 ? 'var(--orange)' : 'var(--warn)';
+  return `<div class="delay-cell">
+    <span class="${delayClass(days)}">${days} T</span>
+    <div class="delay-bar"><i style="width:${pct}%;background:${color}"></i></div>
+  </div>`;
+}
+
+// Progress bar with label
+function progressBar(pct) {
+  const cls = pct < 25 ? 'bad' : pct < 70 ? 'warn' : 'ok';
+  return `<div style="display:flex;align-items:center;gap:6px;">
+    <div class="bar" style="flex:1"><i class="${cls}" style="width:${Math.min(pct,100)}%"></i></div>
+    <span style="font-size:11px;color:var(--muted);min-width:30px;text-align:right">${pct}%</span>
+  </div>`;
+}
+
+// Parse plan-change payload into a human-readable delta chip
+function planDeltaChip(eventType, payload) {
+  if (!payload) return '';
+  try {
+    if (eventType === 'QUANTITY_CHANGED') {
+      const prev = payload.prev_planned_qty ?? payload.old_qty;
+      const next = payload.new_planned_qty ?? payload.new_qty;
+      if (prev != null && next != null) {
+        const diff = parseFloat(next) - parseFloat(prev);
+        const sign = diff > 0 ? '+' : '';
+        const cls  = diff > 0 ? 'bad' : '';
+        return `<span class="delta ${cls}">${parseFloat(prev).toFixed(0)} → ${parseFloat(next).toFixed(0)} (${sign}${diff.toFixed(0)})</span>`;
+      }
+    }
+    if (eventType === 'DUE_DATE_CHANGED') {
+      const prev = payload.prev_due_date ?? payload.old_due_date;
+      const next = payload.new_due_date  ?? payload.new_due_date;
+      if (prev && next) {
+        const daysDiff = Math.round((new Date(next) - new Date(prev)) / 86400000);
+        const sign = daysDiff > 0 ? '+' : '';
+        const cls  = daysDiff > 0 ? 'bad' : '';
+        return `<span class="delta ${cls}">${prev} → ${next} (${sign}${daysDiff} T)</span>`;
+      }
+    }
+  } catch (_) {}
+  return '';
+}
+
+// German event type labels
+const EV_LABELS = {
+  ORDER_CREATED:         'Auftrag erstellt',
+  ORDER_RELEASED:        'Auftrag freigegeben',
+  ORDER_CLOSED:          'Auftrag geschlossen',
+  ORDER_PARTIAL_COMPLETE:'Teilfertigmeldung',
+  QUANTITY_CHANGED:      'Menge geändert',
+  DUE_DATE_CHANGED:      'Termin geändert',
+  MACHINE_ONLINE:        'Maschine online',
+  MACHINE_OFFLINE:       'Maschine offline',
+  MACHINE_STATE_CHANGED: 'Zustandswechsel',
+  MACHINE_ORDER_STARTED: 'Auftrag gestartet',
+  MACHINE_ORDER_FINISHED:'Auftrag fertig',
+  MACHINE_PIECES_REPORTED:'Stücke gemeldet',
+};
+const evLabel = t => EV_LABELS[t] || t;
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── KPI bar ───────────────────────────────────────────────────────────────────
+function renderKPIs(s, overdue, stuck) {
+  const totalDelayDays = overdue.reduce((a,o) => a + (o.days_overdue || 0), 0);
+  const maxStuck = stuck.length ? Math.max(...stuck.map(o => o.days_stuck || 0)) : 0;
+  const items = [
+    { label:'Überfällige FA',     val:s.overdue_orders,       warn:1, bad:5,  sub: totalDelayDays > 0 ? `∑ ${totalDelayDays} Tage Verzug` : '' },
+    { label:'Festgefahren',       val:s.stuck_orders,         warn:1, bad:5,  sub: maxStuck > 0 ? `längste: ${maxStuck} T` : '' },
+    { label:'Planänderungen 7 T', val:s.plan_changes_7d,      warn:3, bad:10, sub: '' },
+    { label:'Leerlauf Maschinen', val:s.idle_machines,        warn:1, bad:3,  sub: '' },
+    { label:'Ausfälle 24 h',      val:s.machine_offlines_24h, warn:1, bad:5,  sub: s.machines_with_offlines_24h > 0 ? `${s.machines_with_offlines_24h} Masch.` : '' },
+    { label:'Collector-Fehler 7T',val:s.collector_errors_7d,  warn:1, bad:3,  sub: '' },
+  ];
+  document.getElementById('kpis').innerHTML = items.map(it => {
+    const cls = it.val === 0 ? 'ok' : it.val >= it.bad ? 'bad' : it.val >= it.warn ? 'warn' : 'ok';
+    return `<div class="kpi ${cls}">
+      <div class="v">${it.val}</div>
+      <div class="l">${it.label}</div>
+      ${it.sub ? `<div class="sub">${it.sub}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Overdue orders ────────────────────────────────────────────────────────────
+function renderOverdue(orders) {
+  const cnt = document.getElementById('cnt-overdue');
+  cnt.textContent = orders.length;
+  cnt.className = 'tab-cnt' + (orders.length > 0 ? ' has' : '');
+  document.getElementById('orders-badge').textContent = orders.length;
+  const maxDelay = orders.length ? Math.max(...orders.map(o => o.days_overdue || 0)) : 0;
+  document.getElementById('rows-overdue').innerHTML = orders.length
+    ? orders.map(o => {
+        const pct = o.completion_pct ?? 0;
+        return `<tr>
+          <td><b>${o.doc_num}</b></td>
+          <td>${esc(o.item_code)}</td>
+          <td><span class="pill ${o.status==='R'?'ok':'info'}">${esc(o.status_label)}</span></td>
+          <td class="num">${o.planned_qty}</td>
+          <td class="num">${o.completed_qty}</td>
+          <td>${progressBar(pct)}</td>
+          <td>${o.due_date || '–'}</td>
+          <td>${delayBar(o.days_overdue, maxDelay)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="8" class="empty">Keine überfälligen Aufträge</td></tr>';
+}
+
+// ── Stuck orders ──────────────────────────────────────────────────────────────
+function renderStuck(orders) {
+  const cnt = document.getElementById('cnt-stuck');
+  cnt.textContent = orders.length;
+  cnt.className = 'tab-cnt' + (orders.length > 0 ? ' has' : '');
+  const maxDays = orders.length ? Math.max(...orders.map(o => o.days_stuck || 0)) : 0;
+  document.getElementById('rows-stuck').innerHTML = orders.length
+    ? orders.map(o => {
+        const pct = o.completion_pct ?? 0;
+        return `<tr>
+          <td><b>${o.doc_num}</b></td>
+          <td>${esc(o.item_code)}</td>
+          <td class="num">${o.planned_qty}</td>
+          <td class="num">${o.completed_qty}</td>
+          <td>${progressBar(pct)}</td>
+          <td>${o.due_date || '–'}</td>
+          <td>${delayBar(o.days_stuck, maxDays)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="7" class="empty">Keine festgefahrenen Aufträge</td></tr>';
+}
+
+// ── Plan changes ──────────────────────────────────────────────────────────────
+function renderPlanChanges(changes) {
+  const cnt = document.getElementById('cnt-plan');
+  cnt.textContent = changes.length;
+  cnt.className = 'tab-cnt' + (changes.length > 0 ? ' has-warn' : '');
+  document.getElementById('rows-plan').innerHTML = changes.length
+    ? changes.map(o => {
+        const changeLabel = o.latest_change_type === 'QUANTITY_CHANGED' ? 'Menge' : 'Termin';
+        const delta = planDeltaChip(o.latest_change_type, o.latest_change_payload);
+        return `<tr>
+          <td><b>${o.doc_num}</b></td>
+          <td>${esc(o.item_code)}</td>
+          <td><span class="pill ${o.status==='R'?'ok':'info'}">${esc(o.status_label)}</span></td>
+          <td><span class="pill warn">${changeLabel} geändert</span></td>
+          <td>${delta || '<span class="empty">–</span>'}</td>
+          <td>${o.due_date || '–'}</td>
+          <td>${fmtT(o.latest_change_at)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="7" class="empty">Keine Planänderungen in den letzten 7 Tagen</td></tr>';
+}
+
+// ── Machine tiles ─────────────────────────────────────────────────────────────
+function renderMachines(allMachines, idleMachines, offlines) {
+  const idleMap = new Map(idleMachines.map(m => [m.machine_id, m]));
+  const offlineSet = new Set(Object.keys(offlines));
+  const idleBadge = document.getElementById('idle-badge');
+  idleBadge.textContent = idleMachines.length + ' Leerlauf';
+  idleBadge.className = 'badge' + (idleMachines.length > 0 ? ' warn' : ' ok');
+
+  if (allMachines.length === 0 && idleMachines.length === 0) {
+    document.getElementById('machine-tiles').innerHTML = '<div class="empty">Keine Maschinendaten</div>';
+    return;
+  }
+
+  const allIds = new Map();
+  allMachines.forEach(m => allIds.set(m.machine_id, m));
+  idleMachines.forEach(m => { if (!allIds.has(m.machine_id)) allIds.set(m.machine_id, m); });
+
+  document.getElementById('machine-tiles').innerHTML = [...allIds.values()].map(m => {
+    const hasOffline = offlineSet.has(m.machine_id);
+    const idleData   = idleMap.get(m.machine_id);
+    const isIdle     = !!idleData;
+    const cls        = hasOffline ? 'bad' : isIdle ? 'warn' : 'ok';
+
+    const statePill = hasOffline
+      ? '<span class="pill bad">Ausfall</span>'
+      : isIdle
+        ? '<span class="pill warn">Leerlauf</span>'
+        : '<span class="pill ok">Aktiv</span>';
+
+    // Idle duration from last_changed_at
+    const changedAt = idleData?.last_changed_at || m.last_changed_at;
+    const idleSince = (isIdle || hasOffline) && changedAt ? sinceNow(changedAt) : null;
+    const durTag    = idleSince ? `<div class="dur">seit ${idleSince}</div>` : '';
+
+    const offlineCnt = (offlines[m.machine_id] || []).length;
+    const orderRef   = m.order_ref || (m.sap_order ? m.sap_order.doc_num : null);
+
+    return `<div class="mtile ${cls}">
+      <div class="name">${esc(m.machine_id)} ${statePill}</div>
+      ${durTag}
+      <div class="row"><span>Zustand</span><b>${esc(m.state || m.exec_state || '–')}</b></div>
+      <div class="row"><span>Auftrag</span><b>${esc(orderRef || '–')}</b></div>
+      ${hasOffline ? `<div class="row"><span>Ausfälle 24 h</span><b class="u-high">${offlineCnt}</b></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Offline events ────────────────────────────────────────────────────────────
+function renderOfflines(offlines) {
+  const entries = Object.entries(offlines).sort((a,b) => b[1].length - a[1].length);
+  const total   = entries.reduce((s,[,v]) => s + v.length, 0);
+  const badge   = document.getElementById('offline-badge');
+  badge.textContent = total + ' Ereignisse';
+  badge.className   = 'badge' + (total > 0 ? '' : ' ok');
+
+  document.getElementById('rows-offline').innerHTML = entries.length
+    ? entries.map(([mid, evs]) => `<tr>
+        <td>${esc(mid)}</td>
+        <td class="num u-high">${evs.length}</td>
+        <td>${fmtT(evs[0]?.occurred_at)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="3" class="empty">Keine Ausfälle in den letzten 24 h</td></tr>';
+}
+
+// ── Collector trend ───────────────────────────────────────────────────────────
+function renderRunTrend(runs, errors) {
+  const badge = document.getElementById('err-badge');
+  badge.textContent = errors.length + ' Fehler';
+  badge.className   = 'badge' + (errors.length > 0 ? '' : ' ok');
+
+  const reversed = [...runs].reverse();
+  const maxDur   = Math.max(1, ...reversed.map(r => r.duration_seconds || 0));
+  document.getElementById('spark').innerHTML = reversed.map(r => {
+    const h   = Math.max(4, Math.round((r.duration_seconds || 0) / maxDur * 52));
+    const cls = r.has_error ? 'err' : r.mode === 'full' ? 'full' : '';
+    const tip = `${fmtT(r.started_at)} · ${r.mode} · ${fmtDur(r.duration_seconds)}${r.has_error ? ' · FEHLER' : ''}`;
+    return `<div class="spark-bar ${cls}" style="height:${h}px" data-tip="${esc(tip)}"></div>`;
+  }).join('');
+
+  document.getElementById('rows-runs').innerHTML = runs.length
+    ? runs.map(r => `<tr>
+        <td>${fmtT(r.started_at)}</td>
+        <td>${r.mode}</td>
+        <td class="num">${fmtDur(r.duration_seconds)}</td>
+        <td class="num">${r.orders_changed ?? '–'}</td>
+        <td>${r.has_error ? '<span class="pill bad">Fehler</span>' : '<span style="color:var(--muted)">–</span>'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="empty">Keine Läufe</td></tr>';
+}
+
+// ── Event frequency bars ──────────────────────────────────────────────────────
+function renderEventBars(summary) {
+  const entries = Object.entries(summary.recent || {}).sort((a,b) => b[1]-a[1]);
+  const max     = Math.max(1, ...entries.map(([,v])=>v));
+  const colorOf = t => {
+    if (t === 'MACHINE_OFFLINE')       return 'var(--bad)';
+    if (t === 'ORDER_CLOSED' || t === 'MACHINE_ORDER_FINISHED') return 'var(--muted)';
+    if (t.includes('CHANGED') || t.includes('PARTIAL'))         return 'var(--warn)';
+    if (t.startsWith('ORDER_') || t === 'MACHINE_ONLINE')       return 'var(--ok)';
+    return 'var(--info)';
+  };
+  document.getElementById('ev-bars').innerHTML = entries.length
+    ? entries.map(([t,v]) => `<div class="ev-bar-row">
+        <div class="label" title="${esc(t)}">${esc(evLabel(t))}</div>
+        <div class="bar-h"><i style="width:${Math.round(v/max*100)}%;background:${colorOf(t)}"></i></div>
+        <div class="cnt">${v}</div>
+      </div>`).join('')
+    : '<div class="empty">Keine Ereignisse in den letzten 24 h</div>';
+}
+
+// ── Main refresh ──────────────────────────────────────────────────────────────
+async function refresh() {
+  const meta = document.getElementById('meta');
+  try {
+    const [health, weaknesses, machines, evSummary] = await Promise.all([
+      fetch('/health').then(r => r.json()),
+      get('/analytics/weaknesses'),
+      get('/machines'),
+      get('/events/summary?hours=24'),
+    ]);
+
+    const hp = document.getElementById('health-pill');
+    hp.textContent = health.status;
+    hp.className = 'pill ' + (health.status === 'ok' ? 'ok' : 'warn');
+    meta.textContent = 'Stand ' + fmtT(weaknesses.generated_at);
+
+    renderKPIs(weaknesses.summary, weaknesses.overdue_orders, weaknesses.stuck_orders);
+    renderOverdue(weaknesses.overdue_orders);
+    renderStuck(weaknesses.stuck_orders);
+    renderPlanChanges(weaknesses.plan_changes);
+    renderMachines(machines.machines || [], weaknesses.idle_machines, weaknesses.machine_offlines_24h);
+    renderOfflines(weaknesses.machine_offlines_24h);
+    renderRunTrend(weaknesses.run_trend, weaknesses.collector_errors_7d);
+    renderEventBars(evSummary);
+
+    const totalOrders = weaknesses.overdue_orders.length + weaknesses.stuck_orders.length;
+    const ob = document.getElementById('orders-badge');
+    ob.textContent = totalOrders;
+    ob.className = 'badge' + (totalOrders === 0 ? ' ok' : '');
+
+  } catch (e) {
+    meta.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`;
+  }
+}
+
+let timer = null;
+function schedule() {
+  clearInterval(timer);
+  const ms = +document.getElementById('refresh').value;
+  if (ms) timer = setInterval(refresh, ms);
+}
+document.getElementById('refresh').addEventListener('change', schedule);
+refresh();
+schedule();
+</script>
+</body>
+</html>

@@ -147,7 +147,38 @@ Every call (success / failure / DRY_RUN) is recorded in the `sl_operations` audi
 | `GET/PUT /api/v1/service-layer[/mode]` | SL status, dev/prod switch |
 | `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` | SAP write-back (DRY_RUN-safe) |
 | `GET /api/v1/service-layer/operations` | write-back audit log |
+| `POST /api/v1/q2p/inquiries` | create Quote-to-Promise inquiry case (+ optional parallel evaluate) |
+| `GET /api/v1/q2p/inquiries` | list inquiry cases |
+| `GET/PATCH /api/v1/q2p/inquiries/{id}` | get / update inquiry |
+| `POST /api/v1/q2p/inquiries/{id}/evaluate` | re-run parallel domain checks |
+| `POST /api/v1/q2p/inquiries/{id}/decide` | accept / reject / counter |
+| `GET /api/v1/q2p/promise` | ad-hoc promise check (no persist) |
 | `GET /dashboard` | static dashboard (auto-refresh) |
+| `GET /analytics` | process-weakness dashboard |
+| `GET /q2p` | Quote-to-Promise cockpit |
+
+### 7b. Quote-to-Promise (`src/bdx/q2p/`)
+
+One **inquiry case** replaces serial email/phone clarification. `evaluate_promise()` fans out
+domain checks in parallel (SAP live + PG machine/order state):
+
+| Domain | Source | Eliminates asking… |
+|---|---|---|
+| item | OITM | „Existiert der Artikel?“ |
+| material | OITW + OPOR/POR1 | Lager / Bestellung / Liefertermin / Preis |
+| bom | OITT/ITT1 (+ OITW je Komponente) | Stücklisten-Klärung |
+| capacity | `machine_state` + open `order_state` | „Wann können wir fertigen?“ |
+| pricing | **bdx-quoter** (Datenraum) else ITM1/OPLN | Kalkulation / Listenpreis |
+| personnel | *gap* → open question | Schicht / Qualifikation (noch Mensch) |
+
+**bdx-quoter** (Docker `:8020`): optional `QUOTER_*` settings; adapter
+`src/bdx/adapters/quoter.py`. Inquiry fields `datenraum` / `kunde` / `use_llm`
+trigger a quote; quoter `offen[]` becomes Q2P `open_questions`. See
+[Q2P_QUOTER.md](Q2P_QUOTER.md).
+
+Missing SELECT grants degrade the domain to `unknown` + an explicit `open_questions` entry
+instead of failing the whole evaluation. `bdx-collect serve` attaches the SAP engine so the
+API can run live reads; without it, SAP domains become human questions.
 
 `/api/v1/*` is protected by `API_KEY` when set (`X-API-Key` header or `?api_key=`); health and dashboard stay public.
 
