@@ -70,3 +70,7 @@ This rule applies to every change in `bdx-intelligence/`. Read `bdx-intelligence
 - Change SAP status code mappings without verifying against OWOR.
 - Bypass the `sl_operations` audit for SL writes.
 - Edit `docs/PROJECT_STATUS.md` without updating the **Zuletzt aktualisiert:** timestamp (date + time + timezone) in the blockquote under the title to the current moment.
+
+## Dev sync
+
+Desktop and cloud agents share state only through git. Follow `.cursor/rules/dev-sync.mdc`: read `PROJECT_STATUS.md`, `PROJECT_GOALS.md`, and `REQUIREMENTS.md` first, append new requirements, update the affected status and goal in the same change, then commit and `git push -u origin HEAD`. The coordinator procedure is `.cursor/skills/dev-sync/SKILL.md`.

@@ -15,13 +15,14 @@
   body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
 
   /* ── Header ── */
-  header { display:flex; align-items:center; gap:14px; padding:11px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10; }
-  header h1 { font-size:16px; margin:0; letter-spacing:.3px; }
+  header { display:flex; align-items:center; gap:14px; padding:11px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; letter-spacing:.3px; white-space:nowrap; }
   header .sub { color:var(--muted); font-size:12px; }
-  header .spacer { flex:1; }
+  header .spacer { flex:1; min-width:12px; }
   header .meta { color:var(--muted); font-size:12px; }
-  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); }
-  header nav a:hover { color:var(--fg); border-color:var(--muted); }
+  header nav { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); white-space:nowrap; }
+  header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
 
   /* ── Layout ── */
   main { padding:16px 20px; display:grid; gap:16px; grid-template-columns:repeat(12,1fr); }
@@ -134,13 +135,14 @@
   <h1>BDX Intelligence</h1>
   <span class="sub">Schwachstellen-Analyse</span>
   <span id="health-pill" class="pill idle">…</span>
-  <span class="spacer"></span>
   <nav>
     <a href="/dashboard">Betrieb</a>
     <a href="/vorgang">Vorgänge</a>
+    <a class="active" href="/analytics">Schwachstellen</a>
     <a href="/q2p">Q2P</a>
     <a href="/promise">Promise</a>
   </nav>
+  <span class="spacer"></span>
   <span class="meta" id="meta">lädt…</span>
   <span class="meta">Refresh
     <select id="refresh">

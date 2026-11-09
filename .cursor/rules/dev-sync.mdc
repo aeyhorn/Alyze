@@ -1,0 +1,59 @@
+---
+description: Hält Projektstatus, Ziele und Anforderungen zwischen Desktop und Cloud synchron und verlangt Commit plus Push.
+alwaysApply: true
+---
+
+# Dev-Sync
+
+Desktop, Cursor für iOS und Cloud Agents teilen den Stand nur über Git. Diese Regel gilt in jeder Sitzung.
+
+Dokumente:
+
+- `bdx-intelligence/docs/PROJECT_STATUS.md` — operativer Stand. Zeitstempel **Zuletzt aktualisiert:** bei jeder Bearbeitung setzen.
+- `bdx-intelligence/docs/PROJECT_GOALS.md` — Ziele mit stabilen IDs `G#`. Zeitstempel **Zuletzt abgeglichen:** setzen, wenn der Zielstatus sich ändert.
+- `bdx-intelligence/docs/REQUIREMENTS.md` — Eingang für neue Anforderungen.
+
+Ablauf für den Koordinator: `.cursor/skills/dev-sync/SKILL.md`. Aufruf: `.cursor/prompts/sync-coordinator.mdc`.
+
+## Zu Beginn
+
+1. `git fetch origin` ausführen.
+2. Liegt der Branch hinter seinem Upstream, zuerst integrieren (`git pull --rebase`), danach ändern. Ist der Arbeitsbaum dirty, nichts verwerfen und nichts von der anderen Seite überschreiben.
+3. Die drei Dokumente lesen, bevor Code oder Ziele geändert werden.
+
+## Neue Anforderung
+
+Kommt eine neue Anforderung vom Desktop oder aus der Cloud, vor der Umsetzung eine Zeile in `REQUIREMENTS.md` anhängen:
+
+- `ID`: nächste freie `R###` (die Datei nennt sie)
+- `Quelle`: `desktop` oder `cloud` (mobile Cloud Agents sind `cloud`)
+- `Aufgenommen`: Datum `YYYY-MM-DD`
+- `Ziel`: bestehende `G#` oder leer, bis ein Ziel angelegt ist
+- `Status`: `open`
+- `Text`: die Anforderung in einem Satz
+
+Zeilen nicht löschen und nicht umsortieren. Bei Lieferung nur `Status` auf `in-progress` oder `done` setzen. So bleiben gleichzeitige Ergänzungen mergefähig.
+
+## Vor dem Ende einer Sitzung, die das Repo ändert
+
+1. Den betroffenen Abschnitt in `PROJECT_STATUS.md` an den Diff anpassen. Nur diesen Abschnitt ändern. Die Übersichtstabelle oben gehört dem Koordinator-Lauf.
+2. Den Status des betroffenen Ziels in `PROJECT_GOALS.md` anpassen.
+3. Beide Zeitstempel auf den aktuellen Zeitpunkt setzen (Datum, Uhrzeit, Zeitzone).
+4. Alle gewollten Dateien committen.
+5. `git push -u origin HEAD` ausführen.
+
+Die Arbeit ist für Desktop und Handy erst sichtbar, wenn der Push auf `origin` liegt. Ein lokal grüner Arbeitsbaum ohne Push gilt als nicht fertig.
+
+## Gleichzeitige Arbeit
+
+- Eine Aufgabe, ein Branch (`feat/`, `fix/`, `cursor/`).
+- Anforderungen nur anhängen.
+- In `PROJECT_STATUS.md` nur den Abschnitt anfassen, den diese Sitzung verändert hat.
+- Bei einem Konflikt beide Anforderungszeilen und beide offenen Punkte behalten.
+
+## Niemals
+
+- Force-Push.
+- `.env` oder echte Zugangsdaten committen.
+- `SL_DRY_RUN=false` in eine committete Datei schreiben.
+- Im reinen Koordinator-Lauf Produktcode ändern.

@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-09 13:56 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-09 14:50 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -221,7 +221,7 @@ bdx-intelligence/
 ├── scripts/               # ci_triage.py, pr_review.py, create_pr.py, dora_metrics.py
 ├── Dockerfile, docker-compose.yml
 ├── AGENTS.md              # canonical agent guide (SAP safety, invariants, workflow)
-└── docs/                  # ARCHITECTURE, SAP_MAPPING, PROJECT_STATUS (+ dora-metrics.md weekly)
+└── docs/                  # ARCHITECTURE, SAP_MAPPING, PROJECT_STATUS, PROJECT_GOALS, REQUIREMENTS (+ dora-metrics.md weekly)
 ```
 
 Repo-root (sibling of `bdx-intelligence/`):
@@ -230,6 +230,7 @@ Repo-root (sibling of `bdx-intelligence/`):
 ├── .github/workflows/     # ci, integration, deploy-dev, deploy-prod, ci-triage,
 │                          #   pr-review, auto-merge, dora
 └── .cursor/
-    ├── prompts/           # from-notion-spec, triage-issue, feature, bugfix, refactor, testgen
-    └── rules/             # bdx-conventions.mdc (alwaysApply)
+    ├── prompts/           # from-notion-spec, triage-issue, feature, bugfix, refactor, testgen, sync-coordinator
+    ├── rules/             # bdx-conventions.mdc, dev-sync.mdc (alwaysApply)
+    └── skills/dev-sync/   # sync coordinator procedure
 ```
