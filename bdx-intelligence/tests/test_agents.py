@@ -34,6 +34,10 @@ def sample_project(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (docs / "PROJECT_STATUS.md").write_text("# Status\n\nAll green.\n", encoding="utf-8")
+    (docs / "PROJECT_GOALS.md").write_text("# Goals\n\nG1 done.\n", encoding="utf-8")
+    (docs / "REQUIREMENTS.md").write_text(
+        "# Requirements\n\n| ID | Text |\n|---|---|\n", encoding="utf-8"
+    )
     (docs / "SAP_MAPPING.md").write_text("# SAP mapping\n\n…\n", encoding="utf-8")
 
     src = tmp_path / "src" / "bdx"
