@@ -95,6 +95,13 @@ def test_dashboard_served(client):
     assert "BDX Intelligence" in resp.text
 
 
+def test_vorgang_served(client):
+    resp = client.get("/vorgang")
+    assert resp.status_code == 200
+    assert "Auftragsfenster" in resp.text
+    assert 'href="/vorgang"' in resp.text
+
+
 def test_orders_empty(client):
     resp = client.get("/api/v1/orders")
     assert resp.status_code == 200

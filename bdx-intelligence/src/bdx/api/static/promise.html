@@ -16,8 +16,8 @@
   header h1 { font-size:16px; margin:0; }
   header .sub { color:var(--muted); font-size:12px; }
   header .spacer { flex:1; }
-  header nav { display:flex; gap:6px; flex-wrap:wrap; }
-  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); }
+  header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; justify-content:flex-end; }
+  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); white-space:nowrap; }
   header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
   main { padding:16px 20px; display:grid; gap:16px; grid-template-columns:repeat(12,1fr); }
   .full { grid-column:span 12; } .half { grid-column:span 6; }
@@ -75,9 +75,9 @@
   <h1>BDX Intelligence</h1>
   <span class="sub">Promise Platform – lebendiges Angebot + Gaps</span>
   <span id="health" class="pill idle">…</span>
-  <span class="spacer"></span>
   <nav>
     <a href="/dashboard">Betrieb</a>
+    <a href="/vorgang">Vorgänge</a>
     <a href="/analytics">Schwachstellen</a>
     <a href="/q2p">Q2P</a>
     <a class="active" href="/promise">Promise</a>
