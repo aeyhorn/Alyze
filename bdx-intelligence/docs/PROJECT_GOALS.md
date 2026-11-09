@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-09 13:36 (CET, UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,14 +10,14 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`bbdfc8f`, 2026-11-09). Ruff und mypy sind in CI beratend, das Coverage-Gate liegt bei 68 %. Der DEV-Deploy läuft über den self-hosted Runner, ohne SSH-Hop. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` hat keine Protection-Rules, erforderliche Reviewer sind dort also nicht gesetzt. Actions-Secrets und Branch Protection waren in diesem Lauf nicht lesbar (HTTP 403). Offen und nicht gemergt: PR [#2](https://github.com/aeyhorn/Alyze/pull/2) (älterer Status-Stand) und 53 Draft-PRs aus früheren Abgleichen.
+- **Akzeptanz:** Der Baum ist auf `main`. Offen bleiben gesetzte Secrets (`CURSOR_API_KEY`, `PROD_SSH_*`, nächtliche Integrations-Secrets), erforderliche Reviewer auf `prod` und Branch Protection, die den Check aus `ci.yml` verlangt.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` liegt auf `main` und spricht `DENY CONTROL` nicht mehr aus (das hatte CONNECT blockiert, `7d0fb2f`). Der Check vom 2026-11-07 hielt den Login auf LDSAP für fehlend. Dieser Lauf hat LDSAP nicht erneut geprüft.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
