@@ -20,7 +20,7 @@
   header .sub { color:var(--muted); font-size:12px; }
   header .spacer { flex:1; min-width:12px; }
   header .meta { color:var(--muted); font-size:12px; }
-  header nav { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+  header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; justify-content:flex-end; }
   header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); white-space:nowrap; }
   header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
 
@@ -135,14 +135,6 @@
   <h1>BDX Intelligence</h1>
   <span class="sub">Schwachstellen-Analyse</span>
   <span id="health-pill" class="pill idle">…</span>
-  <nav>
-    <a href="/dashboard">Betrieb</a>
-    <a href="/vorgang">Vorgänge</a>
-    <a class="active" href="/analytics">Schwachstellen</a>
-    <a href="/q2p">Q2P</a>
-    <a href="/promise">Promise</a>
-  </nav>
-  <span class="spacer"></span>
   <span class="meta" id="meta">lädt…</span>
   <span class="meta">Refresh
     <select id="refresh">
@@ -152,6 +144,13 @@
       <option value="0">aus</option>
     </select>
   </span>
+  <nav>
+    <a href="/dashboard">Betrieb</a>
+    <a href="/vorgang">Vorgänge</a>
+    <a class="active" href="/analytics">Schwachstellen</a>
+    <a href="/q2p">Q2P</a>
+    <a href="/promise">Promise</a>
+  </nav>
 </header>
 
 <main>
