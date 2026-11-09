@@ -128,6 +128,10 @@ def create_app(
     def _dashboard():
         return FileResponse(_STATIC_DIR / "dashboard.html", media_type="text/html")
 
+    @app.get("/vorgang", include_in_schema=False)
+    def _vorgang():
+        return FileResponse(_STATIC_DIR / "vorgang.html", media_type="text/html")
+
     @app.get("/analytics", include_in_schema=False)
     def _analytics():
         return FileResponse(_STATIC_DIR / "analytics.html", media_type="text/html")

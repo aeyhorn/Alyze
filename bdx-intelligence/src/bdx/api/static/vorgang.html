@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BDX Intelligence – Vorgänge</title>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#182027; --panel2:#1c2733; --line:#263039;
+    --fg:#e6edf3; --muted:#8b98a5;
+    --ok:#2ea043; --warn:#d29922; --bad:#f85149; --info:#58a6ff; --idle:#6e7681;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; gap:14px; padding:11px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  header .sub { color:var(--muted); font-size:12px; }
+  header .spacer { flex:1; }
+  header .meta { color:var(--muted); font-size:12px; }
+  header nav { display:flex; gap:6px; flex-wrap:wrap; }
+  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); }
+  header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
+  button, input, select { font:inherit; color:var(--fg); }
+  main { padding:16px 20px 28px; display:grid; gap:12px; grid-template-columns:repeat(12,1fr); }
+  .kpis { grid-column:span 12; display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .kpi .top { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
+  .kpi .v { font-size:28px; font-weight:700; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .kpi .v small { font-size:14px; color:var(--muted); font-weight:600; }
+  .kpi .hint { color:var(--muted); font-size:12px; margin-top:4px; }
+  .meter { height:6px; background:#0b0f13; border-radius:4px; overflow:hidden; margin-top:8px; }
+  .meter i { display:block; height:100%; background:var(--ok); }
+  .meter.warn i { background:var(--warn); } .meter.bad i { background:var(--bad); } .meter.info i { background:var(--info); }
+  .tower { grid-column:span 12; display:grid; grid-template-columns:280px minmax(0,1fr) 300px; gap:12px; align-items:start; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .card h2 { margin:0; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
+  .note { color:var(--muted); font-size:11px; margin:8px 0 0; }
+  .lines { display:flex; flex-direction:column; gap:8px; max-height:640px; overflow:auto; }
+  .line { text-align:left; width:100%; background:var(--panel2); border:1px solid var(--line); border-left:4px solid var(--idle); border-radius:8px; padding:8px 10px; cursor:pointer; }
+  .line.running { border-left-color:var(--ok); } .line.setup { border-left-color:var(--warn); }
+  .line.fault, .line.offline { border-left-color:var(--bad); } .line.idle { border-left-color:var(--warn); }
+  .line.sel { border-color:var(--info); }
+  .line .nm { display:flex; justify-content:space-between; gap:8px; font-weight:700; }
+  .line .subl { color:var(--muted); font-size:12px; margin-top:2px; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+  .pill.ok { background:rgba(46,160,67,.2); color:var(--ok); }
+  .pill.warn { background:rgba(210,153,34,.2); color:var(--warn); }
+  .pill.bad { background:rgba(248,81,73,.2); color:var(--bad); }
+  .pill.info { background:rgba(88,166,255,.2); color:var(--info); }
+  .pill.idle { background:rgba(110,118,129,.25); color:#c9d1d9; }
+  .flow { display:flex; align-items:stretch; gap:8px; overflow:auto; padding-bottom:4px; }
+  .node { min-width:120px; flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .node .k { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+  .node .t { font-weight:700; margin-top:2px; }
+  .node .d { color:var(--muted); font-size:12px; margin-top:2px; }
+  .node.ok { border-color:var(--ok); } .node.warn { border-color:var(--warn); }
+  .node.bad { border-color:var(--bad); } .node.info { border-color:var(--info); }
+  .arrow { align-self:center; color:var(--muted); }
+  .gantt { overflow:auto; }
+  .g-row { display:grid; grid-template-columns:168px 1fr; min-width:720px; }
+  .g-lab { padding:4px 8px 4px 0; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--line); }
+  .g-lab button { background:none; border:0; color:inherit; padding:0; cursor:pointer; text-align:left; width:100%; }
+  .g-lab button.on { color:var(--info); }
+  .track { position:relative; height:26px; border-bottom:1px solid var(--line); background:#0b0f13; }
+  .track.head { height:22px; background:transparent; }
+  .tick { position:absolute; top:0; bottom:0; box-shadow:inset -1px 0 var(--line); }
+  .tick span { position:absolute; top:2px; left:3px; font-size:10px; color:var(--muted); white-space:nowrap; }
+  .tick.we { background:rgba(139,152,165,.12); }
+  .now { position:absolute; top:0; bottom:0; width:2px; background:var(--bad); z-index:2; }
+  .bar { position:absolute; top:5px; height:16px; border-radius:3px; background:rgba(88,166,255,.35); overflow:hidden; border:0; padding:0; cursor:pointer; min-width:6px; }
+  .bar i { display:block; height:100%; background:rgba(88,166,255,.95); }
+  .bar.ok { background:rgba(46,160,67,.28); } .bar.ok i { background:var(--ok); }
+  .bar.warn { background:rgba(210,153,34,.28); } .bar.warn i { background:var(--warn); }
+  .bar.bad { background:rgba(248,81,73,.28); } .bar.bad i { background:var(--bad); }
+  .bar.sel { outline:1px solid var(--fg); }
+  .load-title { margin-top:10px; font-size:10px; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); }
+  .cell { position:absolute; top:4px; height:16px; z-index:1; }
+  .cell.occ { background:rgba(88,166,255,.7); }
+  .cell.late { background:rgba(248,81,73,.75); }
+  .cell.run { background:rgba(46,160,67,.8); }
+  .alerts { display:flex; flex-direction:column; gap:8px; max-height:640px; overflow:auto; }
+  .alert { border:1px solid var(--line); border-left:4px solid var(--warn); border-radius:8px; padding:8px 10px; background:var(--panel2); }
+  .alert.bad { border-left-color:var(--bad); }
+  .alert .at { font-weight:700; }
+  .alert .ad { color:var(--muted); font-size:12px; margin-top:2px; }
+  .alert button { margin-top:6px; background:transparent; border:1px solid var(--line); border-radius:5px; padding:2px 8px; cursor:pointer; font-size:12px; }
+  .split { grid-column:span 12; display:grid; grid-template-columns:1.1fr .9fr; gap:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .gauges { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; }
+  .gauge { width:88px; text-align:center; }
+  .gauge .gv { font-weight:700; margin-top:-8px; font-variant-numeric:tabular-nums; }
+  .gauge .gl { color:var(--muted); font-size:11px; }
+  input[type=search] { background:#0b0f13; border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
+  .err { color:var(--bad); }
+  .empty { color:var(--muted); font-size:12px; padding:8px 0; }
+  @media (max-width:1100px) {
+    .kpis, .tower, .split { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>BDX Intelligence</h1>
+  <span class="sub">Vorgänge – Leitstand</span>
+  <span id="health" class="pill idle">…</span>
+  <span class="spacer"></span>
+  <nav>
+    <a href="/dashboard">Betrieb</a>
+    <a class="active" href="/vorgang">Vorgänge</a>
+    <a href="/analytics">Schwachstellen</a>
+    <a href="/q2p">Q2P</a>
+    <a href="/promise">Promise</a>
+  </nav>
+  <span class="meta" id="meta">lädt…</span>
+  <span class="meta">Refresh
+    <select id="refresh">
+      <option value="10000">10 s</option>
+      <option value="30000" selected>30 s</option>
+      <option value="60000">60 s</option>
+      <option value="0">aus</option>
+    </select>
+  </span>
+</header>
+<main>
+  <section class="kpis" id="kpis"></section>
+  <div class="tower">
+    <section class="card">
+      <div class="head"><h2>Maschinen</h2><span class="meta" id="linecount"></span></div>
+      <div class="lines" id="lines"></div>
+    </section>
+    <section class="card">
+      <div class="head">
+        <h2>Auftragsfenster</h2>
+        <input id="q" type="search" placeholder="FA oder Artikel">
+      </div>
+      <div id="flow"></div>
+      <div class="gantt" id="gantt"></div>
+      <div id="load"></div>
+      <p class="note">Balken sind das SAP-Fenster Start–Fällig. Der Arbeitsgang kommt aus der Maschinenmeldung. Eine Arbeitsgangfolge aus SAP ist noch nicht angebunden, deshalb gibt es keine Kapazitätsstunden.</p>
+    </section>
+    <section class="card">
+      <div class="head"><h2>Meldungen</h2><span class="meta" id="alertcount"></span></div>
+      <div class="alerts" id="alerts"></div>
+    </section>
+  </div>
+  <div class="split">
+    <section class="card" id="orderdetail"></section>
+    <section class="card" id="opdetail"></section>
+  </div>
+</main>
+<script>
+const API = '/api/v1';
+const qs = new URLSearchParams(location.search);
+const apiKey = qs.get('api_key') || localStorage.getItem('bdx_api_key') || '';
+if (qs.get('api_key')) localStorage.setItem('bdx_api_key', apiKey);
+const DAY = 86400000;
+const BACK = 7;
+const FWD = 21;
+const STATE_LABEL = { running:'Fertigen', setup:'Rüsten', fault:'Störung', idle:'Bereit', off:'Aus', unknown:'unbekannt', offline:'offline' };
+const STATUS_DE = { P:'Geplant', R:'Freigegeben', L:'Geschlossen', C:'Storniert' };
+function statusDe(order) { return STATUS_DE[order.status] || order.status_label || order.status; }
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function parseYmd(s) {
+  if (!s || !/^\d{4}-\d{2}-\d{2}/.test(s)) return null;
+  const [y, m, d] = s.slice(0, 10).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+function ymd(d) { return d.toISOString().slice(0, 10); }
+function addDays(d, n) { return new Date(d.getTime() + n * DAY); }
+function fmt(d) { return d ? d.toLocaleDateString('de-CH', { day:'2-digit', month:'2-digit', timeZone:'UTC' }) : '–'; }
+function todayUtc() {
+  const n = new Date();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+}
+async function get(path) {
+  const r = await fetch(API + path, { headers: apiKey ? {'X-API-Key': apiKey} : {} });
+  if (!r.ok) throw new Error(path + ' → HTTP ' + r.status);
+  return r.json();
+}
+
+let cache = { orders: [], machines: [], health: null, snapshot: null };
+let selected = null;
+let userPicked = false;
+const dismissed = new Set();
+
+function windowOf(order) {
+  const due = parseYmd(order.due_date);
+  const start = parseYmd(order.start_date) || due;
+  return { start, due: due || start };
+}
+function overdue(order, today) {
+  const due = parseYmd(order.due_date);
+  return !!(order.is_open && due && due < today && Number(order.completed_qty) < Number(order.planned_qty));
+}
+function pct(order) {
+  const p = Number(order.planned_qty) || 0;
+  if (p <= 0) return 0;
+  return Math.max(0, Math.min(100, 100 * Number(order.completed_qty) / p));
+}
+function machineRank(m) {
+  if (!m.online || m.state === 'fault') return 0;
+  if (m.state === 'running') return 1;
+  if (m.state === 'setup') return 2;
+  return 3;
+}
+function sortedMachines() {
+  return cache.machines.slice().sort((a, b) => machineRank(a) - machineRank(b) || a.machine_id.localeCompare(b.machine_id));
+}
+function machineByOrder(machines) {
+  const map = new Map();
+  machines.forEach(m => {
+    const id = m.sap_doc_entry || (m.sap_order && m.sap_order.doc_entry);
+    if (id != null) map.set(id, m);
+  });
+  return map;
+}
+function visibleOrders(today) {
+  const orders = cache.orders;
+  const machines = cache.machines;
+  const linked = machineByOrder(machines);
+  const h0 = addDays(today, -BACK);
+  const h1 = addDays(today, FWD);
+  const q = (document.getElementById('q').value || '').trim().toLowerCase();
+  const rows = [];
+  for (const o of orders) {
+    if (!o.is_open) continue;
+    const w = windowOf(o);
+    if (!w.start) continue;
+    const onMachine = linked.has(o.doc_entry);
+    const inWindow = w.due >= h0 && w.start <= h1;
+    if (!onMachine && !inWindow && !overdue(o, today)) continue;
+    const hay = (String(o.doc_num) + ' ' + (o.item_code || '')).toLowerCase();
+    if (q && !hay.includes(q)) continue;
+    rows.push({ order: o, machine: linked.get(o.doc_entry) || null, late: overdue(o, today) });
+  }
+  rows.sort((a, b) => {
+    const ra = a.machine && a.machine.state === 'running' ? 0 : a.machine && a.machine.state === 'fault' ? 1 : a.machine ? 2 : a.late ? 3 : 4;
+    const rb = b.machine && b.machine.state === 'running' ? 0 : b.machine && b.machine.state === 'fault' ? 1 : b.machine ? 2 : b.late ? 3 : 4;
+    if (ra !== rb) return ra - rb;
+    return String(a.order.due_date || '').localeCompare(String(b.order.due_date || ''));
+  });
+  return { rows, shown: rows.slice(0, 18), hidden: Math.max(0, rows.length - 18), h0, h1, linked };
+}
+function tone(row) {
+  if (row.late) return 'bad';
+  if (row.machine && row.machine.state === 'running') return 'ok';
+  if (row.machine && (row.machine.state === 'setup' || row.machine.state === 'fault')) return 'warn';
+  if (row.order.status === 'P') return 'info';
+  return 'ok';
+}
+function buildAlerts(today) {
+  const out = [];
+  for (const m of cache.machines) {
+    if (!m.online) out.push({ level:'bad', key:'off:'+m.machine_id, title:m.machine_id+' offline', text:'keine aktuelle Meldung' });
+    else if (m.state === 'fault') out.push({ level:'bad', key:'fault:'+m.machine_id, title:'Störung '+m.machine_id, text:m.last_message || m.exec_state || 'Maschinenstatus Störung' });
+    else if (!m.mde_enabled) out.push({ level:'warn', key:'mde:'+m.machine_id, title:m.machine_id+' ohne MDE', text:'Zustand wird nicht erfasst' });
+    const due = m.sap_order && parseYmd(m.sap_order.due_date);
+    if (m.online && m.state === 'running' && due && due.getTime() - today.getTime() <= 2 * DAY && due >= today) {
+      out.push({ level:'warn', key:'tight:'+m.machine_id, title:'Termin eng · '+m.machine_id, text:'FA '+(m.sap_order.doc_num)+' fällig '+fmt(due) });
+    }
+  }
+  const linked = machineByOrder(cache.machines);
+  for (const o of cache.orders) {
+    if (!overdue(o, today)) continue;
+    const m = linked.get(o.doc_entry);
+    out.push({
+      level: m ? 'bad' : 'warn',
+      key:'late:'+o.doc_entry,
+      title:'FA '+o.doc_num+' überfällig',
+      text:(m ? m.machine_id+' · ' : '')+o.item_code+' · fällig '+fmt(parseYmd(o.due_date)),
+      doc:o.doc_entry,
+    });
+  }
+  return out;
+}
+function gauge(label, value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  const p = Math.max(0, Math.min(100, n));
+  const len = Math.PI * 40;
+  const dash = (p / 100) * len;
+  const color = p >= 85 ? 'var(--bad)' : p >= 70 ? 'var(--warn)' : 'var(--info)';
+  return `<div class="gauge"><svg viewBox="0 0 100 58" width="88" height="52" aria-hidden="true">
+    <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#263039" stroke-width="8" stroke-linecap="round"/>
+    <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${len.toFixed(1)}"/>
+  </svg><div class="gv">${esc(Math.round(n))}</div><div class="gl">${esc(label)}</div></div>`;
+}
+function render() {
+  const today = todayUtc();
+  const machines = sortedMachines();
+  const orders = cache.orders;
+  const view = visibleOrders(today);
+  if (!userPicked || !view.rows.some(r => r.order.doc_entry === selected)) {
+    const pref = view.rows.find(r => r.machine && r.machine.state === 'running') || view.rows[0];
+    selected = pref ? pref.order.doc_entry : null;
+  }
+  const open = orders.filter(o => o.is_open);
+  const running = machines.filter(m => m.online && m.state === 'running').length;
+  const criticalMachines = machines.filter(m => !m.online || m.state === 'fault').length;
+  const lateN = open.filter(o => overdue(o, today)).length;
+  const planned = open.reduce((s, o) => s + Number(o.planned_qty || 0), 0);
+  const done = open.reduce((s, o) => s + Number(o.completed_qty || 0), 0);
+  const donePct = planned > 0 ? Math.round(100 * done / planned) : 0;
+  document.getElementById('kpis').innerHTML = [
+    ['Maschinen in Fertigung', `${running}<small> / ${machines.length}</small>`, running ? 'läuft' : 'keine in Fertigung', Math.round(100 * running / Math.max(1, machines.length)), 'ok'],
+    ['Kritische Maschinen', String(criticalMachines), 'offline oder Störung', criticalMachines ? 100 : 0, criticalMachines ? 'bad' : 'ok'],
+    ['Überfällige FA', String(lateN), 'offen und Fälligkeit vor heute', lateN ? Math.min(100, lateN * 10) : 0, lateN ? 'bad' : 'ok'],
+    ['Fertiganteil offene FA', donePct+' %', `${Math.round(done)} von ${Math.round(planned)} Stück`, donePct, 'info'],
+  ].map(([l, v, hint, bar, tone]) => `<div class="kpi"><div class="top">${l}</div><div class="v">${v}</div><div class="hint">${hint}</div><div class="meter ${tone}"><i style="width:${bar}%"></i></div></div>`).join('');
+
+  document.getElementById('linecount').textContent = machines.length ? machines.length : '';
+  document.getElementById('lines').innerHTML = machines.map(m => {
+    const st = m.online ? (m.state || 'unknown') : 'offline';
+    const o = m.sap_order;
+    const full = o && orders.find(x => x.doc_entry === o.doc_entry);
+    const ratio = full ? pct(full) : (o && o.planned_qty ? Math.min(100, 100 * Number(o.completed_qty) / Number(o.planned_qty)) : 0);
+    const sel = full && full.doc_entry === selected;
+    return `<button type="button" class="line ${st}${sel ? ' sel' : ''}" data-machine="${esc(m.machine_id)}" data-doc="${o ? o.doc_entry : ''}">
+      <div class="nm">${esc(m.machine_id)} <span class="pill ${st === 'running' ? 'ok' : st === 'fault' || st === 'offline' ? 'bad' : st === 'setup' || st === 'idle' ? 'warn' : 'idle'}">${esc(STATE_LABEL[st] || st)}</span></div>
+      <div class="subl">${o ? 'FA '+o.doc_num+' · '+esc(o.item_code) : esc(m.order_ref || 'kein Auftrag')}</div>
+      <div class="subl">Vorgang ${esc(m.operation || '–')}</div>
+      ${o ? `<div class="meter ${st === 'fault' ? 'bad' : st === 'running' ? 'ok' : 'info'}"><i style="width:${ratio}%"></i></div><div class="subl">${full ? full.completed_qty : o.completed_qty} / ${o.planned_qty}${o.due_date ? ' · fällig '+fmt(parseYmd(o.due_date)) : ''}</div>` : ''}
+    </button>`;
+  }).join('') || '<div class="empty">Keine Maschinen im Event Store.</div>';
+
+  const selRow = view.rows.find(r => r.order.doc_entry === selected) || null;
+  document.getElementById('flow').innerHTML = selRow ? flowHtml(selRow) : '<div class="empty">Kein Auftrag im Fenster.</div>';
+  document.getElementById('gantt').innerHTML = ganttHtml(view, today);
+  document.getElementById('load').innerHTML = loadHtml(view, today);
+
+  const alerts = buildAlerts(today).filter(a => !dismissed.has(a.key));
+  document.getElementById('alertcount').textContent = alerts.length ? alerts.length+' offen' : '';
+  document.getElementById('alerts').innerHTML = alerts.slice(0, 12).map(a => `<article class="alert ${a.level}">
+    <div class="at">${esc(a.title)}</div>
+    <div class="ad">${esc(a.text)}</div>
+    <button type="button" data-ack="${esc(a.key)}">Quittieren</button>
+  </article>`).join('') || '<div class="empty">Keine offenen Meldungen.</div>';
+
+  document.getElementById('orderdetail').innerHTML = orderDetail(selRow);
+  document.getElementById('opdetail').innerHTML = opDetail(selRow);
+}
+function flowHtml(row) {
+  const o = row.order;
+  const m = row.machine;
+  const w = windowOf(o);
+  const mid = m ? 'ok' : 'warn';
+  const opTone = m && m.operation ? 'info' : 'warn';
+  const dueTone = row.late ? 'bad' : 'info';
+  return `<div class="flow">
+    <div class="node info"><div class="k">Start</div><div class="t">${fmt(w.start)}</div><div class="d">${o.start_date ? 'SAP Start' : 'ohne Startdatum, Fälligkeit genutzt'}</div></div>
+    <div class="arrow">→</div>
+    <div class="node ${mid}"><div class="k">Maschine</div><div class="t">${m ? esc(m.machine_id) : 'nicht auf Maschine'}</div><div class="d">${m ? esc(STATE_LABEL[m.state] || m.state || '') : 'kein XMSK-Bezug'}</div></div>
+    <div class="arrow">→</div>
+    <div class="node ${opTone}"><div class="k">Arbeitsgang</div><div class="t">${m && m.operation ? esc(m.operation) : 'nicht gemeldet'}</div><div class="d">${Math.round(pct(o))} % · ${o.completed_qty} / ${o.planned_qty}</div></div>
+    <div class="arrow">→</div>
+    <div class="node ${dueTone}"><div class="k">Fällig</div><div class="t">${fmt(w.due)}</div><div class="d">${row.late ? 'überfällig' : esc(statusDe(o))}</div></div>
+  </div>`;
+}
+function ganttHtml(view, today) {
+  const n = Math.round((view.h1 - view.h0) / DAY) + 1;
+  const ticks = (labels) => {
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      const d = addDays(view.h0, i);
+      const dow = d.getUTCDay();
+      const show = labels && (i === 0 || d.getUTCDate() === 1 || dow === 1);
+      html += `<div class="tick${dow === 0 || dow === 6 ? ' we' : ''}" style="left:${(100 * i / n).toFixed(3)}%;width:${(100 / n).toFixed(3)}%">${show ? `<span>${fmt(d)}</span>` : ''}</div>`;
+    }
+    return html;
+  };
+  const nowLeft = (today - view.h0) / DAY / n * 100;
+  const now = nowLeft >= 0 && nowLeft <= 100 ? `<div class="now" style="left:${nowLeft.toFixed(2)}%" title="heute"></div>` : '';
+  const head = `<div class="g-row"><div class="g-lab"></div><div class="track head">${ticks(true)}${now}</div></div>`;
+  const body = view.shown.map(row => {
+    const w = windowOf(row.order);
+    let a = Math.round((w.start - view.h0) / DAY);
+    let b = Math.round((w.due - view.h0) / DAY);
+    if (b < 0) { a = 0; b = 0; }
+    else {
+      a = Math.max(0, a);
+      b = Math.min(n - 1, Math.max(a, b));
+    }
+    const left = 100 * a / n;
+    const width = 100 * (b - a + 1) / n;
+    const t = tone(row);
+    const on = row.order.doc_entry === selected ? ' sel' : '';
+    return `<div class="g-row"><div class="g-lab"><button type="button" data-doc="${row.order.doc_entry}" class="${on ? 'on' : ''}">FA ${row.order.doc_num} · ${esc(row.order.item_code)}</button></div>
+      <div class="track">${ticks(false)}${now}
+        <button type="button" class="bar ${t}${on}" data-doc="${row.order.doc_entry}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${esc(row.order.item_code)} ${row.order.start_date || '–'} → ${row.order.due_date || '–'}">
+          <i style="width:${pct(row.order).toFixed(0)}%"></i>
+        </button>
+      </div></div>`;
+  }).join('');
+  const more = view.hidden ? `<div class="note">${view.hidden} weitere Aufträge im Fenster sind ausgeblendet. Filter eingrenzen.</div>` : '';
+  return head + (body || '<div class="empty">Keine offenen Fertigungsaufträge in diesem Fenster.</div>') + more;
+}
+function loadHtml(view, today) {
+  const machines = sortedMachines();
+  if (!machines.length) return '';
+  const n = Math.round((view.h1 - view.h0) / DAY) + 1;
+  const body = machines.map(m => {
+    const order = cache.orders.find(o => o.doc_entry === (m.sap_doc_entry || (m.sap_order && m.sap_order.doc_entry)));
+    let cells = '';
+    for (let i = 0; i < n; i++) {
+      const d = addDays(view.h0, i);
+      let cls = '';
+      if (order) {
+        const w = windowOf(order);
+        if (w.start && d >= w.start && d <= w.due) cls = m.state === 'running' ? 'run' : 'occ';
+        else if (overdue(order, today) && d > w.due && d <= today) cls = 'late';
+      }
+      if (cls) cells += `<div class="cell ${cls}" style="left:${(100 * i / n).toFixed(3)}%;width:${(100 / n).toFixed(3)}%"></div>`;
+    }
+    return `<div class="g-row"><div class="g-lab">${esc(m.machine_id)}</div><div class="track">${cells}</div></div>`;
+  }).join('');
+  return `<div class="load-title">Belegung je Maschine, gleiche Zeitachse</div>${body}`;
+}
+function orderDetail(row) {
+  if (!row) return '<h2>Auftrag</h2><div class="empty">Auftrag in der Liste oder auf der Zeitachse wählen.</div>';
+  const o = row.order;
+  const m = row.machine;
+  return `<h2>Auftrag FA ${o.doc_num}</h2><table>
+    <tr><th>Artikel</th><td>${esc(o.item_code)}</td><th>Status</th><td><span class="pill ${o.status === 'R' ? 'ok' : 'info'}">${esc(statusDe(o))}</span></td></tr>
+    <tr><th>Start</th><td>${esc(o.start_date || '–')}</td><th>Fällig</th><td>${esc(o.due_date || '–')}</td></tr>
+    <tr><th>Geplant</th><td class="num">${o.planned_qty}</td><th>Fertig</th><td class="num">${o.completed_qty}</td></tr>
+    <tr><th>Ausschuss</th><td class="num">${o.rejected_qty}</td><th>Maschine</th><td>${m ? esc(m.machine_id) : '–'}</td></tr>
+  </table>`;
+}
+function opDetail(row) {
+  if (!row || !row.machine) return '<h2>Vorgang</h2><div class="empty">Für diesen Auftrag meldet keine Maschine einen Arbeitsgang.</div>';
+  const m = row.machine;
+  const g = gauge('Spindel', m.load_spindle) + gauge('Achse 1', m.load_axis_1) + gauge('Achse 2', m.load_axis_2);
+  return `<h2>Vorgang · ${esc(m.machine_id)}</h2><table>
+    <tr><th>Arbeitsgang</th><td>${esc(m.operation || '–')}</td><th>NC</th><td>${esc(m.nc_program || '–')}</td></tr>
+    <tr><th>Teil</th><td>${esc(m.part || '–')}</td><th>Stück (MDE)</th><td class="num">${esc(m.pieces_raw ?? m.pieces ?? '–')}</td></tr>
+    <tr><th>Bediener</th><td>${esc(m.operator || '–')}</td><th>Programm-Override</th><td>${m.feed_override ?? '–'} / ${m.spindle_override ?? '–'} / ${m.rapid_override ?? '–'} %</td></tr>
+    <tr><th>Meldung</th><td colspan="3">${esc(m.last_message || '–')}</td></tr>
+  </table>${g ? `<div class="gauges">${g}</div>` : ''}`;
+}
+
+document.body.addEventListener('click', ev => {
+  const ack = ev.target.closest('[data-ack]');
+  if (ack) { dismissed.add(ack.dataset.ack); render(); return; }
+  const docEl = ev.target.closest('[data-doc]');
+  if (!docEl || docEl.dataset.doc === '') return;
+  selected = Number(docEl.dataset.doc);
+  userPicked = true;
+  render();
+});
+document.getElementById('q').addEventListener('input', render);
+
+async function refresh() {
+  const meta = document.getElementById('meta');
+  try {
+    const [health, machines, orders] = await Promise.all([
+      fetch('/health').then(r => r.json()),
+      get('/machines'),
+      get('/orders?open_only=true&limit=5000'),
+    ]);
+    cache = { orders: orders.orders || [], machines: machines.machines || [], health };
+    const h = document.getElementById('health');
+    h.textContent = health.status;
+    h.className = 'pill ' + (health.status === 'ok' ? 'ok' : 'warn');
+    meta.textContent = 'Stand ' + (orders.snapshot_at ? new Date(orders.snapshot_at).toLocaleString('de-CH', { hour12:false }) : '–');
+    render();
+  } catch (e) {
+    meta.innerHTML = `<span class="err">${esc(e.message)}</span>`;
+  }
+}
+let timer = null;
+function schedule() {
+  clearInterval(timer);
+  const ms = +document.getElementById('refresh').value;
+  if (ms) timer = setInterval(refresh, ms);
+}
+document.getElementById('refresh').addEventListener('change', schedule);
+refresh(); schedule();
+</script>
+</body>
+</html>

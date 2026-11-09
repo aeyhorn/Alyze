@@ -154,6 +154,7 @@ Every call (success / failure / DRY_RUN) is recorded in the `sl_operations` audi
 | `POST /api/v1/q2p/inquiries/{id}/decide` | accept / reject / counter |
 | `GET /api/v1/q2p/promise` | ad-hoc promise check (no persist) |
 | `GET /dashboard` | static dashboard (auto-refresh) |
+| `GET /vorgang` | Vorgangsleitstand: FA-Fenster auf der Zeitachse, Maschinenbelegung, gemeldeter Arbeitsgang |
 | `GET /analytics` | process-weakness dashboard |
 | `GET /q2p` | Quote-to-Promise cockpit |
 
