@@ -1,8 +1,9 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-09 14:36 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
+> Letzter Abgleich gegen `origin/main` `bbdfc8f` (2026-11-09 13:06 UTC+1).
 
 ## Aktiv
 
@@ -10,8 +11,8 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main`. Der Sprint ist nicht mehr uncommitted. Pytest-Gate ist 68 %. Ruff und mypy sind in CI beratend. DEV-Deploy läuft auf dem self-hosted Runner. Environment `prod` existiert und meldet keine Protection Rules. Actions-Secrets und die klassische Branch Protection von `main` waren in diesem Lauf nicht lesbar (HTTP 403). Die Ruleset-Liste war leer.
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum auf `main` ist erfüllt. Secrets, Reviewer und Branch Protection sind offen, bis sie lesbar bestätigt sind.
 
 ### G5 – SQL-Login `bdx_readonly`
 
