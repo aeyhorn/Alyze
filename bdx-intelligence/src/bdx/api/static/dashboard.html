@@ -9,10 +9,13 @@
           --ok:#2ea043; --warn:#d29922; --bad:#f85149; --info:#58a6ff; --idle:#6e7681; }
   * { box-sizing:border-box; }
   body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
-  header { display:flex; align-items:center; gap:16px; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:2;}
-  header h1 { font-size:17px; margin:0; letter-spacing:.3px; }
-  header .spacer { flex:1; }
+  header { display:flex; align-items:center; gap:14px; padding:11px 20px; border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; letter-spacing:.3px; white-space:nowrap; }
+  header .spacer { flex:1; min-width:12px; }
   header .meta { color:var(--muted); font-size:12px; }
+  header nav { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+  header nav a { color:var(--muted); font-size:12px; text-decoration:none; padding:3px 8px; border-radius:5px; border:1px solid var(--line); white-space:nowrap; }
+  header nav a:hover, header nav a.active { color:var(--fg); border-color:var(--info); }
   .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; text-transform:uppercase; }
   .pill.ok { background:rgba(46,160,67,.2); color:var(--ok);} .pill.bad { background:rgba(248,81,73,.2); color:var(--bad);}
   .pill.warn { background:rgba(210,153,34,.2); color:var(--warn);} .pill.info{ background:rgba(88,166,255,.2); color:var(--info);}
@@ -51,12 +54,13 @@
 <header>
   <h1>BDX Intelligence</h1>
   <span id="health" class="pill idle">…</span>
-  <span class="spacer"></span>
-  <nav style="display:flex;gap:6px">
-    <a href="/analytics" style="color:var(--muted);font-size:12px;text-decoration:none;padding:3px 8px;border-radius:5px;border:1px solid var(--line)">Schwachstellen</a>
-    <a href="/q2p" style="color:var(--muted);font-size:12px;text-decoration:none;padding:3px 8px;border-radius:5px;border:1px solid var(--line)">Q2P</a>
-    <a href="/promise" style="color:var(--muted);font-size:12px;text-decoration:none;padding:3px 8px;border-radius:5px;border:1px solid var(--line)">Promise</a>
+  <nav>
+    <a class="active" href="/dashboard">Betrieb</a>
+    <a href="/analytics">Schwachstellen</a>
+    <a href="/q2p">Q2P</a>
+    <a href="/promise">Promise</a>
   </nav>
+  <span class="spacer"></span>
   <span class="meta" id="meta">lädt…</span>
   <span class="meta">Refresh <select id="refresh"><option value="10000">10 s</option><option value="30000" selected>30 s</option><option value="60000">60 s</option><option value="0">aus</option></select></span>
 </header>
