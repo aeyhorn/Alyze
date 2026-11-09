@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-09 13:09 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,20 +10,21 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`bbdfc8f`). `ci.yml` prüft mit `--cov-fail-under=68`. DEV-Deploy läuft ohne SSH auf dem self-hosted Runner; letzter Lauf 2026-11-09 erfolgreich. Offen, weil aus Git nicht belegt: Actions-Secrets, Reviewer auf `prod` (Environment existiert, `protection_rules` leer), Branch Protection für `ci.yml` (Abfrage 403).
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Ob der Login auf LDSAP existiert, wurde in diesem Abgleich nicht geprüft. Der DEV-Deploy auf `main` ist trotzdem grün.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Stand:** `deploy-dev.yml` ist auf `main` und der Lauf vom 2026-11-09 (Run `42614257711`) war erfolgreich. `/health` wurde in diesem Abgleich nicht separat geöffnet.
 - **Abhängigkeit:** G5.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
