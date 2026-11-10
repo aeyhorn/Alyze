@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-10 15:35 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-10 16:37 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -163,7 +163,7 @@ code quality) without needing a database or SAP.
 * **Nightly integration is red before pytest.** Cron in `integration.yml` is `0 3 * * *` UTC. Scheduled runs `42469243262` (2026-11-08 09:55 UTC), `42605350114` (2026-11-09 10:59 UTC), and `42802489315` (2026-11-10 10:50 UTC, SHA `cd6440f`) failed in `gpg --dearmor` because `/dev/tty` is missing. Pytest did not start.
 * **Action secrets are not listed here.** The secrets API returns HTTP 403. Environments that exist: `dev`, `prod`, and one named `CURSOR_API_KEY`.
 * **Lint cleanup is not on `main`.** `origin/chore/ruff-cleanup-20261108` has one commit (`57411b2`) and is 11 commits behind `origin/main`. It has no pull request. Ruff and mypy stay advisory until that lands.
-* **This reconcile (2026-11-10 15:35 UTC+1) found no newer product commit.** `origin/main` is still `cd6440f`. There is no CI, DEV deploy, or nightly run newer than the ones above. `prod` `protection_rules` is still empty. The branch-protection API still returns HTTP 403. The ruff-cleanup branch is unchanged (1 ahead, 11 behind, no pull request). The only non-`cursor` branch ahead of `origin/main`, besides this docs branch, is still `origin/chore/ruff-cleanup-20261108`.
+* **This reconcile (2026-11-10 16:37 UTC+1) found no newer product commit.** `origin/main` is still `cd6440f`. There is no CI, DEV deploy, or nightly run newer than the ones above. `prod` `protection_rules` is still empty. The branch-protection API still returns HTTP 403. The ruff-cleanup branch is unchanged (1 ahead, 11 behind, no pull request). The only non-`cursor` branch ahead of `origin/main`, besides this docs branch, is still `origin/chore/ruff-cleanup-20261108`.
 
 
 
