@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-10 17:32 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-10 18:32 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`cd6440f`). CI `42768023614` und Deploy to DEV `42768023481` waren am 2026-11-10 grün. Ruff und mypy sind in `ci.yml` noch advisory, das Coverage-Gate steht auf 68. `prod` existiert ohne Protection Rules. Branch Protection für `main` antwortet mit HTTP 403, Secrets ebenfalls. Die nächtlichen Läufe `42469243262` (2026-11-08 09:55 UTC), `42605350114` (2026-11-09 10:59 UTC) und `42802489315` (2026-11-10 10:50 UTC, SHA `cd6440f`) scheitern in `gpg --dearmor` an fehlendem `/dev/tty`, bevor pytest startet. `pr-review.yml` hat auf dem Schritt „Fetch PR diff“ zwei `env`-Blöcke; Lauf `42768021714` (`cd6440f`) endet in 0s ohne Jobs und ohne Log, ebenso spätere Pushes dieses Doku-Branches (zuletzt `42846294777`, 2026-11-10 15:37 UTC). Abgleich 2026-11-10 17:32 UTC+1: kein neuer Commit auf `origin/main`, kein neuer Deploy- oder Nightly-Lauf, `prod` weiter ohne Protection Rules, Branch Protection weiter HTTP 403.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`cd6440f`). CI `42768023614` und Deploy to DEV `42768023481` waren am 2026-11-10 grün. Ruff und mypy sind in `ci.yml` noch advisory, das Coverage-Gate steht auf 68. `prod` existiert ohne Protection Rules. Branch Protection für `main` antwortet mit HTTP 403, Secrets ebenfalls. Die nächtlichen Läufe `42469243262` (2026-11-08 09:55 UTC), `42605350114` (2026-11-09 10:59 UTC) und `42802489315` (2026-11-10 10:50 UTC, SHA `cd6440f`) scheitern in `gpg --dearmor` an fehlendem `/dev/tty`, bevor pytest startet. `pr-review.yml` hat auf dem Schritt „Fetch PR diff“ zwei `env`-Blöcke; Lauf `42768021714` (`cd6440f`) endet in 0s ohne Jobs und ohne Log, ebenso spätere Pushes dieses Doku-Branches (zuletzt `42856002675`, 2026-11-10 16:35 UTC, SHA `c4376a4`). Abgleich 2026-11-10 18:32 UTC+1: kein neuer Commit auf `origin/main`, kein neuer Deploy- oder Nightly-Lauf. CI des Doku-Branches `42856630049` (16:38 UTC, `c4376a4`) ist grün. `prod` weiter ohne Protection Rules, Branch Protection weiter HTTP 403.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
