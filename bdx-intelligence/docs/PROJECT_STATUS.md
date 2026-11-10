@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-10 09:36 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-10 10:35 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -160,7 +160,7 @@ code quality) without needing a database or SAP.
 * **CI and DEV deploy of that SHA are green.** CI `42768023614` (lint advisory, tests, docker smoke, mypy advisory). Deploy to DEV `42768023481` built `ghcr.io/aeyhorn/alyze/bdx-intelligence:dev` and recreated the stack on the self-hosted runner. Deploy no longer uses an SSH hop.
 * **`prod` has no required reviewers.** Environment `prod` exists and `protection_rules` is empty.
 * **Branch protection on `main` is not confirmed.** The protection API returns HTTP 403 for this token.
-* **Nightly integration is red before pytest.** Cron in `integration.yml` is `0 3 * * *` UTC. Scheduled runs `42469243262` (2026-11-08 09:55 UTC) and `42605350114` (2026-11-09 10:59 UTC) failed in `gpg --dearmor` because `/dev/tty` is missing. No scheduled run had started on 2026-11-10 by 08:32 UTC.
+* **Nightly integration is red before pytest.** Cron in `integration.yml` is `0 3 * * *` UTC. Scheduled runs `42469243262` (2026-11-08 09:55 UTC) and `42605350114` (2026-11-09 10:59 UTC) failed in `gpg --dearmor` because `/dev/tty` is missing. No scheduled run had started on 2026-11-10 by 09:35 UTC. The prior two runs began hours after 03:00 UTC, so today's slot is not yet a miss.
 * **Action secrets are not listed here.** The secrets API returns HTTP 403. Environments that exist: `dev`, `prod`, and one named `CURSOR_API_KEY`.
 * **Lint cleanup is not on `main`.** `origin/chore/ruff-cleanup-20261108` has one commit (`57411b2`) and is 11 commits behind `origin/main`. It has no pull request. Ruff and mypy stay advisory until that lands.
 
@@ -191,7 +191,7 @@ code quality) without needing a database or SAP.
 
 | Item | Notes |
 |---|---|
-| Nightly integration | `gpg --dearmor` fails on `/dev/tty` before pytest (`42605350114`, `42469243262`). No 2026-11-10 scheduled run by 08:32 UTC |
+| Nightly integration | `gpg --dearmor` fails on `/dev/tty` before pytest (`42605350114`, `42469243262`). No 2026-11-10 scheduled run by 09:35 UTC; prior runs started at 09:55 and 10:59 UTC, so the delay is still inside that window |
 | `prod` reviewers | environment exists, `protection_rules` empty |
 | Branch protection on `main` | not confirmed; API returns HTTP 403 |
 | Confirm SQL login name | container reads SAP; `diagnose` does not print the login. Script remains `docs/sql/create_bdx_readonly.sql` |
