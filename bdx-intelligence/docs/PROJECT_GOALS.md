@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-10 01:34 (CET)
+> **Zuletzt abgeglichen:** 2026-11-10 01:35 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Der Sprint-004-Baum liegt auf `origin/main` (`90a6593`). CI für diesen Commit ist grün. Ruff und mypy sind noch advisory, das Coverage-Gate steht auf 68. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` zeigt über die lesbare API keine Protection-Rules. Branch Protection auf `main` war mit diesem Token nicht lesbar (403). Der Dry-Run-Guard auf dem DEV-Host hat den Deploy von `90a6593` durchgelassen.
+- **Stand laut PROJECT_STATUS:** Der Sprint-004-Baum liegt auf `origin/main` (`90a6593`). CI für diesen Commit ist grün. Ruff und mypy sind noch advisory, das Coverage-Gate steht auf 68. Die nächtliche Integration ist am 2026-11-08 und 2026-11-09 rot, bevor pytest startet (`gpg` öffnet `/dev/tty` nicht). Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` zeigt über die lesbare API keine Protection-Rules. Branch Protection auf `main` war mit diesem Token nicht lesbar (403). Der Dry-Run-Guard auf dem DEV-Host hat den Deploy von `90a6593` durchgelassen.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum-Teil ist erfüllt. Secrets, Reviewer und Branch Protection sind nicht bestätigt.
 
 ### G5 – SQL-Login `bdx_readonly`

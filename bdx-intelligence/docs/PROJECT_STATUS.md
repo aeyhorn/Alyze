@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-10 01:34 (CET)
+> **Zuletzt aktualisiert:** 2026-11-10 01:35 (CET)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -166,6 +166,9 @@ code quality) without needing a database or SAP.
 * **Still operator work:** nightly integration secrets (`SAP_DB_*`, `SL_*`,
   `POSTGRES_DSN`), `CURSOR_API_KEY` for triage and PR review, required
   reviewers on `prod`, and branch protection that requires the CI check.
+* **Nightly integration is red before pytest.** Runs `42605350114`
+  (2026-11-09) and `42469243262` (2026-11-08) failed in the ODBC Driver 18
+  install: `gpg` cannot open `/dev/tty`. The SAP/SL tests did not start.
 
 
 
@@ -196,7 +199,7 @@ Später als diese Tabelle: `origin/main` `90a6593` hat CI und Deploy-to-DEV am 2
 | Item | Notes |
 |---|---|
 | **Finish Sprint 004 gates** | tree is on `main`. Still open: ruff/mypy advisory, coverage floor 68, unmerged `chore/ruff-cleanup-20261108`, `prod` reviewers not visible, branch protection not confirmed (API 403) |
-| **Integration and agent secrets** | nightly integration still needs `SAP_DB_*`, `SL_*`, `POSTGRES_DSN`. Triage and PR review need `CURSOR_API_KEY`. Deploy-to-DEV no longer depends on `DEV_SSH_*` |
+| **Integration and agent secrets** | nightly integration still needs `SAP_DB_*`, `SL_*`, `POSTGRES_DSN`. The last two scheduled runs failed earlier, while installing ODBC Driver 18 (`gpg` cannot open `/dev/tty`; runs `42605350114`, `42469243262`). Triage and PR review need `CURSOR_API_KEY`. Deploy-to-DEV no longer depends on `DEV_SSH_*` |
 | SQL login `bdx_readonly` on LDSAP | script ready in `docs/sql/create_bdx_readonly.sql` (run as sysadmin). Not proven from the repo. DEV deploy succeeds without this fact being visible in git |
 | MQTT / Kafka broker | set `MQTT_ENABLED=true` plus `MQTT_HOST`, or `KAFKA_ENABLED=true` plus `KAFKA_BOOTSTRAP_SERVERS`; `pip install -e .[mqtt]` / `.[kafka]` |
 | Run collector against PROD | read-only; needs a separate Postgres database (or mode-prefixed `source_key`) so DEV and PROD rows do not mix in `order_state`. Only single-order probes are recorded |
