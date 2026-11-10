@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-10 19:35 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-10 20:33 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -142,7 +142,7 @@ code quality) without needing a database or SAP.
 | **`.github/workflows/deploy-dev.yml`** | ✅ on `main`, last run green | push to `main` → build `ghcr.io/aeyhorn/alyze/bdx-intelligence:dev` + `:sha-<sha>`, push to GHCR, then on the self-hosted DEV runner: `docker compose pull`, migrate, recreate `collector` + `api`, smoke `/health/live` + `bdx-collect diagnose`. Aborts when the host env enables real Service Layer writes. Run `42768023481` succeeded |
 | **`.github/workflows/deploy-prod.yml`** | ✅ written | `workflow_dispatch` only. The workflow expects a `prod` environment with required reviewers; that environment exists and `protection_rules` is empty. Extra inputs `run_migrations` and `confirm_sl_write`; pulls chosen `image_tag`, optional migrations, recreate services, smoke `/health/live` |
 | **`.github/workflows/ci-triage.yml`** | ✅ written | `workflow_run` on failed CI → `scripts/ci_triage.py` fetches failed job logs, runs a Cursor cloud agent (`composer-2.5`) to produce a root-cause comment, posts it on the PR. Opt-in via `CURSOR_API_KEY` secret (no-op + green without it) |
-| **`.github/workflows/pr-review.yml`** | 🟡 fails before any job | Intended path: PR open/sync/reopen → `scripts/pr_review.py` posts one advisory comment. The "Fetch PR diff" step has two `env` mappings. Run `42768021714` on `cd6440f` failed in 0s with no jobs and no log. Later pushes of this docs branch fail the same way; latest seen is `42866167885` (2026-11-10 17:33 UTC, SHA `1e726cc`) |
+| **`.github/workflows/pr-review.yml`** | 🟡 fails before any job | Intended path: PR open/sync/reopen → `scripts/pr_review.py` posts one advisory comment. The "Fetch PR diff" step has two `env` mappings. Run `42768021714` on `cd6440f` failed in 0s with no jobs and no log. Later pushes of this docs branch fail the same way; latest seen is `42876864643` (2026-11-10 18:36 UTC, SHA `6ccf019`, no jobs) |
 | **`.github/workflows/auto-merge.yml`** | ✅ written | PR labeled `trivial` + only test/doc files + no protected paths (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) → `gh pr merge --squash --auto --delete-branch` |
 | **`.github/workflows/dora.yml`** | ✅ written | weekly Mon 06:00 UTC → `scripts/dora_metrics.py` computes deploy frequency, cycle time, MTTR, change-failure rate, CI flakiness from GitHub data, commits `docs/dora-metrics.md` |
 | **Quality-gate agents** (`src/bdx/agents/`) | ✅ written | `base.py` (Severity/Status/Finding/CheckResult), `docs.py` (DocumentationAgent: README, required docs, status freshness ≤90 d, module + public-symbol docstrings, API routes vs `ARCHITECTURE.md`, env vars vs `ARCHITECTURE.md`), `tests.py` (TestAgent: shells out to pytest, parses JUnit XML + coverage.json, gates ≥80 % overall / ≥50 % per module / ≤10 % skipped), `quality.py` (QualityAgent: ruff JSON, mypy, smell scan — TODO without owner, `print()` in prod, empty `except:`), `runner.py` (AgentRunner + RunnerReport, JSON serialisable, exit 0/1/2). Pure static — no DB/SAP import |
@@ -163,8 +163,8 @@ code quality) without needing a database or SAP.
 * **Nightly integration is red before pytest.** Cron in `integration.yml` is `0 3 * * *` UTC. Scheduled runs `42469243262` (2026-11-08 09:55 UTC), `42605350114` (2026-11-09 10:59 UTC), and `42802489315` (2026-11-10 10:50 UTC, SHA `cd6440f`) failed in `gpg --dearmor` because `/dev/tty` is missing. Pytest did not start.
 * **Action secrets are not listed here.** The secrets API returns HTTP 403. Environments that exist: `dev`, `prod`, and one named `CURSOR_API_KEY`.
 * **Lint cleanup is not on `main`.** `origin/chore/ruff-cleanup-20261108` has one commit (`57411b2`) and is 11 commits behind `origin/main`. It has no pull request. Ruff and mypy stay advisory until that lands.
-* **PR review does not run.** `pr-review.yml` has two `env` mappings on the "Fetch PR diff" step. Run `42768021714` (push of `cd6440f`) failed in 0s with no jobs and no log. The same 0s failure is on later pushes of this docs branch; latest seen is `42866167885` at 2026-11-10 17:33 UTC (SHA `1e726cc`).
-* **This reconcile (2026-11-10 19:35 UTC+1) found no newer product commit.** `origin/main` is still `cd6440f`. There is no newer CI, DEV deploy, or nightly run on that SHA. Docs-branch CI `42866187341` (2026-11-10 17:33 UTC, SHA `1e726cc`) is green. Auto-merge `42866187338` succeeded and skipped: PR 89 has no `trivial` label, so it stayed open. `prod` `protection_rules` is still empty. The branch-protection API and the secrets API still return HTTP 403. The ruff-cleanup branch is unchanged (1 ahead, 11 behind, no pull request). The only non-`cursor` branch ahead of `origin/main`, besides this docs branch, is still `origin/chore/ruff-cleanup-20261108`.
+* **PR review does not run.** `pr-review.yml` has two `env` mappings on the "Fetch PR diff" step. Run `42768021714` (push of `cd6440f`) failed in 0s with no jobs and no log. The same 0s failure is on later pushes of this docs branch; latest seen is `42876864643` at 2026-11-10 18:36 UTC (SHA `6ccf019`), no jobs.
+* **This reconcile (2026-11-10 20:33 UTC+1) found no newer product commit.** `origin/main` is still `cd6440f`. There is no newer CI, DEV deploy, or nightly run on that SHA. Docs-branch CI `42876881341` (2026-11-10 18:36 UTC, SHA `6ccf019`) is green. Auto-merge `42876881355` succeeded and skipped (`No 'trivial' label — skipping auto-merge.`), so PR 89 stayed open. `prod` `protection_rules` is still empty. The branch-protection API and the secrets API still return HTTP 403. The ruff-cleanup branch is unchanged (1 ahead, 11 behind, no pull request). The only non-`cursor` branch ahead of `origin/main`, besides this docs branch, is still `origin/chore/ruff-cleanup-20261108`.
 
 
 
@@ -194,7 +194,7 @@ code quality) without needing a database or SAP.
 | Item | Notes |
 |---|---|
 | Nightly integration | `gpg --dearmor` fails on `/dev/tty` before pytest. Latest is `42802489315` (2026-11-10 10:50 UTC, `cd6440f`). Same failure on `42605350114` and `42469243262` |
-| PR review workflow | `pr-review.yml` fails before any job. "Fetch PR diff" has two `env` mappings. Run `42768021714` on `cd6440f` has no jobs and no log. Latest docs-branch failure: `42866167885` (2026-11-10 17:33 UTC, SHA `1e726cc`) |
+| PR review workflow | `pr-review.yml` fails before any job. "Fetch PR diff" has two `env` mappings. Run `42768021714` on `cd6440f` has no jobs and no log. Latest docs-branch failure: `42876864643` (2026-11-10 18:36 UTC, SHA `6ccf019`, no jobs) |
 | `prod` reviewers | environment exists, `protection_rules` empty |
 | Branch protection on `main` | not confirmed; API returns HTTP 403 |
 | Confirm SQL login name | container reads SAP; `diagnose` does not print the login. Script remains `docs/sql/create_bdx_readonly.sql` |
