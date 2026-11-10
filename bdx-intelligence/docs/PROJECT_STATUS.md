@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-10 11:32 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-10 12:36 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -8,7 +8,7 @@
 | 001 | SAP read-only collector, event store, REST/CLI | ✅ complete (operational on DEV) |
 | 002 | BDE adapter, machine adapter, incremental reading | ✅ complete (operational on DEV) |
 | 003 | Event publishing (MQTT/Kafka), dashboard UI, SAP write-back | ✅ on DEV. MQTT/Kafka built, no broker. Write-back code is on `main`; the DEV deploy guard passed for `cd6440f` |
-| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | ✅ on `main` (`cd6440f`). CI `42768023614` and Deploy to DEV `42768023481` green. Still open: nightly `gpg` failure, `prod` without required reviewers, branch protection not readable (HTTP 403) |
+| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | ✅ on `main` (`cd6440f`). CI `42768023614` and Deploy to DEV `42768023481` green. Still open: nightly `gpg` failure (`42802489315`, 2026-11-10 10:50 UTC), `prod` without required reviewers, branch protection not readable (HTTP 403) |
 | 005 | Analytics KPI engine, anomalies, weakness dashboard | ✅ merged (#5, #6, #12), migrations `005`+`006` |
 | Q2P | Quote-to-Promise cockpit (parallel inquiry evaluation) | ✅ merged (#33, #39) – Q2P SAP grants + optional Quoter on DEV still open |
 | Promise | Promise Platform (Offer/Gaps/Agents/Portal) | ✅ merged (#41) – vision: `docs/VISION_PROMISE_PLATFORM.md`; Quoter deep link specified (#57) |
@@ -160,7 +160,7 @@ code quality) without needing a database or SAP.
 * **CI and DEV deploy of that SHA are green.** CI `42768023614` (lint advisory, tests, docker smoke, mypy advisory). Deploy to DEV `42768023481` built `ghcr.io/aeyhorn/alyze/bdx-intelligence:dev` and recreated the stack on the self-hosted runner. Deploy no longer uses an SSH hop.
 * **`prod` has no required reviewers.** Environment `prod` exists and `protection_rules` is empty.
 * **Branch protection on `main` is not confirmed.** The protection API returns HTTP 403 for this token.
-* **Nightly integration is red before pytest.** Cron in `integration.yml` is `0 3 * * *` UTC. Scheduled runs `42469243262` (2026-11-08 09:55 UTC) and `42605350114` (2026-11-09 10:59 UTC) failed in `gpg --dearmor` because `/dev/tty` is missing. No scheduled run had started on 2026-11-10 by 10:32 UTC. That is later than the 2026-11-08 start and earlier than the 2026-11-09 start.
+* **Nightly integration is red before pytest.** Cron in `integration.yml` is `0 3 * * *` UTC. Scheduled runs `42469243262` (2026-11-08 09:55 UTC), `42605350114` (2026-11-09 10:59 UTC), and `42802489315` (2026-11-10 10:50 UTC, SHA `cd6440f`) failed in `gpg --dearmor` because `/dev/tty` is missing. Pytest did not start.
 * **Action secrets are not listed here.** The secrets API returns HTTP 403. Environments that exist: `dev`, `prod`, and one named `CURSOR_API_KEY`.
 * **Lint cleanup is not on `main`.** `origin/chore/ruff-cleanup-20261108` has one commit (`57411b2`) and is 11 commits behind `origin/main`. It has no pull request. Ruff and mypy stay advisory until that lands.
 
@@ -191,7 +191,7 @@ code quality) without needing a database or SAP.
 
 | Item | Notes |
 |---|---|
-| Nightly integration | `gpg --dearmor` fails on `/dev/tty` before pytest (`42605350114`, `42469243262`). No 2026-11-10 scheduled run by 10:32 UTC. That is later than the 2026-11-08 start (09:55 UTC) and earlier than the 2026-11-09 start (10:59 UTC) |
+| Nightly integration | `gpg --dearmor` fails on `/dev/tty` before pytest. Latest is `42802489315` (2026-11-10 10:50 UTC, `cd6440f`). Same failure on `42605350114` and `42469243262` |
 | `prod` reviewers | environment exists, `protection_rules` empty |
 | Branch protection on `main` | not confirmed; API returns HTTP 403 |
 | Confirm SQL login name | container reads SAP; `diagnose` does not print the login. Script remains `docs/sql/create_bdx_readonly.sql` |
