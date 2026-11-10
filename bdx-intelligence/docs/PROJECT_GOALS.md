@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-10 01:34 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,8 +10,8 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand laut PROJECT_STATUS:** Der Sprint-004-Baum liegt auf `origin/main` (`90a6593`). CI für diesen Commit ist grün. Ruff und mypy sind noch advisory, das Coverage-Gate steht auf 68. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` zeigt über die lesbare API keine Protection-Rules. Branch Protection auf `main` war mit diesem Token nicht lesbar (403). Der Dry-Run-Guard auf dem DEV-Host hat den Deploy von `90a6593` durchgelassen.
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum-Teil ist erfüllt. Secrets, Reviewer und Branch Protection sind nicht bestätigt.
 
 ### G5 – SQL-Login `bdx_readonly`
 
@@ -22,10 +22,11 @@
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Abhängigkeit:** G5 für den SQL-Login. Der Deploy-Workflow auf `main` läuft unabhängig davon auf dem Self-hosted-Runner des DEV-Hosts.
+- **Stand:** Deploy-to-DEV für `origin/main` `90a6593` war erfolgreich (Actions-Run `42638402840`, 2026-11-09 15:52 CET), inklusive Smoke auf `/health/live`. Ob der SQL-Login existiert, steht nicht im Repo.
+- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, der Dry-Run-Schutz bleibt auf dem DEV-Host an, bis ein Operator ihn bewusst umstellt. Der letzte grüne Deploy spricht für den Stack zum Zeitpunkt des Laufs. Der Host-Schutz ist nur darüber belegt, dass der Workflow nicht abgebrochen ist.
 
 ### G7 – MQTT- oder Kafka-Broker
 
