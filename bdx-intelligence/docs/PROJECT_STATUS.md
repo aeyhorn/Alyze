@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-09 14:50 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-12 00:33 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -8,10 +8,12 @@
 | 001 | SAP read-only collector, event store, REST/CLI | ✅ complete (operational on DEV) |
 | 002 | BDE adapter, machine adapter, incremental reading | ✅ complete (operational on DEV) |
 | 003 | Event publishing (MQTT/Kafka), dashboard UI, SAP write-back | ✅ complete (MQTT/Kafka built, no broker yet; write-back DRY_RUN-verified) |
-| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | 🟡 built (uncommitted) — workflows + agents + scripts ready, not yet pushed/merged |
+| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | 🟡 on `main` (`cd6440f`) — CI `42768023614` green 2026-11-10; coverage gate 68%; ruff/mypy advisory; nightly integration red; `prod` has no protection rules |
 | 005 | Quote-to-Promise cockpit (parallel inquiry evaluation) | ✅ merged – needs migration + Q2P SAP grants + optional Quoter on DEV |
+| Analytics | KPI engine, anomaly detection, weakness dashboard (`/analytics`) | ✅ merged (#5, #6, #12) — migrations `005` and `006` |
 | Promise | Promise Platform (Offer/Gaps/Agents/Portal) | ✅ merged (#41) – deploy migrations `007`+`008`; vision: `docs/VISION_PROMISE_PLATFORM.md` |
-| TBD | Multi-company SAP, SSO/SCIM, container deployment | ⬜ open (SQL login script ready) |
+| Vorgang | Vorgangsleitstand (`/vorgang`) | ✅ merged (#67) |
+| TBD | Multi-company SAP, SSO/SCIM | ⬜ open |
 
 Test suite: unit tests on SQLite in-memory + optional integration against DEV SAP/SL. Integration suite skips cleanly when DEV creds are absent.
 
@@ -63,8 +65,8 @@ detect production order changes idempotently, and expose results via REST API an
 | REST: `/orders` (state, open-only default, `/summary`, `/{doc_entry}` with history), `/events` (+`/summary`), `/machines` (+`/{id}`, `/{id}/live`), `/bde/records`, `/runs` | ✅ | |
 | Optional API key (`API_KEY`, `X-API-Key` header or `?api_key=`) | ✅ | empty = open (LAN only) |
 | `/health` reports collector freshness, machine feed, publisher | ✅ | |
-| **SAP Service Layer write-back** (release / close / cancel / report-production) | ✅ | `sap_sl/operations.py` with `sl_operations` audit table (migration 003); CLI `release`/`close`/`cancel`/`report-production`/`sl-operations`; REST `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` + `GET /service-layer/operations`. **DRY_RUN-verified against DEV** (no real writes); `SL_DRY_RUN=false` enables real writes |
-| Dockerfile + docker-compose.yml | ✅ written, ⬜ **not deployed** | needs SQL login `bdx_readonly` (script in `docs/sql/create_bdx_readonly.sql`) |
+| **SAP Service Layer write-back** (release / close / cancel / report-production) | ✅ | `sap_sl/operations.py` with `sl_operations` audit table (migration 003); CLI `release`/`close`/`cancel`/`report-production`/`sl-operations`; REST `POST /api/v1/service-layer/orders/{doc_entry}/{release,close,cancel,report-production}` + `GET /service-layer/operations`. **DRY_RUN-verified against DEV** (no real writes). Real writes stay off until an operator enables them in the host environment. |
+| Dockerfile + docker-compose.yml | ✅ deployed to DEV | Deploy to DEV `42768023481` (2026-11-10, `cd6440f`) recreated `migrate`, `collector`, and `api`; `/health/live` passed. `bdx-collect diagnose` does not fail that job. `.runtime/last-deploy-at` on `main` still reads 2026-11-07 21:50 +01. `.runtime/last-deploy-sha` is `6ccc036`. SQL login remains G5. |
 
 ## Sprint 005 – Quote-to-Promise Cockpit  ✅ Merged
 
@@ -107,11 +109,15 @@ set `QUOTER_ENABLED=true` + `QUOTER_BASE_URL=http://<docker-host>:8020`; open `h
 
 **Deploy notes**: `alembic upgrade head` (`007`+`008`); open `/promise`; publish contract then share portal link.
 
-## Vorgangsleitstand
+## Vorgangsleitstand  ✅ Merged (#67)
 
 `/vorgang` zeichnet offene Fertigungsaufträge als Balken von Start bis Fällig, die Maschinenbelegung im selben Fenster und den Arbeitsgang, den XMSK an der Maschine meldet. Meldungen (offline, Störung, überfällig) lassen sich in der Sitzung quittieren. SAP-Arbeitsgangfolgen und Kapazitätsstunden sind nicht angebunden; die Ansicht erfindet sie nicht.
 
-## Sprint 004 – CI/CD pipeline, quality-gate agents, HOTL workflow  🟡 Built (uncommitted)
+## Analytics  ✅ Merged (#5, #6, #12)
+
+KPI engine, anomaly detection, and the weakness dashboard live under `src/bdx/analytics/` and `/analytics`. Alembic `005` (analytics tables) and `006` (diagnosis tables) are on `main`.
+
+## Sprint 004 – CI/CD pipeline, quality-gate agents, HOTL workflow  🟡 On main, acceptance open
 
 **Goal**: Take the human out of the loop for everything except SAP-safety approvals —
 automate lint/type/test/coverage gates, add nightly integration tests against
@@ -122,10 +128,10 @@ code quality) without needing a database or SAP.
 
 | Feature | Status | Notes |
 |---|---|---|
-| **`.github/workflows/ci.yml`** | ✅ written | push/PR to `main`: ruff (lint + format check), mypy on `src/bdx`, pytest with `--cov-fail-under=80`, Docker build smoke test (imports `bdx`). Working dir = `bdx-intelligence/` |
+| **`.github/workflows/ci.yml`** | ✅ on `main` | push/PR to `main`: ruff and mypy are advisory (`continue-on-error`), pytest with `--cov-fail-under=68`, Docker build smoke test (imports `bdx`). Working dir = `bdx-intelligence/`. Last green push run: `42768023614` (2026-11-10, `cd6440f`). |
 | **`.github/workflows/integration.yml`** | ✅ written | nightly cron `0 3 * * *` + `workflow_dispatch`; installs ODBC Driver 18 on Ubuntu, runs `pytest -m integration`; SL_DRY_RUN forced `true` by fixture — no real SAP writes possible |
-| **`.github/workflows/deploy-dev.yml`** | ✅ written | push to `main` → build image (`ghcr.io/<repo>/bdx-intelligence:dev` + `:sha-<sha>`), push to GHCR, SSH to DEV host, `docker compose pull`, run migrations, recreate `collector` + `api`, smoke test `/health/live` + `bdx-collect diagnose`. **Aborts if DEV `.env` has `SL_DRY_RUN=false`** |
-| **`.github/workflows/deploy-prod.yml`** | ✅ written | `workflow_dispatch` only; `prod` environment with required reviewers; extra inputs `run_migrations` and `confirm_sl_write` (must be `true`); pulls chosen `image_tag`, optional migrations, recreate services, smoke `/health/live` |
+| **`.github/workflows/deploy-dev.yml`** | ✅ on `main`, last DEV run green | push to `main` builds `ghcr.io/<repo>/bdx-intelligence:dev` and `:sha-<sha>`. The self-hosted runner on the DEV host refreshes compose, pulls, migrates, and recreates `collector` + `api`. `/health/live` must pass. `bdx-collect diagnose` does not fail the job. The job aborts when the host `.env` would allow Service Layer writes. Last green run: `42768023481` (2026-11-10, `cd6440f`). |
+| **`.github/workflows/deploy-prod.yml`** | ✅ written | `workflow_dispatch` only. The workflow expects `prod` to require reviewers; that environment currently has no protection rules. Extra inputs `run_migrations` and `confirm_sl_write` (must be `true`); pulls chosen `image_tag`, optional migrations, recreate services, smoke `/health/live` |
 | **`.github/workflows/ci-triage.yml`** | ✅ written | `workflow_run` on failed CI → `scripts/ci_triage.py` fetches failed job logs, runs a Cursor cloud agent (`composer-2.5`) to produce a root-cause comment, posts it on the PR. Opt-in via `CURSOR_API_KEY` secret (no-op + green without it) |
 | **`.github/workflows/pr-review.yml`** | ✅ written | on PR open/sync/reopen → `scripts/pr_review.py` runs two Cursor cloud agents (bug review + security review) on the diff, posts ONE combined comment. Advisory only — branch protection does the blocking via `ci.yml` |
 | **`.github/workflows/auto-merge.yml`** | ✅ written | PR labeled `trivial` + only test/doc files + no protected paths (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) → `gh pr merge --squash --auto --delete-branch` |
@@ -136,32 +142,43 @@ code quality) without needing a database or SAP.
 | **HOTL Cursor prompts** (`.cursor/prompts/`) | ✅ written | `from-notion-spec.mdc` (Notion spec → tasks → implement → PR → update Notion), `triage-issue.mdc` (label + branch + first task), `feature.mdc`, `bugfix.mdc`, `refactor.mdc`, `testgen.mdc` |
 | **`AGENTS.md` + `.cursor/rules/bdx-conventions.mdc`** | ✅ written | canonical agent guide: SAP safety hard rules, architecture invariants, event naming, mandatory test pattern, code style, HOTL workflow, "never" list |
 | **Helper scripts** (`scripts/`) | ✅ written | `ci_triage.py`, `pr_review.py`, `create_pr.py` (diff-based PR body via Cursor SDK), `dora_metrics.py` |
-| **`pyproject.toml` / `docker-compose.yml` tweaks** | 🟡 uncommitted | small ruff/format-driven edits + dev extras wiring; not yet committed |
+| **`pyproject.toml` / `docker-compose.yml` tweaks** | ✅ on `main` | ruff/format settings and dev extras are committed. ruff and mypy stay advisory in `ci.yml`. |
 | **PROD migration guard** (`alembic/env.py`) | ✅ written | refuses to migrate against PROD DSN (`SAP_MODE=prod` + `POSTGRES_DSN_PROD`) unless `ALEMBIC_ALLOW_PROD=1`; `deploy-prod.yml` sets it only when the human checks the `run_migrations` approval input |
 
 ### Sprint 004 — status & open items
 
-* **Nothing is committed yet.** `git status` shows the workflow files, `scripts/`,
-  `tests/integration/`, `tests/test_agents.py`, `src/bdx/agents/`, `AGENTS.md`,
-  `.cursor/prompts/*` and `.cursor/rules/*` as **untracked**, and
-  `docker-compose.yml` + `pyproject.toml` as **modified**. Local `main` is 1
-  commit ahead of `origin/main` (the Sprint 002/003 bundle).
-* **Required repo secrets before first run**: `CURSOR_API_KEY` (triage + PR
-  review), `DEV_SSH_HOST/USER/KEY/DEPLOY_PATH`, `PROD_SSH_*`,
-  `SAP_DB_*`, `SL_*`, `POSTGRES_DSN` (for nightly integration).
-* **Required repo settings**: `prod` GitHub environment with required
-  reviewers; branch protection on `main` requiring `ci.yml` status checks.
-* **First action to land Sprint 004**: stage + commit the new tree, open a PR
-  (it will touch `pyproject.toml` → not auto-mergeable → CODEOWNER review).
+* **The Sprint 004 tree is on `main`.** Workflows, `scripts/`, `tests/integration/`,
+  `src/bdx/agents/`, `AGENTS.md`, `.cursor/prompts/` and `.cursor/rules/` are in
+  `cd6440f` (2026-11-10). This checkout matches `origin/main`; nothing from that
+  tree is uncommitted.
+* **CI** `42768023614` (2026-11-10, `cd6440f`) succeeded (ruff, mypy, pytest,
+  Docker smoke). The blocking coverage gate is **68%**. ruff and mypy are
+  advisory (`continue-on-error`).
+* **Nightly integration** `43003787661` (2026-11-11, `cd6440f`) failed in about
+  8 seconds at **Install ODBC Driver 18** (`gpg` cannot open `/dev/tty`; curl
+  failed writing the key body). Pytest did not run. The same step failed on
+  2026-11-10 (`42802489315`).
+* **Re-check 2026-11-12 00:33 (UTC+1):** `origin/main` is still `cd6440f`.
+  CI, Deploy to DEV, that nightly run, empty `prod` protection rules, and the
+  branch-protection HTTP 403 are unchanged.
+* **`prod`** exists and its `protection_rules` list is empty (no required
+  reviewers). Branch protection on `main` was not readable (HTTP 403).
+* **Still open for G4:** required reviewers on `prod`, a confirmed required
+  `ci.yml` check on `main`, a green nightly run, and taking ruff/mypy off
+  advisory. `origin/chore/ruff-cleanup-20261108` is not merged.
 
 
 
-## Operational status (DEV, verified 2026-11-07)
+## Operational status (DEV, hands-on probe 2026-11-07)
+
+The table below is the last hands-on probe. It was not repeated on 2026-11-12.
+Later git evidence: Deploy to DEV `42768023481` (2026-11-10, `cd6440f`) passed
+`/health/live`. Whether `bdx_readonly` exists on LDSAP was not re-checked.
 
 | Check | Result |
 |---|---|
 | Service Layer login DEV / PROD | ✅ `DEV_SBO_LEISINGER`, `SBO_LEISINGER` – read calls OK (`SL_TIMEOUT_MS=120000` for cold start) |
-| MSSQL read channel | ✅ Windows integrated auth (`SAP_DB_TRUSTED_CONNECTION=yes`, ODBC Driver 17); SQL login `bdx_readonly` does not exist yet on LDSAP |
+| MSSQL read channel | ✅ Windows integrated auth (`SAP_DB_TRUSTED_CONNECTION=yes`, ODBC Driver 17) at this probe. `bdx_readonly` was not present then. `7d0fb2f` later stopped the script from denying CONTROL. Live login not re-checked on 2026-11-12. |
 | PostgreSQL event store | ✅ container `bdx-intelligence-postgres` on Docker host 192.168.82.33:5437, schema **002** applied |
 | `bdx-collect diagnose` | ✅ PG, SAP (871 open orders), XMSK (10 machines), SCADA API; MQTT disabled |
 | `bdx-collect collect --once` (incremental) | ✅ 871 orders / **2.2 s**, 0 events on unchanged data (idempotent) |
@@ -180,13 +197,12 @@ code quality) without needing a database or SAP.
 
 | Item | Notes |
 |---|---|
-| **Commit + merge Sprint 004** | everything is built but untracked/uncommitted; first PR touches `pyproject.toml` → CODEOWNER review (not auto-mergeable) |
-| **Configure repo secrets + environments** | `CURSOR_API_KEY`, `DEV_SSH_*`, `PROD_SSH_*`, `SAP_DB_*`, `SL_*`, `POSTGRES_DSN`; `prod` env with required reviewers; branch protection requiring `ci.yml` |
-| SQL login `bdx_readonly` on LDSAP | script ready in `docs/sql/create_bdx_readonly.sql` (run as sysadmin); prerequisite for container deployment |
-| Deploy `docker-compose.yml` on 192.168.82.33 | after the SQL login exists; PG is already there |
+| **G4 remainder** | Sprint 004 tree is on `main`. Still open: `prod` reviewers (protection rules empty), branch protection not confirmed (API 403), nightly ODBC install red (`43003787661`), ruff/mypy advisory, coverage gate 68% |
+| SQL login `bdx_readonly` on LDSAP | script on `main` denies INSERT/UPDATE/DELETE/ALTER and does not deny CONTROL (`7d0fb2f`; that deny blocked CONNECT, error 18456). This run did not check whether the login exists on LDSAP |
+| DEV compose deploy | done for `cd6440f`: run `42768023481` recreated `migrate`, `collector`, and `api`, `/health/live` passed. `.runtime/last-deploy-at` on `main` still says 2026-11-07 21:50 +01. `.runtime/last-deploy-sha` is `6ccc036` |
 | MQTT / Kafka broker | set `MQTT_ENABLED=true`+`MQTT_HOST` or `KAFKA_ENABLED=true`+`KAFKA_BOOTSTRAP_SERVERS`; `pip install -e .[mqtt]` / `.[kafka]` |
 | Run collector against PROD | read-only; but **needs a separate PG database** (or mode-prefixed `source_key`) to avoid mixing DEV/PROD data in `order_state`. Currently only single-order probes done |
-| SAP write-back real use | set `SL_DRY_RUN=false` (currently `false` in `.env` — change to `true` for safety until explicitly needed); operations: release/close/cancel/report-production |
+| SAP write-back real use | stays off until an operator enables writes in the host `.env`. The 2026-11-10 DEV deploy guard passed. Operations: release/close/cancel/report-production |
 | Multi-company SAP, SSO/SCIM | TBD |
 | Machine `User`/operator and `LastProdEnd` are empty in the feed | needs MDE-side configuration |
 
@@ -216,8 +232,8 @@ bdx-intelligence/
 │   ├── agents/            # Sprint 004: quality-gate agents (docs, tests, quality, runner)
 │   ├── api/               # FastAPI app, routes, static/dashboard.html
 │   └── cli/               # bdx-collect (incl. check / check-docs / check-tests / check-quality)
-├── alembic/               # migrations 001, 002, 003 (sl_operations)
-├── tests/                 # 103 unit tests + tests/integration/ (8 DEV SAP/SL tests)
+├── alembic/               # migrations 001–008
+├── tests/                 # 183 unit `test_*` functions plus 8 in tests/integration/
 ├── scripts/               # ci_triage.py, pr_review.py, create_pr.py, dora_metrics.py
 ├── Dockerfile, docker-compose.yml
 ├── AGENTS.md              # canonical agent guide (SAP safety, invariants, workflow)
