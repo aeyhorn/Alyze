@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-12 01:38 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`cd6440f`). `deploy-dev` war bis 2026-11-10 07:22 CET grün. Die nächtliche Integration ist rot (zuletzt 2026-11-11, Step „Install ODBC Driver 18“, Exit 2). Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` lieferte keine Protection-Rules. Secret-Namen und Branch Protection antworteten HTTP 403 und bleiben unbestätigt. Ruff und mypy sind in `AGENTS.md` weiter advisory.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
@@ -22,9 +22,10 @@
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
+- **Abhängigkeit:** G5 für den Read-only-SQL-Login. Der Deploy-Workflow läuft bereits ohne bestätigten Login-Namen.
+- **Stand:** `deploy-dev.yml` deployt auf dem Self-Hosted-Runner des DEV-Hosts. Letzter grüner Lauf 2026-11-10 07:22 CET (`cd6440f`), inklusive `/health/live`. `bdx-collect diagnose` ist in dem Job kein hartes Gate. Die committeten Dateien `.runtime/last-deploy-at` und `.runtime/last-deploy-sha` nennen noch 2026-11-07 und `6ccc036`.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
