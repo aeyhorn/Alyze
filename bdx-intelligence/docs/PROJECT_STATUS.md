@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-12 08:32 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-12 12:36 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -17,7 +17,7 @@
 
 Test suite: 191 `def test_` functions under `bdx-intelligence/tests/` (183 outside `integration/`, 8 in `tests/integration/`) on SQLite in-memory. The integration suite skips cleanly when DEV creds are absent.
 
-**Git (this sync):** Reconciled against `origin/main` `cd6440f` (2026-11-10 07:21 +01:00). `deploy-dev` succeeded for that SHA (run 2026-11-10 07:22 +01:00, Actions `42768023481`). 90 open pull requests against `main` (21 ready, 69 draft), all documentation: 89 reconciliations and #2 (`docs: update PROJECT_STATUS.md – Sprint 004 complete`). This run updates `sync/status-20261112` and does not merge. Pull-request CI on 2026-11-12 is split. Runs through 05:33 UTC failed `tests/test_analytics.py::test_machine_utilization_with_calendar` (`assert None is not None`; 1 failed, 178 passed, 8 deselected, coverage 73.95 %, gate 68 %). The 06:35 UTC run on `cursor/projekt-dokumente-sync-cf11` passed the same selection (179 passed, 8 deselected, coverage 73.95 %). The test uses `datetime.now(UTC).weekday()` and a 06:00–14:00 shift. Push CI for `cd6440f` on 2026-11-10 succeeded. Nightly integration on 2026-11-08, 2026-11-09, 2026-11-10 and 2026-11-11 failed in `Install ODBC Driver 18` (`gpg` could not open `/dev/tty`, curl failed while writing the Microsoft key) before pytest. No 2026-11-12 nightly run has appeared; the cron is 03:00 UTC and the 2026-11-11 run started at 10:27 UTC. 100 remote branches are not contained in `origin/main`, mostly earlier doc-sync branches that are behind. One product commit is not in `main`: `57411b2` on `origin/chore/ruff-cleanup-20261108` (ruff format). That branch is 11 commits behind `main` and has no pull request. `origin/cursor/vorgangsleitstand-b8e4` differs from `main` only in `.runtime/last-deploy-*` and a missing `docs/dora-metrics.md`. Other named feature branches (Sprint 001, dashboard nav, Q2P, Promise, analytics, Quoter deep link) are leftovers after squash merges and are behind `main`.
+**Git (this sync):** Reconciled against `origin/main` `cd6440f` (2026-11-10 07:21 +01:00). `deploy-dev` succeeded for that SHA (run 2026-11-10 07:22 +01:00, Actions `42768023481`). 93 open pull requests against `main` (24 ready, 69 draft), all documentation: 92 reconciliations and #2 (`docs: update PROJECT_STATUS.md – Sprint 004 complete`, conflicting). This run updates `sync/status-20261112` (PR #99) and does not merge. Pull-request CI on 2026-11-12 is split. Runs through 05:33 UTC failed `tests/test_analytics.py::test_machine_utilization_with_calendar` (`assert None is not None`; 1 failed, 178 passed, 8 deselected). Later runs passed that test, including 06:35 UTC on `cursor/projekt-dokumente-sync-cf11`, 07:39 UTC on `sync/status-20261112` (Actions `43176820152`), 08:36 UTC on `cursor/projekt-dokumenten-abgleich-bb30` (Actions `43184320869`), 09:36 UTC on `cursor/projekt-dokumenten-abgleich-7c70` (Actions `43192961156`; 179 passed, 8 deselected; coverage total 73.95 %, 5930 statements, 1545 missed, gate 68 %), and 10:34 UTC on `cursor/projekt-dokumenten-abgleich-c555` (Actions `43201569835`). The test uses `datetime.now(UTC).weekday()` and a 06:00–14:00 shift. Push CI for `cd6440f` on 2026-11-10 succeeded. Nightly integration on 2026-11-08, 2026-11-09, 2026-11-10, 2026-11-11 and 2026-11-12 failed in `Install ODBC Driver 18` (`gpg` could not open `/dev/tty`, step exit 2) before pytest. The 2026-11-12 run is Actions `43202844646` (started 10:43 UTC). The cron is 03:00 UTC; the 2026-11-11 run started at 10:27 UTC. Checked 2026-11-12 12:36 +01:00. 103 remote branches are not contained in `origin/main`, mostly earlier doc-sync branches that are behind. One product commit is not in `main`: `57411b2` on `origin/chore/ruff-cleanup-20261108` (ruff format). That branch is 11 commits behind `main` and has no pull request. The tree of `origin/cursor/vorgangsleitstand-b8e4` differs from `origin/main` only in `.runtime/last-deploy-*` and `docs/dora-metrics.md`; `vorgang.html` is the same in both trees. The branch is still not contained in `main` because #67 was squash-merged. Other named feature branches (Sprint 001, dashboard nav, Q2P, Promise, analytics, Quoter deep link) are leftovers after squash merges and are behind `main`. The repository rulesets list was empty. Classic branch protection on `main` returned 403. Pushes of these branches also record a failed Actions run named `.github/workflows/pr-review.yml` with no jobs. The Fetch PR diff step in that file has two `env` keys.
 
 ---
 
@@ -133,11 +133,11 @@ code quality) without needing a database or SAP.
 | Feature | Status | Notes |
 |---|---|---|
 | **`.github/workflows/ci.yml`** | ✅ on `main` | push/PR to `main`: ruff and mypy are advisory (`continue-on-error`), pytest with `--cov-fail-under=68`, Docker build smoke test (imports `bdx`). Working dir = `bdx-intelligence/`. `lint-cleanup.yml` exists for a later ruff format PR |
-| **`.github/workflows/integration.yml`** | ✅ written, nightly red | cron `0 3 * * *` + `workflow_dispatch`. Scheduled runs 2026-11-08 through 2026-11-11 failed in `Install ODBC Driver 18` before pytest. The test fixture keeps Service Layer writes off |
+| **`.github/workflows/integration.yml`** | ✅ written, nightly red | cron `0 3 * * *` + `workflow_dispatch`. Scheduled runs 2026-11-08 through 2026-11-12 failed in `Install ODBC Driver 18` before pytest. The 2026-11-12 run is Actions `43202844646` (10:43 UTC). The test fixture keeps Service Layer writes off |
 | **`.github/workflows/deploy-dev.yml`** | ✅ running | push to `main` builds `ghcr.io/<repo>/bdx-intelligence:dev` plus a SHA tag, pushes to GHCR, then deploys on the self-hosted runner on the DEV host (no SSH hop): `docker compose pull`, migrations, recreate `collector` + `api`, smoke test `/health/live`. The job aborts if the host env would allow Service Layer writes. Latest success seen this sync: `cd6440f`, 2026-11-10 07:22 (UTC+1) |
 | **`.github/workflows/deploy-prod.yml`** | ✅ written | `workflow_dispatch` only; uses the `prod` environment. The workflow comments expect required reviewers, but the environment API on 2026-11-12 returned no protection rules. Inputs include `run_migrations` and `confirm_sl_write` (that input must be `true`); pulls chosen `image_tag`, optional migrations, recreate services, smoke `/health/live` |
 | **`.github/workflows/ci-triage.yml`** | ✅ written | `workflow_run` on failed CI → `scripts/ci_triage.py` fetches failed job logs, runs a Cursor cloud agent (`composer-2.5`) to produce a root-cause comment, posts it on the PR. Opt-in via `CURSOR_API_KEY` secret (no-op + green without it) |
-| **`.github/workflows/pr-review.yml`** | ✅ written | on PR open/sync/reopen → `scripts/pr_review.py` runs two Cursor cloud agents (bug review + security review) on the diff, posts ONE combined comment. Advisory only — branch protection does the blocking via `ci.yml` |
+| **`.github/workflows/pr-review.yml`** | 🟡 on `main`, invalid | Intended: PR open/sync/reopen runs `scripts/pr_review.py` (bug + security, one comment, advisory). The Fetch PR diff step has two `env` keys, so pushes record a failed Actions run with no jobs |
 | **`.github/workflows/auto-merge.yml`** | ✅ written | PR labeled `trivial` + only test/doc files + no protected paths (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) → `gh pr merge --squash --auto --delete-branch` |
 | **`.github/workflows/dora.yml`** | ✅ written | weekly Mon 06:00 UTC → `scripts/dora_metrics.py` computes deploy frequency, cycle time, MTTR, change-failure rate, CI flakiness from GitHub data, commits `docs/dora-metrics.md` |
 | **Quality-gate agents** (`src/bdx/agents/`) | ✅ written | `base.py` (Severity/Status/Finding/CheckResult), `docs.py` (DocumentationAgent: README, required docs, status freshness ≤90 d, module + public-symbol docstrings, API routes vs `ARCHITECTURE.md`, env vars vs `ARCHITECTURE.md`), `tests.py` (TestAgent: shells out to pytest, parses JUnit XML + coverage.json, gates ≥80 % overall / ≥50 % per module / ≤10 % skipped), `quality.py` (QualityAgent: ruff JSON, mypy, smell scan — TODO without owner, `print()` in prod, empty `except:`), `runner.py` (AgentRunner + RunnerReport, JSON serialisable, exit 0/1/2). Pure static — no DB/SAP import |
@@ -153,14 +153,15 @@ code quality) without needing a database or SAP.
 
 * **The tree is on `origin/main`.** Workflows, `scripts/`, `tests/integration/`,
   `src/bdx/agents/`, `AGENTS.md`, `.cursor/prompts/`, and `.cursor/rules/`
-  are committed. This sync's working tree is clean and matches `origin/main`
+  are committed. This sync started from a clean tree matching `origin/main`
   at `cd6440f`. DEV deploy no longer uses the SSH secrets; it runs on the
   self-hosted runner (`scripts/prepare-dev-host.sh`).
 * **Settings this token could read:** GitHub environments `dev`, `prod`, and
-  `CURSOR_API_KEY` exist. `prod` returned an empty `protection_rules` list,
-  so required reviewers are not configured there. Branch protection and the
-  Actions secrets list returned 403, so this sync does not claim they are
-  set or missing.
+  `CURSOR_API_KEY` exist. Re-read 2026-11-12 12:36 +01:00: `prod` still
+  returned an empty `protection_rules` list, so required reviewers are not
+  configured there. The repository rulesets list was empty. Classic branch
+  protection and the Actions secrets list returned 403, so this sync does
+  not claim those are set or missing.
 * **Still open for the original acceptance:** required reviewers on `prod`,
   branch protection that requires `ci.yml`, and confirmation that
   `CURSOR_API_KEY` plus the nightly integration secrets exist. Ruff cleanup
@@ -169,15 +170,24 @@ code quality) without needing a database or SAP.
 * **PR CI on 2026-11-12 is split.** Docs PRs based on `cd6440f` failed
   through 05:33 UTC in `tests/test_analytics.py::test_machine_utilization_with_calendar`
   (`assert None is not None`; 1 failed, 178 passed, 8 deselected).
-  The 06:35 UTC run passed (179 passed, 8 deselected). Coverage on both
-  was 73.95 % against a 68 % gate. The test keys the shift calendar to
-  the current UTC weekday. Push CI for the same SHA succeeded on
-  2026-11-10. This sync does not change product code.
+  The 06:35 UTC run, the 07:39 UTC run (Actions `43176820152`), the
+  08:36 UTC run (Actions `43184320869`), the 09:36 UTC run
+  (Actions `43192961156`), and the 10:34 UTC run (Actions `43201569835`)
+  passed. The 09:36 UTC run reported 179 passed, 8 deselected, coverage
+  total 73.95 % (5930 statements, 1545 missed) against a 68 % gate. The
+  test keys the shift calendar to the current UTC weekday and a 06:00–14:00
+  shift. Push CI for the same SHA succeeded on 2026-11-10. This sync does
+  not change product code.
 * **Nightly integration does not reach SAP.** The scheduled runs on
-  2026-11-08, 2026-11-09, 2026-11-10 and 2026-11-11 failed in
-  `Install ODBC Driver 18` (`gpg` could not open `/dev/tty`). Pytest did
-  not start. The failure notice still says to investigate the DEV SAP
-  contract. No 2026-11-12 run has appeared (checked 08:32 UTC+1).
+  2026-11-08, 2026-11-09, 2026-11-10, 2026-11-11 and 2026-11-12 failed in
+  `Install ODBC Driver 18` (`gpg` could not open `/dev/tty`, step exit 2).
+  Pytest did not start. The 2026-11-12 run is Actions `43202844646`
+  (started 10:43 UTC). The failure notice still says to investigate the
+  DEV SAP contract. That notice does not match the failed step.
+* **`pr-review.yml` fails before any job.** Pushes record a failed Actions
+  run whose name is the workflow path and whose job list is empty. The
+  Fetch PR diff step has two `env` keys. This sync leaves the workflow
+  file unchanged.
 
 
 
@@ -205,10 +215,11 @@ code quality) without needing a database or SAP.
 
 | Item | Notes |
 |---|---|
-| **`prod` reviewers and branch protection** | `prod` exists with no protection rules. Branch protection and Actions secrets were not readable (403). Ruff stays advisory until `origin/chore/ruff-cleanup-20261108` lands and `continue-on-error` is removed |
-| **Doc-sync PR pile** | 90 open pull requests against `main` (21 ready, 69 draft), all documentation (89 reconciliations plus #2). This coordinator run does not merge them |
-| **Analytics calendar test** | PR CI on 2026-11-12 failed `test_machine_utilization_with_calendar` through 05:33 UTC and passed at 06:35 UTC. Push CI for `cd6440f` on 2026-11-10 was green. Coverage on both PR runs was 73.95 % |
-| **Nightly ODBC install** | Integration runs on 2026-11-08 through 2026-11-11 fail in `Install ODBC Driver 18` before pytest. That does not show a SAP contract break |
+| **`prod` reviewers and branch protection** | `prod` exists with no protection rules (re-read 2026-11-12 12:36 +01:00). Repository rulesets list was empty. Classic branch protection and Actions secrets were not readable (403). Ruff stays advisory until `origin/chore/ruff-cleanup-20261108` lands and `continue-on-error` is removed |
+| **Doc-sync PR pile** | 93 open pull requests against `main` (24 ready, 69 draft), all documentation (92 reconciliations plus #2). This coordinator run updates PR #99 and does not merge |
+| **Analytics calendar test** | PR CI on 2026-11-12 failed `test_machine_utilization_with_calendar` through 05:33 UTC (`assert None is not None`; 1 failed, 178 passed). Green from 06:35 UTC through 10:34 UTC (Actions `43201569835`). The 09:36 UTC run (Actions `43192961156`) reported 179 passed and coverage total 73.95 % against a 68 % gate. Push CI for `cd6440f` on 2026-11-10 was green |
+| **Nightly ODBC install** | Integration runs on 2026-11-08 through 2026-11-12 fail in `Install ODBC Driver 18` before pytest. The 2026-11-12 run is Actions `43202844646` (10:43 UTC). That does not show a SAP contract break |
+| **`pr-review.yml`** | Pushes record a failed Actions run with no jobs. The Fetch PR diff step has two `env` keys. Workflows stay untouched in this sync |
 | SQL login `bdx_readonly` on LDSAP | create and reset scripts are in `docs/sql/`. The 2026-11-07 fix assumes the login already existed and could not CONNECT. Not re-probed this sync. DEV deploy itself is already running on the host `.env` |
 | DEV deploy stamp in git | Actions has succeeded through `cd6440f`. `.runtime/last-deploy-at` / `last-deploy-sha` in the repo still say 2026-11-07 21:50 +01:00 / `6ccc036` |
 | MQTT / Kafka broker | publishers are implemented. No broker is configured in git (`MQTT_ENABLED` stays off until an operator sets a host) |
