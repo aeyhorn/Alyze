@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-12 04:34 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-12 08:32 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > IDs bleiben stabil. Dieser Abgleich hält den Stand gegen `origin/main` (`cd6440f`).
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (Workflows, Agents, Skripte, Prompts). Coverage-Gate ist 68 %. Ruff und mypy laufen mit `continue-on-error`. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` hat keine `protection_rules`. Branch Protection und die Actions-Secrets waren mit diesem Token nicht lesbar (403). `origin/chore/ruff-cleanup-20261108` (`57411b2`) ist nicht gemergt, liegt 11 Commits hinter `main` und hat keinen offenen PR.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (Workflows, Agents, Skripte, Prompts). Coverage-Gate ist 68 %. Ruff und mypy laufen mit `continue-on-error`. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` hat keine `protection_rules` (erneut gelesen 2026-11-12 08:32 UTC+1). Branch Protection und die Actions-Secrets waren mit diesem Token nicht lesbar (403). `origin/chore/ruff-cleanup-20261108` (`57411b2`) ist nicht gemergt, liegt 11 Commits hinter `main` und hat keinen offenen PR. Der Push-CI-Lauf von `cd6440f` am 2026-11-10 war grün. PR-CI am 2026-11-12 ist gespalten: Läufe bis 05:33 UTC scheitern an `tests/test_analytics.py::test_machine_utilization_with_calendar` (`assert None is not None`; 1 fehlgeschlagen, 178 bestanden, 8 abgewählt, Coverage 73,95 %), der Lauf um 06:35 UTC auf `cursor/projekt-dokumente-sync-cf11` ist grün (179 bestanden, 8 abgewählt, Coverage 73,95 %). Der Test hängt den Schichtkalender an den aktuellen UTC-Wochentag. Die nächtlichen Integration-Läufe vom 2026-11-08 bis 2026-11-11 scheitern in `Install ODBC Driver 18`, bevor pytest startet. Ein Lauf für 2026-11-12 liegt um 08:32 UTC+1 noch nicht vor.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum-Teil ist erfüllt. Reviewer, Branch Protection und die Secrets sind offen bzw. nicht geprüft.
 
 ### G5 – SQL-Login `bdx_readonly`
