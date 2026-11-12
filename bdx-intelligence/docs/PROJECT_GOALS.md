@@ -1,8 +1,8 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-12 23:34 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
-> Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
+> IDs bleiben stabil. Dieser Abgleich hält den Stand gegen `origin/main` (`cd6440f`).
 
 ## Aktiv
 
@@ -10,22 +10,15 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`cd6440f`). Push-CI dieses Stands ist grün (Actions `42768023614`); Ruff und mypy bleiben advisory, das Coverage-Gate liegt bei 68 %. DEV-Deploy läuft über den Self-hosted-Runner auf dem DEV-Host, zuletzt grün für `cd6440f` (2026-11-10 07:22 UTC+1, Actions `42768023481`). Die nächtliche Integration scheitert vom 2026-11-08 bis 2026-11-12 im Schritt `Install ODBC Driver 18`, zuletzt Actions `43202844646` (`gpg` öffnet `/dev/tty` nicht, Exit 2, vor pytest). `prod` existiert und hat keine Protection-Rules (Environments-API, erneut 2026-11-12 23:34 UTC+1). Die Ruleset-Liste ist leer. Branch Protection und die Actions-Secret-Liste waren in diesem Lauf nicht lesbar (403). `pr-review.yml` hat im Schritt `Fetch PR diff` zwei `env`-Schlüssel; Pushes zeichnen einen fehlgeschlagenen Lauf dieser Workflow-Datei mit Dauer 0s und ohne Jobs auf, zuletzt Actions `43312123349` (2026-11-12 22:37 UTC+1).
+- **Akzeptanz:** Baum auf `main` ist erfüllt. Offen: Secrets bestätigt, `prod` mit erforderlichen Reviewern, `main` verlangt den Check aus `ci.yml`, nächtliche Integration läuft bis pytest.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
-- **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
-
-### G6 – Container-Deploy auf dem Docker-Host
-
-- **Status:** offen
-- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Stand:** `7d0fb2f` hält fest, dass der Login existiert hat und `DENY CONTROL` die Verbindung blockierte. Die Skripte `docs/sql/create_bdx_readonly.sql` und `docs/sql/reset_bdx_readonly.sql` liegen auf `main`. Ob das Reset auf LDSAP gelaufen ist, steht nicht im Git. Dieser Lauf hat den Login nicht geprüft.
+- **Akzeptanz:** Login angelegt ist im Commit belegt. Offen: Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G7 – MQTT- oder Kafka-Broker
 
@@ -55,11 +48,18 @@
 - **Ziel:** Inkrementeller SAP-Lesen, Maschinenzustand aus XMSK, BDE aus SCADA-Telemetrie.
 - **Akzeptanz:** erfüllt. Statuscodes `P`/`R`/`L`/`C` bleiben wie gegen OWOR geprüft.
 
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt (DEV-Deploy von `cd6440f` erfolgreich, 2026-11-10 07:22 UTC+1)
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Abhängigkeit:** G5 war als Voraussetzung notiert. Der Deploy läuft; die Login-Abnahme von G5 ist davon getrennt noch offen.
+- **Akzeptanz:** `deploy-dev.yml` zieht das Image, führt `alembic upgrade head` aus und startet `collector` und `api` neu. Der Lauf von `cd6440f` ist grün, und der Job bricht ab, wenn `/health/live` nicht grün ist. Derselbe Job bricht ab, wenn die Host-`.env` den Dry-Run ausschaltet. Dieser Lauf hat den Host nicht selbst abgefragt.
+
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
+- **Status:** erledigt als Code (Sprint 003). Broker bleibt G7. Deploy ist G6.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
+- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Dry-Run in der Host-`.env` außerhalb von Git ausschaltet. `bdx-intelligence/.env.example` Zeile 24 schaltet den Dry-Run aus; die Regel verlangt, dass committete Dateien ihn an lassen. Dieser Abgleich ändert die Beispieldatei nicht.
 
 ## Geparkt
 
