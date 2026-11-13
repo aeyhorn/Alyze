@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-13 20:37 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-13 23:36 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`). CI-Gate ist `--cov-fail-under=68`; ruff und mypy sind advisory. Environment `prod` hat keine Protection Rules. Repository-Rulesets: 0. Branch Protection für `main` und die Secret-Liste waren am 2026-11-13 20:37 (UTC+1) nicht lesbar (403); Werte wurden nicht gelesen. Die nächtlichen Integrationsläufe 2026-11-08 bis 2026-11-13 sterben in „Install ODBC Driver 18“ (`gpg` ohne `/dev/tty`, danach `curl: Failed writing body`), vor pytest. Heutiger Lauf: `43410708723` (11:39 UTC+1). Letzter roter Docs-PR-Lauf `43373373297` (06:38 UTC+1) hat einen Unit-Test rot (`test_machine_utilization_with_calendar`); `43338394984` (01:36 UTC+1) hatte drei. Docs-PR-Läufe von 07:35 bis 19:35 (UTC+1) sind grün, zuletzt `43484189898` (PR #134). Der Push-Lauf auf `main` vom 2026-11-10 bleibt grün. `pr-review.yml` hat im Schritt „Fetch PR diff“ zwei `env`-Schlüssel; Push-Läufe enden ohne Jobs (zuletzt `43484178738`, 19:35 UTC+1, Jobliste leer).
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`). CI-Gate ist `--cov-fail-under=68`; ruff und mypy sind advisory. Environment `prod` hat keine Protection Rules. Repository-Rulesets: 0. Branch Protection für `main` und die Secret-Liste waren am 2026-11-13 23:36 (UTC+1) nicht lesbar (403); Werte wurden nicht gelesen. Die nächtlichen Integrationsläufe 2026-11-08 bis 2026-11-13 sterben in „Install ODBC Driver 18“ (`gpg` ohne `/dev/tty`, danach `curl: Failed writing body`), vor pytest. Heutiger Lauf: `43410708723` (11:39 UTC+1). Letzter roter Docs-PR-Lauf `43373373297` (06:38 UTC+1) hat einen Unit-Test rot (`test_machine_utilization_with_calendar`); `43338394984` (01:36 UTC+1) hatte drei. Docs-PR-Läufe von 07:35 bis 22:34 (UTC+1) sind grün, zuletzt `43511928896` (PR #136). Der Push-Lauf auf `main` vom 2026-11-10 bleibt grün. `pr-review.yml` hat im Schritt „Fetch PR diff“ zwei `env`-Schlüssel; Push-Läufe enden ohne Jobs (zuletzt `43511909142`, 22:34 UTC+1, Jobliste leer).
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt (erfüllt). Secrets gesetzt (nicht geprüft). `prod` hat erforderliche Reviewer (Rules leer, offen). `main` verlangt den Check aus `ci.yml` (nicht prüfbar, 403).
 
 ### G5 – SQL-Login `bdx_readonly`
