@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-13 02:37 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-13 05:37 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`). CI-Gate ist `--cov-fail-under=68`; ruff und mypy sind advisory. Environment `prod` hat keine Protection Rules. Branch Protection für `main` war nicht lesbar (403). Secret-Werte wurden nicht gelesen. Die nächtlichen Integrationsläufe 2026-11-10 bis 2026-11-12 sind vor pytest am ODBC-Key abgebrochen. Ein Docs-PR auf demselben Commit ist am 2026-11-13 01:36 (UTC+1) an drei Unit-Tests rot; der Push-Lauf auf `main` vom 2026-11-10 bleibt grün.
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`). CI-Gate ist `--cov-fail-under=68`; ruff und mypy sind advisory. Environment `prod` hat keine Protection Rules. Repository-Rulesets: 0. Branch Protection für `main` und die Secret-Liste waren nicht lesbar (403); Werte wurden nicht gelesen. Die nächtlichen Integrationsläufe 2026-11-08 bis 2026-11-12 sterben in „Install ODBC Driver 18“ (`gpg` ohne `/dev/tty`, danach `curl: Failed writing body`), vor pytest. Am 2026-11-13 05:37 (UTC+1) gibt es noch keinen Lauf dieses Tages. Der neueste Docs-PR-Lauf (`43360054629`, 2026-11-13 04:36 UTC+1, PR #120) hat einen Unit-Test rot; `43338394984` (01:36 UTC+1) hatte drei. Der Push-Lauf auf `main` vom 2026-11-10 bleibt grün. `pr-review.yml` hat im Schritt „Fetch PR diff“ zwei `env`-Schlüssel; Push-Läufe enden ohne Jobs (zuletzt `43360034754`, Jobliste leer).
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt (erfüllt). Secrets gesetzt (nicht geprüft). `prod` hat erforderliche Reviewer (Rules leer, offen). `main` verlangt den Check aus `ci.yml` (nicht prüfbar, 403).
 
 ### G5 – SQL-Login `bdx_readonly`

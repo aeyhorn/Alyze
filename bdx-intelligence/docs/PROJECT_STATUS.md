@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-13 02:37 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-13 05:37 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -131,11 +131,11 @@ code quality) without needing a database or SAP.
 | Feature | Status | Notes |
 |---|---|---|
 | **`.github/workflows/ci.yml`** | ✅ on main | push/PR to `main`: ruff (lint + format check), mypy on `src/bdx`, pytest with `--cov-fail-under=68`, Docker build smoke test (imports `bdx`). ruff und mypy sind `continue-on-error`. Working dir = `bdx-intelligence/` |
-| **`.github/workflows/integration.yml`** | 🟡 on main, Läufe brechen vor pytest ab | nightly cron `0 3 * * *` + `workflow_dispatch`; installs ODBC Driver 18 on Ubuntu, runs `pytest -m integration`; SL_DRY_RUN forced `true` by fixture — no real SAP writes possible. Die geplanten Läufe 2026-11-10, 2026-11-11 und 2026-11-12 endeten nach 8–12 s beim Microsoft-ODBC-Key (`curl` schreibt den Body nicht, Exit 2), bevor pytest startet |
+| **`.github/workflows/integration.yml`** | 🟡 on main, Läufe brechen vor pytest ab | nightly cron `0 3 * * *` + `workflow_dispatch`; installs ODBC Driver 18 on Ubuntu, runs `pytest -m integration`; die Fixture erzwingt Dry-Run, echte SAP-Schreibvorgänge sind daraus nicht möglich. Geplante Läufe 2026-11-08 bis 2026-11-12 sind rot. Der letzte, Actions `43202844646` (2026-11-12 11:43 UTC+1), stirbt in „Install ODBC Driver 18“: `gpg` kann `/dev/tty` nicht öffnen, danach `curl: Failed writing body`, Exit 2. Pytest startet nicht. Derselbe Abbruch steht im Lauf `43003787661` (2026-11-11). Der Cron-Lauf 2026-11-13 04:00 UTC+1 war zum Abgleich 05:37 (UTC+1) noch nicht gestartet. |
 | **`.github/workflows/deploy-dev.yml`** | ✅ on main, letzter DEV-Lauf grün | push to `main` → Image `ghcr.io/<repo>/bdx-intelligence:dev` + `:sha-<sha>`, Deploy auf dem Self-hosted-Runner des DEV-Hosts (kein SSH-Hop), `docker compose pull`, Migration, `collector` + `api` neu, Smoke `/health/live`. Der Lauf bricht ab, wenn die Host-`.env` den Dry-Run abschaltet. Letzter grüner Lauf: 2026-11-10 07:22 (UTC+1), `cd6440f`. |
 | **`.github/workflows/deploy-prod.yml`** | ✅ written, keine Läufe | `workflow_dispatch` only. Die Workflow-Datei erwartet Reviewer auf Environment `prod`; die API zeigt für `prod` leere Protection Rules. Inputs `run_migrations` und `confirm_sl_write`. Kein Lauf bisher. |
 | **`.github/workflows/ci-triage.yml`** | ✅ written | `workflow_run` on failed CI → `scripts/ci_triage.py` fetches failed job logs, runs a Cursor cloud agent (`composer-2.5`) to produce a root-cause comment, posts it on the PR. Opt-in via `CURSOR_API_KEY` secret (no-op + green without it) |
-| **`.github/workflows/pr-review.yml`** | ✅ written | on PR open/sync/reopen → `scripts/pr_review.py` runs two Cursor cloud agents (bug review + security review) on the diff, posts ONE combined comment. Advisory only — branch protection does the blocking via `ci.yml` |
+| **`.github/workflows/pr-review.yml`** | 🟡 written, Push-Läufe ohne Jobs | on PR open/sync/reopen → `scripts/pr_review.py` runs two Cursor cloud agents (bug review + security review) on the diff, posts ONE combined comment. Advisory only — branch protection does the blocking via `ci.yml`. Der Schritt „Fetch PR diff“ hat zwei `env`-Schlüssel. Push-Läufe enden deshalb ohne Jobs. Letztes Beispiel: Actions `43360034754` (2026-11-13 04:36 UTC+1, `7a326da`), Abschluss failure, Jobliste leer. |
 | **`.github/workflows/auto-merge.yml`** | ✅ written | PR labeled `trivial` + only test/doc files + no protected paths (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) → `gh pr merge --squash --auto --delete-branch` |
 | **`.github/workflows/dora.yml`** | ✅ written | weekly Mon 06:00 UTC → `scripts/dora_metrics.py` computes deploy frequency, cycle time, MTTR, change-failure rate, CI flakiness from GitHub data, commits `docs/dora-metrics.md` |
 | **Quality-gate agents** (`src/bdx/agents/`) | ✅ written | `base.py` (Severity/Status/Finding/CheckResult), `docs.py` (DocumentationAgent: README, required docs, status freshness ≤90 d, module + public-symbol docstrings, API routes vs `ARCHITECTURE.md`, env vars vs `ARCHITECTURE.md`), `tests.py` (TestAgent: shells out to pytest, parses JUnit XML + coverage.json, gates ≥80 % overall / ≥50 % per module / ≤10 % skipped), `quality.py` (QualityAgent: ruff JSON, mypy, smell scan — TODO without owner, `print()` in prod, empty `except:`), `runner.py` (AgentRunner + RunnerReport, JSON serialisable, exit 0/1/2). Pure static — no DB/SAP import |
@@ -150,9 +150,9 @@ code quality) without needing a database or SAP.
 ### Sprint 004 — status & open items
 
 * **Code liegt auf `origin/main`.** HEAD ist `cd6440f` (2026-11-10 07:21 UTC+1). Arbeitsbaum sauber, nichts nur lokal. Workflows, `scripts/`, `tests/integration/`, `src/bdx/agents/`, `AGENTS.md` und die Cursor-Regeln sind im Baum.
-* **CI:** `ci.yml` verlangt pytest mit `--cov-fail-under=68`. ruff und mypy laufen mit `continue-on-error`. Der Push-Lauf auf `main` für `cd6440f` war grün (2026-11-10 07:22 UTC+1). Ein Docs-PR auf demselben Baum (Lauf 43338394984, 2026-11-13 01:36 UTC+1) ist an drei Tests rot: `test_machine_utilization_with_calendar`, `test_lateness_scrap_when_no_material_context`, `test_lateness_waiting_idle`. Coverage dort 73,69 %. Der Kalender-Test hängt an `datetime.now(UTC).weekday()`.
+* **CI:** `ci.yml` verlangt pytest mit `--cov-fail-under=68`. ruff und mypy laufen mit `continue-on-error`. Der Push-Lauf auf `main` für `cd6440f` war grün (2026-11-10 07:22 UTC+1, Actions `42768023614`). Docs-PRs auf demselben Produktstand sind am 2026-11-13 rot. Der neueste Lauf `43360054629` (04:36 UTC+1, `7a326da`, PR #120) hat einen Test rot: `test_machine_utilization_with_calendar` (`assert None is not None`); 178 passed, 8 deselected; die TOTAL-Zeile zeigt 74 % (1545 von 5930 Anweisungen ohne Coverage). Der Test legt eine Schicht für `datetime.now(UTC).weekday()` an. Lauf `43338394984` (01:36 UTC+1) hatte zusätzlich `test_lateness_scrap_when_no_material_context` und `test_lateness_waiting_idle` rot.
 * **DEV-Deploy:** siehe `deploy-dev.yml`. `deploy-prod.yml` hat keine Läufe. SSH-Secrets sind für DEV nicht mehr der Weg; der Runner steht auf dem Host.
-* **Abnahme offen (G4):** Environment `prod` existiert, die Protection Rules sind leer. Branch Protection für `main` antwortete 403. Secret-Werte wurden nicht gelesen. Die Workflows nennen weiterhin `CURSOR_API_KEY`, `PROD_SSH_*` und die nächtlichen Integrations-Secrets.
+* **Abnahme offen (G4):** Environments `dev`, `prod` und `CURSOR_API_KEY` existieren, die Protection Rules sind leer. Repository-Rulesets: 0. Branch Protection für `main` antwortete 403. Die Secret-Liste antwortete 403; Werte wurden nicht gelesen. Die Workflows nennen weiterhin `CURSOR_API_KEY`, `PROD_SSH_*` und die nächtlichen Integrations-Secrets.
 * **Erledigt als Git-Schritt:** den Sprint-004-Baum committen und mergen. Der Baum ist auf `main`.
 
 
@@ -183,9 +183,11 @@ Nachtrag 2026-11-13: Die Tabelle ist der Probe-Stand vom 2026-11-07 (damals Sche
 
 | Item | Notes |
 |---|---|
-| **G4 Abnahme** | Code ist auf `main`. Offen: Protection Rules für `prod` (API: leer), Branch Protection nicht lesbar (403), Secret-Werte nicht geprüft. Coverage-Gate ist 68 %. |
-| **Nächtliche Integration** | Läufe 2026-11-10, 2026-11-11 und 2026-11-12 scheitern beim ODBC-Key-Download (`curl: Failed writing body`), vor pytest. |
-| **Unit-Tests, Re-Run** | Der Push-CI von `cd6440f` bleibt grün. Der Re-Run am 2026-11-13 01:36 (UTC+1) hat drei Tests rot; Coverage 73,69 % liegt über dem Gate 68 %. |
+| **G4 Abnahme** | Code ist auf `main`. Offen: Protection Rules für `prod` (API: leer), Rulesets 0, Branch Protection und Secret-Liste nicht lesbar (403). Coverage-Gate ist 68 %. |
+| **Nächtliche Integration** | Läufe 2026-11-08 bis 2026-11-12 scheitern in „Install ODBC Driver 18“, vor pytest. Letzter Lauf `43202844646` (2026-11-12 11:43 UTC+1): `gpg` ohne `/dev/tty`, danach `curl: Failed writing body`, Exit 2. Cron ist `0 3 * * *`. Am 2026-11-13 05:37 (UTC+1) gibt es noch keinen Lauf; die Vortage sind erst gegen 11:30–12:00 (UTC+1) gestartet. |
+| **Unit-Tests, Re-Run** | Der Push-CI von `cd6440f` (2026-11-10) bleibt grün. Docs-PR `43360054629` (2026-11-13 04:36 UTC+1, PR #120) hat einen Test rot (`test_machine_utilization_with_calendar`); TOTAL 74 % liegt über dem Gate 68 %. Lauf `43338394984` (01:36 UTC+1) hatte drei Tests rot. |
+| **PR-Review-Workflow** | `pr-review.yml`, Schritt „Fetch PR diff“, hat zwei `env`-Schlüssel. Push-Läufe enden ohne Jobs. Letztes Beispiel: Actions `43360034754` (2026-11-13 04:36 UTC+1), Jobliste leer. |
+| **Doku-Abgleich** | `PROJECT_STATUS` auf `main` beschreibt Sprint 004 noch als uncommitted. Offene Abgleich-PRs (Tagesbranch `sync/status-20261113` ist #118, neuester #120) sind nicht gemergt. |
 | **Lint-Cleanup-Branch** | `chore/ruff-cleanup-20261108` liegt einen Commit vor `main` und hat keinen Pull Request. |
 | SQL-Login `bdx_readonly` auf LDSAP | Skript liegt im Repo und verweigert kein CONTROL mehr (das DENY hat CONNECT blockiert, 18456 state 38). Ob der Login existiert und der Collector ihn nutzt, ist aus Git nicht sichtbar. |
 | DEV-Compose | läuft über `deploy-dev.yml`. Letzter grüner Lauf 2026-11-10 07:22 (UTC+1) für `cd6440f`. Committete Runtime-Stempel hinken hinterher (2026-11-07, `6ccc036`). |
