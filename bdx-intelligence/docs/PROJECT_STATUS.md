@@ -1,6 +1,6 @@
 # BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-13 19:34 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-13 19:36 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -8,7 +8,7 @@
 | 001 | SAP read-only collector, event store, REST/CLI | ✅ complete (operational on DEV) |
 | 002 | BDE adapter, machine adapter, incremental reading | ✅ complete (operational on DEV) |
 | 003 | Event publishing (MQTT/Kafka), dashboard UI, SAP write-back | ✅ complete (MQTT/Kafka built, no broker yet; write-back DRY_RUN-verified) |
-| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | 🟡 on `main` (`cd6440f`). Coverage-Gate 68 %. ruff und mypy advisory. `prod` ohne Protection Rules; Branch Protection nicht lesbar (403). Nächtliche Integration bricht auch am 2026-11-13 vor pytest ab. Docs-PR-CI seit 12:37 (UTC+1) grün |
+| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | 🟡 on `main` (`cd6440f`). Coverage-Gate 68 %. ruff und mypy advisory. `prod` ohne Protection Rules; Branch Protection nicht lesbar (403). Nächtliche Integration bricht auch am 2026-11-13 vor pytest ab. Docs-PR-CI seit 07:35 (UTC+1) grün |
 | Analytics | Sprint 005: KPI engine, anomalies, diagnosis, procurement KPIs | ✅ merged (#5, #6, #12). Migrationen `005`+`006`. UI `/analytics` |
 | Q2P | Quote-to-Promise cockpit (parallel inquiry evaluation) | ✅ merged (#33, #39). Migrationen `004`+`008` |
 | Promise | Promise Platform (Offer/Gaps/Agents/Portal) | ✅ merged (#41) – Migrationen `007`+`008`; vision: `docs/VISION_PROMISE_PLATFORM.md` |
@@ -150,7 +150,7 @@ code quality) without needing a database or SAP.
 ### Sprint 004 — status & open items
 
 * **Code liegt auf `origin/main`.** HEAD ist `cd6440f` (2026-11-10 07:21 UTC+1). Arbeitsbaum sauber, nichts nur lokal. Workflows, `scripts/`, `tests/integration/`, `src/bdx/agents/`, `AGENTS.md` und die Cursor-Regeln sind im Baum.
-* **CI:** `ci.yml` verlangt pytest mit `--cov-fail-under=68`. ruff und mypy laufen mit `continue-on-error`. Der Push-Lauf auf `main` für `cd6440f` war grün (2026-11-10 07:22 UTC+1, Actions `42768023614`). Docs-PR-Läufe auf demselben Produktstand waren früh am 2026-11-13 rot: `43338394984` (01:36 UTC+1) drei Tests, `43360054629` (04:36 UTC+1, PR #120) einen (`test_machine_utilization_with_calendar`, `assert None is not None`; 178 passed, 8 deselected; TOTAL 74 %, 1545 von 5930 Anweisungen ohne Coverage). Der Test legt eine Schicht für `datetime.now(UTC).weekday()` an. Seit 12:37 (UTC+1) sind die Docs-PR-Läufe grün, inklusive Lint, Typecheck, Tests und Docker-Smoke. Neuester Erfolg: `43473977592` (18:33 UTC+1, PR #133).
+* **CI:** `ci.yml` verlangt pytest mit `--cov-fail-under=68`. ruff und mypy laufen mit `continue-on-error`. Der Push-Lauf auf `main` für `cd6440f` war grün (2026-11-10 07:22 UTC+1, Actions `42768023614`). Docs-PR-Läufe auf demselben Produktstand waren früh am 2026-11-13 rot: `43338394984` (01:36 UTC+1) drei Tests, `43360054629` (04:36 UTC+1, PR #120) einen (`test_machine_utilization_with_calendar`, `assert None is not None`; 178 passed, 8 deselected; TOTAL 74 %, 1545 von 5930 Anweisungen ohne Coverage). Der Test legt eine Schicht für `datetime.now(UTC).weekday()` an. Seit 07:35 (UTC+1) sind die Docs-PR-Läufe grün, inklusive Lint, Typecheck, Tests und Docker-Smoke. Erster Erfolg: `43379716175` (07:35 UTC+1). Neuester Erfolg vor diesem Lauf: `43473977592` (18:33 UTC+1, PR #133).
 * **DEV-Deploy:** siehe `deploy-dev.yml`. `deploy-prod.yml` hat keine Läufe. SSH-Secrets sind für DEV nicht mehr der Weg; der Runner steht auf dem Host.
 * **Abnahme offen (G4):** Environments `dev`, `prod` und `CURSOR_API_KEY` existieren, die Protection Rules sind leer. Repository-Rulesets: 0. Branch Protection für `main` antwortete 403. Die Secret-Liste antwortete 403; Werte wurden nicht gelesen. Die Workflows nennen weiterhin `CURSOR_API_KEY`, `PROD_SSH_*` und die nächtlichen Integrations-Secrets.
 * **Erledigt als Git-Schritt:** den Sprint-004-Baum committen und mergen. Der Baum ist auf `main`.
@@ -185,7 +185,7 @@ Nachtrag 2026-11-13: Die Tabelle ist der Probe-Stand vom 2026-11-07 (damals Sche
 |---|---|
 | **G4 Abnahme** | Code ist auf `main`. Offen: Protection Rules für `prod` (API: leer), Rulesets 0, Branch Protection und Secret-Liste nicht lesbar (403). Coverage-Gate ist 68 %. |
 | **Nächtliche Integration** | Läufe 2026-11-08 bis 2026-11-13 scheitern in „Install ODBC Driver 18“, vor pytest. Heutiger Lauf `43410708723` (2026-11-13 11:39 UTC+1): `gpg` ohne `/dev/tty`, danach `curl: Failed writing body`, Exit 2. Cron ist `0 3 * * *`. Die Läufe starten gegen 11:30–12:00 (UTC+1). |
-| **Unit-Tests, Re-Run** | Der Push-CI von `cd6440f` (2026-11-10) bleibt grün. Früh am 2026-11-13 waren Docs-PRs rot (`43338394984` drei Tests, `43360054629` einer, `test_machine_utilization_with_calendar`). Seit 12:37 (UTC+1) ist die Docs-PR-CI grün. Neuester Erfolg `43473977592` (18:33 UTC+1, PR #133). |
+| **Unit-Tests, Re-Run** | Der Push-CI von `cd6440f` (2026-11-10) bleibt grün. Früh am 2026-11-13 waren Docs-PRs rot (`43338394984` drei Tests, `43360054629` einer, `test_machine_utilization_with_calendar`). Seit 07:35 (UTC+1) ist die Docs-PR-CI grün (erster Erfolg `43379716175`). Neuester Erfolg vor diesem Lauf: `43473977592` (18:33 UTC+1, PR #133). |
 | **PR-Review-Workflow** | `pr-review.yml`, Schritt „Fetch PR diff“, hat zwei `env`-Schlüssel. Push-Läufe enden ohne Jobs. Letztes Beispiel: Actions `43473954811` (2026-11-13 18:33 UTC+1), Jobliste leer. |
 | **Doku-Abgleich** | `PROJECT_STATUS` auf `main` beschreibt Sprint 004 noch als uncommitted. 121 offene PRs, fast alle Doku-Abgleiche, keiner gemergt. Tagesbranch `sync/status-20261113` ist #118. Neuester Abgleich vor diesem Lauf ist #133. |
 | **Lint-Cleanup-Branch** | `chore/ruff-cleanup-20261108` liegt einen Commit vor `main` und hat keinen Pull Request. |
