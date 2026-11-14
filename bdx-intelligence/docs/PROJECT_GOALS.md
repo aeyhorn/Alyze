@@ -1,8 +1,8 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-14 00:36 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-14 22:34 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
-> Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
+> Abgleich 2026-11-14 22:34 CET gegen `origin/main` (`cd6440f`). IDs bleiben stabil.
 
 ## Aktiv
 
@@ -10,14 +10,14 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`). CI-Gate ist `--cov-fail-under=68`; ruff und mypy sind advisory. Environment `prod` hat keine Protection Rules. Repository-Rulesets: 0. Branch Protection für `main` und die Secret-Liste waren am 2026-11-14 00:36 (UTC+1) nicht lesbar (403); Werte wurden nicht gelesen. Die nächtlichen Integrationsläufe 2026-11-08 bis 2026-11-13 sterben in „Install ODBC Driver 18“ (`gpg` ohne `/dev/tty`, danach `curl: Failed writing body`), vor pytest. Letzter Lauf: `43410708723` (2026-11-13 11:39 UTC+1). Für den 2026-11-14 gibt es noch keinen Lauf (Cron `0 3 * * *`). Letzter roter Docs-PR-Lauf `43373373297` (06:38 UTC+1) hat einen Unit-Test rot (`test_machine_utilization_with_calendar`); `43338394984` (01:36 UTC+1) hatte drei. Docs-PR-Läufe von 07:35 bis 23:37 (UTC+1) sind grün, zuletzt `43520750799` (PR #118, `91c7c5b`). Der Push-Lauf auf `main` vom 2026-11-10 bleibt grün. `pr-review.yml` hat im Schritt „Fetch PR diff“ zwei `env`-Schlüssel; Push-Läufe enden ohne Jobs (zuletzt `43520744501`, 23:37 UTC+1, Jobliste leer).
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt (erfüllt). Secrets gesetzt (nicht geprüft). `prod` hat erforderliche Reviewer (Rules leer, offen). `main` verlangt den Check aus `ci.yml` (nicht prüfbar, 403).
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`, 2026-11-10). Der Pytest-Gate in `ci.yml` ist 68 %. Ruff und mypy laufen mit `continue-on-error`. Jeder nächtliche Lauf von 2026-11-08 bis 2026-11-14 ist rot. Der letzte, Run 43582578926 (2026-11-14 10:52 CET), scheitert in `Install ODBC Driver 18` (`gpg` kann `/dev/tty` nicht öffnen, Exit 2); pytest startet nicht. Die Environments `prod`, `dev` und `CURSOR_API_KEY` haben keine Protection Rules (erneut gelesen 2026-11-14 22:34 CET). Repo-Rulesets sind leer (Länge 0). Das Branch-Objekt von `main` meldet `protected: false` und `protection.enabled: false`. Der klassische Protection-Endpunkt und die Secret-Namen antworten mit HTTP 403. `pr-review.yml` hat im Schritt „Fetch PR diff“ zwei `env`-Blöcke; der letzte Push-Lauf 43638506126 (2026-11-14 21:37 CET, PR #158) endet ohne Jobs. Docs-PR-Pytest war um 06:36 CET rot (`test_machine_utilization_with_calendar`) und ab Run 43567158867 (07:36 CET) grün, zuletzt 43638514413 (21:37 CET, PR #158; Pytest, Docker-Smoke, Ruff und mypy success). Der Push-CI-Lauf von `cd6440f` bleibt grün (42768023614). Seit `cd6440f` ist kein PR gemergt. 146 Doku-PRs sind offen, der neueste ist #158; der Tagesbranch ist `sync/status-20261114` (PR #137). Auto-Merge überspringt sie ohne Label `trivial` (Lauf 43638514442 für #158 blieb ohne Merge). Die Dokumente auf `main` stehen weiter beim Wortlaut vom 2026-11-09.
+- **Akzeptanz:** Der Sprint-004-Baum ist auf `main`. Offen bleiben erforderliche Reviewer auf `prod`, ein erzwungener CI-Check auf `main`, ein gültiges `pr-review.yml` und ein grüner nächtlicher Integrationslauf.
 
 ### G5 – SQL-Login `bdx_readonly`
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist im Repo. DENY CONTROL ist entfernt, weil es CONNECT blockiert hat (Fehler 18456, state 38). Ob der Login auf LDSAP existiert und der Collector ihn nutzt, ist aus Git nicht sichtbar.
+- **Stand:** `docs/sql/create_bdx_readonly.sql` und `docs/sql/reset_bdx_readonly.sql` liegen auf `main` (`7d0fb2f`). Der Commit beschreibt einen fehlgeschlagenen CONNECT (18456, state 38), weil `DENY CONTROL` den Login blockierte. Ob der Login danach auf LDSAP entsperrt wurde, ist in diesem Lauf nicht geprüft. Die Shop-Floor-Notiz vom 2026-11-07 nennt den Login noch als fehlend.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G7 – MQTT- oder Kafka-Broker
@@ -31,7 +31,7 @@
 
 - **Status:** offen
 - **Ziel:** Collector read-only gegen `SBO_LEISINGER`, ohne DEV- und PROD-Daten in `order_state` zu mischen.
-- **Stand:** Einzelaufträge sind probeweise gelesen (FA 38574). DEV hinkt PROD hinterher, deshalb fehlt auf DEV die Maschinen-Verknüpfung für laufende Aufträge. `deploy-prod.yml` hat keine Läufe.
+- **Stand:** Einzelaufträge sind probeweise gelesen (FA 38574). DEV hinkt PROD hinterher, deshalb fehlt auf DEV die Maschinen-Verknüpfung für laufende Aufträge.
 - **Akzeptanz:** Eigene Postgres-Datenbank oder mode-prefixed `source_key`. Keine Schreibzugriffe auf SAP MSSQL. `SL_DRY_RUN` bleibt unberührt.
 
 ## Erledigt
@@ -50,16 +50,16 @@
 
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Der DEV-Deploy ist G6. Der Broker bleibt G7.
+- **Status:** erledigt als Code (Sprint 003). Der Container-Deploy ist G6 (erledigt). Der Broker bleibt G7.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Dry-Run in der Host-Umgebung abschaltet. Committete Dateien schalten ihn nicht ab.
+- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator das Dry-Run in der Host-`.env` bewusst ausschaltet. `.env.example` schaltet den Guard derzeit aus; das Beispiel soll ihn anlassen.
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** erledigt (DEV)
+- **Status:** erledigt
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Stand:** `deploy-dev.yml` deployt auf dem Self-hosted-Runner dieses Hosts. Letzter grüner Lauf 2026-11-10 07:22 (UTC+1) für `cd6440f`: Migration und `/health/live`. `bdx-collect diagnose` ist im Workflow nicht fehlschlagend und belegt den SAP-Login nicht (das bleibt G5). Die Dateien `.runtime/last-deploy-*` auf `main` zeigen noch 2026-11-07 / `6ccc036`. `deploy-prod.yml` hat keine Läufe.
-- **Akzeptanz:** `collector` und `api` werden im Compose-Stack neu erzeugt, `/health/live` war beim letzten Lauf grün. Der Workflow bricht ab, wenn die Host-Umgebung den Dry-Run abschaltet; der grüne Lauf hat diesen Abbruch nicht ausgelöst.
+- **Stand:** `Deploy to DEV` war am 2026-11-10 für `cd6440f` grün (Run 42768023481): Image nach ghcr.io, Compose auf dem Self-Hosted-Runner, Migration, `collector` und `api` neu erstellt, `/health/live` grün. Die Marker `.runtime/last-deploy-*` im Baum stehen noch auf 2026-11-07 / `6ccc036`.
+- **Akzeptanz:** erfüllt für den DEV-Compose-Stack. Der Workflow bricht ab, wenn die Host-`.env` Dry-Run ausschaltet.
 
 ## Geparkt
 
