@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-15 00:37 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
+- **Stand:** Workflows, Agents, Skripte, Prompts und `pyproject.toml` liegen auf `origin/main` (`cd6440f`, 2026-11-10). Der Coverage-Gate in `ci.yml` steht auf 68; ruff und mypy laufen advisory. Aus Git nicht sichtbar und damit weiter offen: ob `CURSOR_API_KEY`, die Integrations-Secrets und die `prod`-Reviewer gesetzt sind, und ob `main` den Check aus `ci.yml` verlangt.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
@@ -24,6 +24,7 @@
 
 - **Status:** offen
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Stand:** `deploy-dev.yml` deployt auf dem Self-Hosted-Runner des DEV-Hosts ohne SSH-Sprung. Im Repo steht ein Deploy-Marker vom 2026-11-07 21:50 +01:00, SHA `6ccc036`. `origin/main` ist seither `cd6440f`. Ob der Stack jetzt läuft, sieht dieser Abgleich nicht.
 - **Abhängigkeit:** G5.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
