@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-14 08:36 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,22 +10,15 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`, 2026-11-10). Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. Die Environments-API zeigt für `prod` keine Protection Rules. Branch Protection auf `main` antwortete mit HTTP 403, deshalb ist der Pflicht-Check aus `ci.yml` hier unbelegt. Ruff und mypy laufen in CI mit `continue-on-error`, das Coverage-Gate liegt bei 68 %.
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der erste Punkt ist erfüllt, die Reviewer- und Protection-Punkte sind offen.
 
 ### G5 – SQL-Login `bdx_readonly`
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
-- **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
-
-### G6 – Container-Deploy auf dem Docker-Host
-
-- **Status:** offen
-- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Stand:** Der Login `bdx_readonly` wurde angelegt. `DENY CONTROL` hat CONNECT blockiert (Fehler 18456, State 38). `docs/sql/create_bdx_readonly.sql` und `docs/sql/reset_bdx_readonly.sql` verweigern CONTROL nicht mehr (Commit `7d0fb2f`). Ein neuer SQL-Probe in diesem Lauf fehlt.
+- **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server. Der Login ist angelegt; die dauerhafte Read-only-Verbindung des Collectors ist seit dem Fix nicht erneut geprüft.
 
 ### G7 – MQTT- oder Kafka-Broker
 
@@ -43,6 +36,14 @@
 
 ## Erledigt
 
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Abhängigkeit:** G5 für den SQL-Login im Container. Der Deploy-Workflow selbst läuft.
+- **Stand:** `deploy-dev.yml` baut das Image und startet auf dem Self-hosted-Runner des DEV-Hosts Compose neu. Letzter grüner Lauf: 2026-11-10 07:22 (UTC+1) für `cd6440f`. Der Job bricht ab, wenn die Host-`.env` den Dry-Run-Schutz abschaltet, führt `migrate` aus und verlangt HTTP 200 von `GET /health/live`. Die Marker `.runtime/last-deploy-at` und `.runtime/last-deploy-sha` im Baum nennen noch 2026-11-07 21:50 und `6ccc036`.
+- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt. Erfüllt für den Lauf vom 2026-11-10.
+
 ### G1 – SAP Read-only Collector
 
 - **Status:** erledigt (Sprint 001, auf DEV in Betrieb)
@@ -57,7 +58,7 @@
 
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
+- **Status:** erledigt als Code (Sprint 003). Der Container-Deploy ist G6 und erledigt. Der Broker bleibt G7.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
 - **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
 
