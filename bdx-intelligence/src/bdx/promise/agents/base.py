@@ -1,4 +1,5 @@
 """Shared agent result type."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

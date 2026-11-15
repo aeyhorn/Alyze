@@ -1,8 +1,9 @@
 """Promise Platform – engine + API tests (no real SAP / quoter)."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -15,6 +16,7 @@ os.environ.setdefault("POSTGRES_DSN", "sqlite:///:memory:")
 
 from bdx.db.postgres import Base
 from bdx.models.events import MachineState
+from bdx.promise import engine as pe
 from bdx.promise.confidence import compute_confidence
 from bdx.promise.models import (  # noqa: F401 – register ORM
     Gap,
@@ -23,7 +25,6 @@ from bdx.promise.models import (  # noqa: F401 – register ORM
     OfferCreate,
     OfferStatus,
 )
-from bdx.promise import engine as pe
 from bdx.q2p.models import Q2PInquiry  # noqa: F401
 
 
@@ -60,7 +61,7 @@ def client(session_factory):
 
 
 def _seed_idle_machine(session):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session.add(
         MachineState(
             machine_id="M1",

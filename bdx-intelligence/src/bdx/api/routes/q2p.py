@@ -1,7 +1,6 @@
 """Quote-to-Promise API – inquiry cases + parallel promise evaluation."""
-from __future__ import annotations
 
-from typing import Optional
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -92,12 +91,14 @@ def post_inquiry(
 
 @router.get("/q2p/inquiries", response_model=list[InquiryDTO], summary="List inquiry cases")
 def get_inquiries(
-    status: Optional[str] = Query(None),
-    item_code: Optional[str] = Query(None),
+    status: str | None = Query(None),
+    item_code: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     session: Session = Depends(get_pg_session),
 ) -> list[InquiryDTO]:
-    return [_to_dto(r) for r in list_inquiries(session, status=status, item_code=item_code, limit=limit)]
+    return [
+        _to_dto(r) for r in list_inquiries(session, status=status, item_code=item_code, limit=limit)
+    ]
 
 
 @router.get("/q2p/inquiries/{inquiry_id}", response_model=InquiryDTO, summary="Get one inquiry")
@@ -108,7 +109,9 @@ def get_one(inquiry_id: str, session: Session = Depends(get_pg_session)) -> Inqu
     return _to_dto(row)
 
 
-@router.patch("/q2p/inquiries/{inquiry_id}", response_model=InquiryDTO, summary="Update inquiry fields")
+@router.patch(
+    "/q2p/inquiries/{inquiry_id}", response_model=InquiryDTO, summary="Update inquiry fields"
+)
 def patch_inquiry(
     inquiry_id: str,
     body: InquiryUpdate,
@@ -165,9 +168,9 @@ def get_promise(
     request: Request,
     item_code: str = Query(..., min_length=1),
     qty: float = Query(..., gt=0),
-    requested_date: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
-    datenraum: Optional[str] = Query(None, description="bdx-quoter datenraum path"),
-    kunde: Optional[str] = Query(None, description="bdx-quoter kundenprofil"),
+    requested_date: str | None = Query(None, description="ISO date YYYY-MM-DD"),
+    datenraum: str | None = Query(None, description="bdx-quoter datenraum path"),
+    kunde: str | None = Query(None, description="bdx-quoter kundenprofil"),
     use_llm: bool = Query(False),
     session: Session = Depends(get_pg_session),
 ) -> PromiseResult:

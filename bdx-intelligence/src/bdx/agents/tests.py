@@ -7,6 +7,7 @@ pytest ships without extra plugins. Coverage is collected when
 ``pytest-cov`` is available; otherwise the agent degrades gracefully and just
 reports pass/fail counts.
 """
+
 from __future__ import annotations
 
 import json
@@ -83,16 +84,22 @@ class TestAgent:
     # ── helpers ────────────────────────────────────────────────────────────
     def _build_cmd(self, junit_path: Path) -> list[str]:
         cmd = [
-            sys.executable, "-m", "pytest",
+            sys.executable,
+            "-m",
+            "pytest",
             *self.cfg.test_paths,
             f"--junitxml={junit_path}",
             "-q",
             "--no-header",
-            "-p", "no:cacheprovider",
+            "-p",
+            "no:cacheprovider",
         ]
         # coverage is opt-in: only add if pytest-cov is importable
         if self._has_cov():
-            cmd += [f"--cov={self.cfg.coverage_source}", "--cov-report=json:build/agents/coverage.json"]
+            cmd += [
+                f"--cov={self.cfg.coverage_source}",
+                "--cov-report=json:build/agents/coverage.json",
+            ]
         cmd += self.cfg.extra_args
         return cmd
 
@@ -100,6 +107,7 @@ class TestAgent:
     def _has_cov() -> bool:
         try:
             import pytest_cov  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -115,7 +123,9 @@ class TestAgent:
         try:
             tree = ET.parse(junit_path)
         except ET.ParseError as exc:
-            result.add("TEST.JUNIT_PARSE", f"cannot parse junit xml: {exc}", severity=Severity.ERROR)
+            result.add(
+                "TEST.JUNIT_PARSE", f"cannot parse junit xml: {exc}", severity=Severity.ERROR
+            )
             return
         root = tree.getroot()
         # junitxml: <testsuites><testsuite ...><testcase .../>
@@ -144,13 +154,10 @@ class TestAgent:
         if ratio > self.cfg.max_skipped_ratio:
             result.add(
                 "TEST.TOO_MANY_SKIPPED",
-                f"{skipped}/{total} tests skipped ({ratio:.0%} > "
-                f"{self.cfg.max_skipped_ratio:.0%})",
+                f"{skipped}/{total} tests skipped ({ratio:.0%} > {self.cfg.max_skipped_ratio:.0%})",
                 severity=Severity.WARNING,
             )
-        result.summary = (
-            f"{total} tests: {failures} failed, {errors} errors, {skipped} skipped"
-        )
+        result.summary = f"{total} tests: {failures} failed, {errors} errors, {skipped} skipped"
 
     def _parse_coverage(self, result: CheckResult) -> None:
         cov_path = self.cfg.root / "build" / "agents" / "coverage.json"
@@ -164,7 +171,9 @@ class TestAgent:
         try:
             data: dict[str, Any] = json.loads(cov_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            result.add("TEST.COVERAGE_PARSE", f"cannot parse coverage.json: {exc}", severity=Severity.ERROR)
+            result.add(
+                "TEST.COVERAGE_PARSE", f"cannot parse coverage.json: {exc}", severity=Severity.ERROR
+            )
             return
         totals = data.get("totals", {})
         pct = float(totals.get("percent_covered", 0.0))

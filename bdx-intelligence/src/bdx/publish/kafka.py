@@ -7,10 +7,12 @@ sent as a single JSON message to ``KAFKA_TOPIC``; the key is the event's
 ``source_key`` so that all events of one order/machine land on the same
 partition (preserving order).
 """
+
 from __future__ import annotations
 
 import threading
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import structlog
 
@@ -54,14 +56,16 @@ class KafkaPublisher(EventPublisher):
                 conf["sasl.username"] = self._cfg.username
                 conf["sasl.password"] = self._cfg.password
             self._producer = Producer(conf, logger=logger.debug)
-            logger.info("kafka.producer.created", brokers=self._cfg.bootstrap_servers, topic=self._cfg.topic)
+            logger.info(
+                "kafka.producer.created", brokers=self._cfg.bootstrap_servers, topic=self._cfg.topic
+            )
         return self._producer
 
     def _drop(self) -> None:
         try:
             if self._producer is not None:
                 self._producer.flush(timeout=2)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         self._producer = None
 
@@ -85,7 +89,7 @@ class KafkaPublisher(EventPublisher):
                     )
                     sent += 1
                 producer.poll(0)  # serve delivery callbacks without blocking
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("kafka.error", error=str(exc), sent=sent)
                 self._drop()
         if sent:
@@ -100,7 +104,7 @@ class KafkaPublisher(EventPublisher):
                 # closest lightweight check.  A missing broker surfaces on the
                 # next produce/flush, so treat producer creation as success.
                 return True
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("kafka.health_failed", error=str(exc))
                 self._drop()
                 return False
@@ -110,7 +114,7 @@ class KafkaPublisher(EventPublisher):
             self._drop()
 
 
-def _delivery_logger(err, msg):  # noqa: ANN001
+def _delivery_logger(err, msg):
     if err is not None:
         logger.warning("kafka.delivery_failed", error=str(err), topic=msg.topic())
 
@@ -138,7 +142,7 @@ class _Composite(EventPublisher):
         for p in self._publishers:
             try:
                 p.publish(events)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("composite.publish_failed", publisher=p.name, error=str(exc))
         return len(events)
 
@@ -149,15 +153,15 @@ class _Composite(EventPublisher):
         for p in self._publishers:
             try:
                 p.close()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
 
 
-def _safe(fn) -> bool:  # noqa: ANN001
+def _safe(fn) -> bool:
     try:
         return bool(fn())
     except Exception:
         return False
 
 
-__all__ = ["KafkaPublisher", "build_kafka_publisher", "_Composite"]
+__all__ = ["KafkaPublisher", "_Composite", "build_kafka_publisher"]

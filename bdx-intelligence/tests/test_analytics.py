@@ -3,6 +3,7 @@
 Uses in-memory SQLite (via the conftest ``engine`` and ``session`` fixtures).
 No real Postgres, SAP, or SCADA required.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -31,6 +32,7 @@ from bdx.models.events import DomainEvent, EventType, MachineState, OrderState
 def analytics_engine():
     """Separate in-memory SQLite engine that includes the analytics tables."""
     import os
+
     os.environ.setdefault("POSTGRES_DSN", "sqlite:///:memory:")
     os.environ.setdefault("SAP_DB_HOST", "localhost")
     os.environ.setdefault("SAP_DB_NAME", "TEST")
@@ -67,10 +69,16 @@ def _dt(offset_hours: float = 0) -> datetime:
     return _utcnow() - timedelta(hours=offset_hours)
 
 
-def _add_order(session, doc_entry: int, status: str = "R",
-               planned: float = 100.0, completed: float = 0.0, rejected: float = 0.0,
-               item_code: str = "PART-A",
-               due_date: str | None = None) -> OrderState:
+def _add_order(
+    session,
+    doc_entry: int,
+    status: str = "R",
+    planned: float = 100.0,
+    completed: float = 0.0,
+    rejected: float = 0.0,
+    item_code: str = "PART-A",
+    due_date: str | None = None,
+) -> OrderState:
     o = OrderState(
         source_key=f"OWOR:{doc_entry}",
         doc_entry=doc_entry,
@@ -92,9 +100,15 @@ def _add_order(session, doc_entry: int, status: str = "R",
     return o
 
 
-def _add_event(session, etype: EventType, doc_entry: int | None = None,
-               machine_id: str | None = None, item_code: str | None = None,
-               offset_hours: float = 0.0, payload: dict | None = None) -> DomainEvent:
+def _add_event(
+    session,
+    etype: EventType,
+    doc_entry: int | None = None,
+    machine_id: str | None = None,
+    item_code: str | None = None,
+    offset_hours: float = 0.0,
+    payload: dict | None = None,
+) -> DomainEvent:
     e = DomainEvent(
         event_id=str(uuid.uuid4()),
         event_type=etype,
@@ -125,8 +139,9 @@ def _add_machine(session, machine_id: str, state: str = "running") -> MachineSta
     return m
 
 
-def _add_history(session, machine_id: str, state: str, duration_s: float,
-                 offset_hours: float = 0.0) -> MachineStateHistory:
+def _add_history(
+    session, machine_id: str, state: str, duration_s: float, offset_hours: float = 0.0
+) -> MachineStateHistory:
     started = _dt(offset_hours + duration_s / 3600)
     ended = _dt(offset_hours)
     h = MachineStateHistory(
@@ -247,7 +262,9 @@ def test_release_to_start(asession):
     _add_order(asession, 50)
     # Released 10 h ago, machine started 4 h ago → 6 h delay
     _add_event(asession, EventType.ORDER_RELEASED, doc_entry=50, offset_hours=10)
-    _add_event(asession, EventType.MACHINE_ORDER_STARTED, doc_entry=50, machine_id="M1", offset_hours=4)
+    _add_event(
+        asession, EventType.MACHINE_ORDER_STARTED, doc_entry=50, machine_id="M1", offset_hours=4
+    )
     asession.commit()
 
     results = compute_release_to_start(asession)
@@ -280,19 +297,23 @@ def test_machine_utilization_with_calendar(asession):
     _add_machine(asession, "MAZAK-02")
     # Add 8 h shift on today's weekday
     today_wd = datetime.now(UTC).weekday()
-    asession.add(ShiftCalendar(
-        machine_id=None,
-        weekday=today_wd,
-        shift_start="06:00",
-        shift_end="14:00",  # 8 h shift
-        valid_from="2000-01-01",
-    ))
+    asession.add(
+        ShiftCalendar(
+            machine_id=None,
+            weekday=today_wd,
+            shift_start="06:00",
+            shift_end="14:00",  # 8 h shift
+            valid_from="2000-01-01",
+        )
+    )
     # 4 h running in last 24 h (entirely within today's shift)
     _add_history(asession, "MAZAK-02", "running", 4 * 3600, offset_hours=2)
     asession.commit()
 
     results = compute_machine_utilization(asession, window_hours=24)
-    machine_r = next((r for r in results if r.dimension == "machine" and r.dimension_value == "MAZAK-02"), None)
+    machine_r = next(
+        (r for r in results if r.dimension == "machine" and r.dimension_value == "MAZAK-02"), None
+    )
     assert machine_r is not None
     # 4h / (≤8h) = 50% or more depending on overlap
     assert machine_r.value >= 0.0
@@ -337,7 +358,9 @@ def test_queue_unstarted_started_order_not_counted(asession):
 
     _add_order(asession, 61, status="R")
     _add_event(asession, EventType.ORDER_RELEASED, doc_entry=61, offset_hours=24)
-    _add_event(asession, EventType.MACHINE_ORDER_STARTED, doc_entry=61, machine_id="M1", offset_hours=20)
+    _add_event(
+        asession, EventType.MACHINE_ORDER_STARTED, doc_entry=61, machine_id="M1", offset_hours=20
+    )
     asession.commit()
 
     results = compute_queue_unstarted(asession, unstarted_threshold_hours=8.0)
@@ -365,24 +388,31 @@ def test_tune_thresholds_insufficient_data(asession):
     seed_fixed_thresholds(asession)
     # Add only 3 snapshots
     for i in range(3):
-        asession.add(KpiSnapshot(
-            metric_name="rejection_rate_pct",
-            dimension="global",
-            dimension_value=None,
-            value=float(i),
-            window_hours=720,
-            computed_at=_dt(i),
-        ))
+        asession.add(
+            KpiSnapshot(
+                metric_name="rejection_rate_pct",
+                dimension="global",
+                dimension_value=None,
+                value=float(i),
+                window_hours=720,
+                computed_at=_dt(i),
+            )
+        )
     asession.commit()
 
     tune_thresholds(asession)
     # Should have updated the rejection_rate_pct entry but kept method='fixed'
     from sqlalchemy import select
-    t = asession.execute(
-        select(MetricThreshold)
-        .where(MetricThreshold.metric_name == "rejection_rate_pct")
-        .where(MetricThreshold.dimension == "global")
-    ).scalars().first()
+
+    t = (
+        asession.execute(
+            select(MetricThreshold)
+            .where(MetricThreshold.metric_name == "rejection_rate_pct")
+            .where(MetricThreshold.dimension == "global")
+        )
+        .scalars()
+        .first()
+    )
     assert t is not None
     assert t.method == "fixed"
 
@@ -397,24 +427,31 @@ def test_tune_thresholds_percentile(asession):
 
     seed_fixed_thresholds(asession)
     for i in range(MIN_SAMPLES_FOR_PERCENTILE + 5):
-        asession.add(KpiSnapshot(
-            metric_name="cycle_time_hours",
-            dimension="global",
-            dimension_value=None,
-            value=float(10 + i),
-            window_hours=720,
-            computed_at=_dt(float(i)),
-        ))
+        asession.add(
+            KpiSnapshot(
+                metric_name="cycle_time_hours",
+                dimension="global",
+                dimension_value=None,
+                value=float(10 + i),
+                window_hours=720,
+                computed_at=_dt(float(i)),
+            )
+        )
     asession.commit()
 
     tune_thresholds(asession)
 
     from sqlalchemy import select
-    t = asession.execute(
-        select(MetricThreshold)
-        .where(MetricThreshold.metric_name == "cycle_time_hours")
-        .where(MetricThreshold.dimension == "global")
-    ).scalars().first()
+
+    t = (
+        asession.execute(
+            select(MetricThreshold)
+            .where(MetricThreshold.metric_name == "cycle_time_hours")
+            .where(MetricThreshold.dimension == "global")
+        )
+        .scalars()
+        .first()
+    )
     assert t is not None
     assert t.method == "percentile"
     assert t.warn_threshold > 0
@@ -431,13 +468,15 @@ def test_anomaly_detected(asession):
     seed_fixed_thresholds(asession)
 
     # Rejection rate of 50% clearly exceeds crit threshold (5%)
-    kpis = [KpiResult(
-        metric_name="rejection_rate_pct",
-        dimension="global",
-        dimension_value=None,
-        value=50.0,
-        window_hours=720,
-    )]
+    kpis = [
+        KpiResult(
+            metric_name="rejection_rate_pct",
+            dimension="global",
+            dimension_value=None,
+            value=50.0,
+            window_hours=720,
+        )
+    ]
 
     new, upd, res = detect_and_persist(asession, kpis)
     assert new == 1
@@ -445,11 +484,16 @@ def test_anomaly_detected(asession):
     assert res == 0
 
     from sqlalchemy import select
-    row = asession.execute(
-        select(DetectedAnomaly)
-        .where(DetectedAnomaly.metric_name == "rejection_rate_pct")
-        .where(DetectedAnomaly.resolved_at.is_(None))
-    ).scalars().first()
+
+    row = (
+        asession.execute(
+            select(DetectedAnomaly)
+            .where(DetectedAnomaly.metric_name == "rejection_rate_pct")
+            .where(DetectedAnomaly.resolved_at.is_(None))
+        )
+        .scalars()
+        .first()
+    )
     assert row is not None
     assert row.severity == "crit"
     assert "Ausschuss" in row.recommendation
@@ -488,11 +532,16 @@ def test_anomaly_resolved(asession):
     assert res == 1
 
     from sqlalchemy import select
-    resolved = asession.execute(
-        select(DetectedAnomaly)
-        .where(DetectedAnomaly.metric_name == "rejection_rate_pct")
-        .where(DetectedAnomaly.resolved_at.is_not(None))
-    ).scalars().first()
+
+    resolved = (
+        asession.execute(
+            select(DetectedAnomaly)
+            .where(DetectedAnomaly.metric_name == "rejection_rate_pct")
+            .where(DetectedAnomaly.resolved_at.is_not(None))
+        )
+        .scalars()
+        .first()
+    )
     assert resolved is not None
 
 
@@ -517,20 +566,36 @@ def test_build_machine_state_history(asession):
 
     _add_machine(asession, "MAZAK-04")
     # Two consecutive STATE_CHANGED events
-    _add_event(asession, EventType.MACHINE_STATE_CHANGED, machine_id="MAZAK-04",
-               offset_hours=5, payload={"new_state": "running"})
-    _add_event(asession, EventType.MACHINE_STATE_CHANGED, machine_id="MAZAK-04",
-               offset_hours=3, payload={"new_state": "idle"})
+    _add_event(
+        asession,
+        EventType.MACHINE_STATE_CHANGED,
+        machine_id="MAZAK-04",
+        offset_hours=5,
+        payload={"new_state": "running"},
+    )
+    _add_event(
+        asession,
+        EventType.MACHINE_STATE_CHANGED,
+        machine_id="MAZAK-04",
+        offset_hours=3,
+        payload={"new_state": "idle"},
+    )
     asession.commit()
 
     rows = build_machine_state_history(asession)
     assert rows == 2
 
     from sqlalchemy import select
-    history = asession.execute(
-        select(MachineStateHistory).where(MachineStateHistory.machine_id == "MAZAK-04")
-        .order_by(MachineStateHistory.started_at)
-    ).scalars().all()
+
+    history = (
+        asession.execute(
+            select(MachineStateHistory)
+            .where(MachineStateHistory.machine_id == "MAZAK-04")
+            .order_by(MachineStateHistory.started_at)
+        )
+        .scalars()
+        .all()
+    )
     assert len(history) == 2
     # First interval: running, duration ~2h
     assert history[0].state == "running"
@@ -543,8 +608,13 @@ def test_build_machine_state_history_incremental(asession):
     from bdx.analytics.history import build_machine_state_history
 
     _add_machine(asession, "MAZAK-05")
-    _add_event(asession, EventType.MACHINE_STATE_CHANGED, machine_id="MAZAK-05",
-               offset_hours=4, payload={"new_state": "setup"})
+    _add_event(
+        asession,
+        EventType.MACHINE_STATE_CHANGED,
+        machine_id="MAZAK-05",
+        offset_hours=4,
+        payload={"new_state": "setup"},
+    )
     asession.commit()
 
     r1 = build_machine_state_history(asession)
@@ -650,14 +720,16 @@ def test_api_kpis_with_data(api_client, analytics_engine):
 
     Session = sessionmaker(bind=analytics_engine)
     with Session() as s:
-        s.add(KpiSnapshot(
-            metric_name="rejection_rate_pct",
-            dimension="global",
-            dimension_value=None,
-            value=3.5,
-            window_hours=720,
-            computed_at=datetime.now(UTC),
-        ))
+        s.add(
+            KpiSnapshot(
+                metric_name="rejection_rate_pct",
+                dimension="global",
+                dimension_value=None,
+                value=3.5,
+                window_hours=720,
+                computed_at=datetime.now(UTC),
+            )
+        )
         s.commit()
 
     r = api_client.get("/api/v1/analytics/kpis/rejection_rate_pct")
@@ -670,7 +742,9 @@ def test_api_kpis_with_data(api_client, analytics_engine):
 # -- Procurement KPI tests ----------------------------------------------------
 
 
-def _make_stock_rows(item_code: str, qty_available: float, qty_on_hand: float | None = None) -> dict:
+def _make_stock_rows(
+    item_code: str, qty_available: float, qty_on_hand: float | None = None
+) -> dict:
     return {
         "item_code": item_code,
         "warehouse_code": "WH01",
@@ -699,11 +773,20 @@ def test_material_coverage_full(asession):
     stock = [_make_stock_rows("BOLT-X", qty_available=80.0)]  # more than needed
     results = compute_material_coverage(asession, stock, [], window_hours=720)
 
-    item_r = next((r for r in results if r.dimension == "item_group" and r.dimension_value == "BOLT-X"), None)
+    item_r = next(
+        (r for r in results if r.dimension == "item_group" and r.dimension_value == "BOLT-X"), None
+    )
     assert item_r is not None
     assert item_r.value == 100.0  # fully covered
 
-    global_r = next((r for r in results if r.metric_name == "material_coverage_pct" and r.dimension == "global"), None)
+    global_r = next(
+        (
+            r
+            for r in results
+            if r.metric_name == "material_coverage_pct" and r.dimension == "global"
+        ),
+        None,
+    )
     assert global_r is not None
     assert global_r.value == 100.0
 
@@ -717,7 +800,9 @@ def test_material_coverage_partial(asession):
     stock = [_make_stock_rows("GEAR-Y", qty_available=40.0)]  # only 40% covered
     results = compute_material_coverage(asession, stock, [], window_hours=720)
 
-    item_r = next((r for r in results if r.dimension == "item_group" and r.dimension_value == "GEAR-Y"), None)
+    item_r = next(
+        (r for r in results if r.dimension == "item_group" and r.dimension_value == "GEAR-Y"), None
+    )
     assert item_r is not None
     assert item_r.value == pytest.approx(40.0)
 
@@ -757,13 +842,30 @@ def test_po_lead_time(asession):
     from bdx.analytics.kpis_procurement import compute_po_lead_time
 
     lead_time_rows = [
-        {"supplier_code": "SUP-01", "supplier_name": "Acme", "actual_lead_time_days": 10, "delivery_delay_days": 0},
-        {"supplier_code": "SUP-01", "supplier_name": "Acme", "actual_lead_time_days": 14, "delivery_delay_days": 2},
-        {"supplier_code": "SUP-02", "supplier_name": "Beta", "actual_lead_time_days": 30, "delivery_delay_days": 5},
+        {
+            "supplier_code": "SUP-01",
+            "supplier_name": "Acme",
+            "actual_lead_time_days": 10,
+            "delivery_delay_days": 0,
+        },
+        {
+            "supplier_code": "SUP-01",
+            "supplier_name": "Acme",
+            "actual_lead_time_days": 14,
+            "delivery_delay_days": 2,
+        },
+        {
+            "supplier_code": "SUP-02",
+            "supplier_name": "Beta",
+            "actual_lead_time_days": 30,
+            "delivery_delay_days": 5,
+        },
     ]
     results = compute_po_lead_time(lead_time_rows)
 
-    sup01 = next((r for r in results if r.dimension == "supplier" and r.dimension_value == "SUP-01"), None)
+    sup01 = next(
+        (r for r in results if r.dimension == "supplier" and r.dimension_value == "SUP-01"), None
+    )
     assert sup01 is not None
     assert sup01.value == pytest.approx(12.0)  # median(10, 14) = 12
 
@@ -776,12 +878,26 @@ def test_supplier_otd(asession):
     from bdx.analytics.kpis_procurement import compute_supplier_otd
 
     otd_rows = [
-        {"supplier_code": "SUP-01", "supplier_name": "Acme", "total_lines": 10, "on_time_lines": 8, "avg_delay_days": 1.5},
-        {"supplier_code": "SUP-02", "supplier_name": "Beta", "total_lines": 5, "on_time_lines": 3, "avg_delay_days": 5.0},
+        {
+            "supplier_code": "SUP-01",
+            "supplier_name": "Acme",
+            "total_lines": 10,
+            "on_time_lines": 8,
+            "avg_delay_days": 1.5,
+        },
+        {
+            "supplier_code": "SUP-02",
+            "supplier_name": "Beta",
+            "total_lines": 5,
+            "on_time_lines": 3,
+            "avg_delay_days": 5.0,
+        },
     ]
     results = compute_supplier_otd(otd_rows)
 
-    sup01 = next((r for r in results if r.dimension == "supplier" and r.dimension_value == "SUP-01"), None)
+    sup01 = next(
+        (r for r in results if r.dimension == "supplier" and r.dimension_value == "SUP-01"), None
+    )
     assert sup01 is not None
     assert sup01.value == pytest.approx(80.0)
 
@@ -810,7 +926,10 @@ def test_po_overdue_with_rows():
     ]
     results = compute_po_overdue(overdue)
 
-    global_r = next((r for r in results if r.metric_name == "po_overdue_count" and r.dimension == "global"), None)
+    global_r = next(
+        (r for r in results if r.metric_name == "po_overdue_count" and r.dimension == "global"),
+        None,
+    )
     assert global_r is not None
     assert global_r.value == 3.0
 
@@ -839,9 +958,13 @@ def test_stock_coverage_days():
 def test_stock_coverage_critical_low():
     from bdx.analytics.kpis_procurement import compute_stock_coverage
 
-    stock_rows = [{"item_code": "GEAR-Y", "qty_on_hand": 2.0, "qty_committed": 0.0, "qty_available": 2.0}]
+    stock_rows = [
+        {"item_code": "GEAR-Y", "qty_on_hand": 2.0, "qty_committed": 0.0, "qty_available": 2.0}
+    ]
     # 50 units / 30 days = 1.67/day -> 2 / 1.67 = ~1.2 days
-    consumption_rows = [{"item_code": "GEAR-Y", "total_issued_qty": 50.0, "total_movement_qty": 50.0}]
+    consumption_rows = [
+        {"item_code": "GEAR-Y", "total_issued_qty": 50.0, "total_movement_qty": 50.0}
+    ]
     results = compute_stock_coverage(stock_rows, consumption_rows, window_hours=720)
 
     item_r = next((r for r in results if r.dimension == "item_group"), None)
@@ -858,8 +981,8 @@ def test_procurement_anomaly_recommendations(asession):
     seed_fixed_thresholds(asession)
 
     kpis = [
-        KpiResult("critical_items_count", "global", None, 8.0, 720),   # crit (>5)
-        KpiResult("supplier_otd_rate", "global", None, 60.0, 720),     # crit (<70%)
+        KpiResult("critical_items_count", "global", None, 8.0, 720),  # crit (>5)
+        KpiResult("supplier_otd_rate", "global", None, 60.0, 720),  # crit (<70%)
         KpiResult("stock_coverage_days", "item_group", "GEAR-Y", 2.0, 720),  # crit (<3d)
     ]
 
@@ -868,28 +991,40 @@ def test_procurement_anomaly_recommendations(asession):
 
     from sqlalchemy import select
 
-    crit_items = asession.execute(
-        select(DetectedAnomaly)
-        .where(DetectedAnomaly.metric_name == "critical_items_count")
-        .where(DetectedAnomaly.resolved_at.is_(None))
-    ).scalars().first()
+    crit_items = (
+        asession.execute(
+            select(DetectedAnomaly)
+            .where(DetectedAnomaly.metric_name == "critical_items_count")
+            .where(DetectedAnomaly.resolved_at.is_(None))
+        )
+        .scalars()
+        .first()
+    )
     assert crit_items is not None
     assert crit_items.severity == "crit"
     assert "Einkauf" in crit_items.recommendation or "blockieren" in crit_items.recommendation
 
-    otd_a = asession.execute(
-        select(DetectedAnomaly)
-        .where(DetectedAnomaly.metric_name == "supplier_otd_rate")
-        .where(DetectedAnomaly.resolved_at.is_(None))
-    ).scalars().first()
+    otd_a = (
+        asession.execute(
+            select(DetectedAnomaly)
+            .where(DetectedAnomaly.metric_name == "supplier_otd_rate")
+            .where(DetectedAnomaly.resolved_at.is_(None))
+        )
+        .scalars()
+        .first()
+    )
     assert otd_a is not None
     assert "Lieferant" in otd_a.recommendation
 
-    stock_a = asession.execute(
-        select(DetectedAnomaly)
-        .where(DetectedAnomaly.metric_name == "stock_coverage_days")
-        .where(DetectedAnomaly.resolved_at.is_(None))
-    ).scalars().first()
+    stock_a = (
+        asession.execute(
+            select(DetectedAnomaly)
+            .where(DetectedAnomaly.metric_name == "stock_coverage_days")
+            .where(DetectedAnomaly.resolved_at.is_(None))
+        )
+        .scalars()
+        .first()
+    )
     assert stock_a is not None
     assert "Lagerreichweite" in stock_a.recommendation
 
@@ -902,10 +1037,7 @@ def test_procurement_thresholds_seeded(asession):
 
     from sqlalchemy import select
 
-    names = {
-        row.metric_name
-        for row in asession.execute(select(MetricThreshold.metric_name)).all()
-    }
+    names = {row.metric_name for row in asession.execute(select(MetricThreshold.metric_name)).all()}
     for metric in [
         "material_coverage_pct",
         "critical_items_count",

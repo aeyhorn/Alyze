@@ -1,4 +1,5 @@
 """Contract agent – draft contract body from living offer (Phase C)."""
+
 from __future__ import annotations
 
 from typing import Any

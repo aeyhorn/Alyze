@@ -5,6 +5,7 @@ plus an aggregate :class:`Status`. Findings carry a :class:`Severity` so the
 runner can decide whether the gate is green (passed), yellow (warnings only)
 or red (at least one error).
 """
+
 from __future__ import annotations
 
 import enum
@@ -105,8 +106,10 @@ class CheckResult:
         return f
 
     def render(self) -> str:
-        lines = [f"== {self.agent} -> {self.status.value} =="
-                 f"  ({self.error_count} error, {self.warning_count} warn, {self.info_count} info)"]
+        lines = [
+            f"== {self.agent} -> {self.status.value} =="
+            f"  ({self.error_count} error, {self.warning_count} warn, {self.info_count} info)"
+        ]
         if self.summary:
             lines.append(self.summary)
         if not self.findings:

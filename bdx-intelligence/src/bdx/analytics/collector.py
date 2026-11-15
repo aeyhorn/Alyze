@@ -18,6 +18,7 @@ This module is also usable standalone (e.g. from the CLI):
     from bdx.analytics.collector import run_analytics_once
     run_analytics_once(pg_session_factory)
 """
+
 from __future__ import annotations
 
 import time
@@ -35,7 +36,7 @@ from bdx.models.analytics import KpiSnapshot
 logger = structlog.get_logger(__name__)
 
 # Default intervals (overridable via config / env)
-ANALYTICS_INTERVAL_SECONDS: int = 600      # 10 minutes
+ANALYTICS_INTERVAL_SECONDS: int = 600  # 10 minutes
 THRESHOLD_TUNE_INTERVAL_SECONDS: int = 86_400  # 24 hours
 
 
@@ -47,15 +48,17 @@ def _persist_kpi_results(session: Session, results: list) -> int:
     """Write KpiResult objects into the kpi_snapshots table."""
     now = _now_utc()
     for r in results:
-        session.add(KpiSnapshot(
-            metric_name=r.metric_name,
-            dimension=r.dimension,
-            dimension_value=r.dimension_value,
-            value=r.value,
-            window_hours=r.window_hours,
-            computed_at=now,
-            extra=r.extra or {},
-        ))
+        session.add(
+            KpiSnapshot(
+                metric_name=r.metric_name,
+                dimension=r.dimension,
+                dimension_value=r.dimension_value,
+                value=r.value,
+                window_hours=r.window_hours,
+                computed_at=now,
+                extra=r.extra or {},
+            )
+        )
     session.commit()
     return len(results)
 
@@ -99,7 +102,9 @@ def run_analytics_once(
         if sap_engine is not None:
             try:
                 with sap_engine.connect() as sap_conn:
-                    procurement_results, procurement_ctx = compute_all_procurement_kpis(session, sap_conn)
+                    procurement_results, procurement_ctx = compute_all_procurement_kpis(
+                        session, sap_conn
+                    )
             except Exception as exc:
                 logger.warning("procurement_kpis.sap_error", error=str(exc))
         kpi_results = kpi_results + procurement_results

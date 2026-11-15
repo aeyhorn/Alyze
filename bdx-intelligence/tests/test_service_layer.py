@@ -2,10 +2,10 @@
 
 All HTTP calls are intercepted with respx – no real SAP connection is made.
 """
+
 from __future__ import annotations
 
 import os
-import time
 
 import httpx
 import pytest
@@ -38,9 +38,7 @@ def sl_settings() -> ServiceLayerSettings:
 
 @pytest.fixture
 def sl_settings_dry(sl_settings: ServiceLayerSettings) -> ServiceLayerSettings:
-    return ServiceLayerSettings(
-        **{**sl_settings.model_dump(), "dry_run": True}
-    )
+    return ServiceLayerSettings(**{**sl_settings.model_dump(), "dry_run": True})
 
 
 def _login_response(session_id: str = "SES-001", route_id: str = "node1") -> httpx.Response:
@@ -48,10 +46,7 @@ def _login_response(session_id: str = "SES-001", route_id: str = "node1") -> htt
         200,
         json={"SessionId": session_id},
         headers={
-            "Set-Cookie": (
-                f"B1SESSION={session_id}; Path=/; HttpOnly, "
-                f"ROUTEID={route_id}; Path=/"
-            )
+            "Set-Cookie": (f"B1SESSION={session_id}; Path=/; HttpOnly, ROUTEID={route_id}; Path=/")
         },
     )
 
@@ -97,9 +92,9 @@ class TestCSRF:
         respx.post("https://sap.test:50000/b1s/v2/Login").mock(return_value=_login_response())
         respx.get(_CSRF_URL).mock(return_value=_csrf_response("MY-TOKEN"))
 
-        patch_route = respx.patch(
-            "https://sap.test:50000/b1s/v2/ProductionOrders(42)"
-        ).mock(return_value=httpx.Response(204))
+        patch_route = respx.patch("https://sap.test:50000/b1s/v2/ProductionOrders(42)").mock(
+            return_value=httpx.Response(204)
+        )
 
         client = ServiceLayerClient(sl_settings, mode=SapMode.DEV)
         client.sl_call("PATCH", "ProductionOrders(42)", body={"Status": "R"})
@@ -188,8 +183,11 @@ class TestSettings:
 
     def test_configured_false_when_no_url(self):
         s = ServiceLayerSettings(
-            base_url="", username="B1i", password="x",
-            company_db_dev="DEV", company_db_prod="PROD",
+            base_url="",
+            username="B1i",
+            password="x",
+            company_db_dev="DEV",
+            company_db_prod="PROD",
         )
         assert s.configured is False
 

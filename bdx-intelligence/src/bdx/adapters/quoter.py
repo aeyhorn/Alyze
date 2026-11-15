@@ -9,10 +9,11 @@ Expected response shapes (any of):
 - ``{netto_eur, brutto_eur, offen: [...], positionen: [...]}``   (kalkulation.json)
 - ``{job_id, status, kalkulation?: ...}``                        (async job)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 import httpx
 import structlog
@@ -31,13 +32,13 @@ class QuoterQuote:
     """Normalised quote result for Q2P."""
 
     ok: bool
-    netto_eur: Optional[float] = None
-    brutto_eur: Optional[float] = None
+    netto_eur: float | None = None
+    brutto_eur: float | None = None
     offen: list[str] = field(default_factory=list)
     position_count: int = 0
     raw: dict[str, Any] = field(default_factory=dict)
     source_path: str = ""
-    error: Optional[str] = None
+    error: str | None = None
     status: str = "done"  # done | running | error | unavailable
 
 
@@ -96,7 +97,7 @@ class HttpQuoterClient:
                 resp = self._client.get(path)
                 if resp.status_code < 400:
                     return True
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("quoter.health_failed", path=path, error=str(exc))
         return False
 
@@ -151,7 +152,7 @@ class HttpQuoterClient:
                     if polled is not None:
                         return polled
                 return quote
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 last_err = f"{path}: {exc}"
                 logger.warning("quoter.run_failed", path=path, error=str(exc))
 
@@ -174,7 +175,7 @@ class HttpQuoterClient:
                 if resp.status_code >= 400:
                     continue
                 return _normalise(resp.json(), source_path=path)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug("quoter.projekt_failed", path=path, error=str(exc))
         return None
 
@@ -191,14 +192,16 @@ class HttpQuoterClient:
                 if resp.status_code >= 400:
                     continue
                 return _normalise(resp.json(), source_path=path)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
         return None
 
 
 def _normalise(data: Any, *, source_path: str) -> QuoterQuote:
     if not isinstance(data, dict):
-        return QuoterQuote(ok=False, status="error", error="Antwort kein JSON-Objekt", source_path=source_path)
+        return QuoterQuote(
+            ok=False, status="error", error="Antwort kein JSON-Objekt", source_path=source_path
+        )
 
     status = str(data.get("status") or "done").lower()
     if status in {"queued", "running", "pending"}:
@@ -246,7 +249,7 @@ def _normalise(data: Any, *, source_path: str) -> QuoterQuote:
     )
 
 
-def _as_float(value: Any) -> Optional[float]:
+def _as_float(value: Any) -> float | None:
     if value is None:
         return None
     try:

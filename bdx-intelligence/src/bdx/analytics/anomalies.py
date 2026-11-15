@@ -11,6 +11,7 @@ The detector compares the latest ``KpiResult`` values against the stored
 Human-readable recommendations are generated from a lookup table of
 recommendation templates, enriched with the actual metric values.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -246,7 +247,9 @@ def _now_utc() -> datetime:
     return datetime.now(UTC)
 
 
-def _format_recommendation(metric_name: str, severity: str, value: float, threshold: float, dim: str) -> str:
+def _format_recommendation(
+    metric_name: str, severity: str, value: float, threshold: float, dim: str
+) -> str:
     templates = _RECOMMENDATIONS.get(metric_name, _DEFAULT_RECOMMENDATION)
     template = templates.get(severity, templates.get("warn", ""))
     return template.format(
@@ -298,17 +301,21 @@ def detect_and_persist(session: Session, kpi_results: list[KpiResult]) -> tuple[
         severity = _compute_severity(kpi.value, threshold)
 
         # Look for an existing open anomaly for this metric+dimension
-        existing = session.execute(
-            select(DetectedAnomaly)
-            .where(DetectedAnomaly.metric_name == kpi.metric_name)
-            .where(DetectedAnomaly.dimension == kpi.dimension)
-            .where(
-                DetectedAnomaly.dimension_value == kpi.dimension_value
-                if kpi.dimension_value is not None
-                else DetectedAnomaly.dimension_value.is_(None)
+        existing = (
+            session.execute(
+                select(DetectedAnomaly)
+                .where(DetectedAnomaly.metric_name == kpi.metric_name)
+                .where(DetectedAnomaly.dimension == kpi.dimension)
+                .where(
+                    DetectedAnomaly.dimension_value == kpi.dimension_value
+                    if kpi.dimension_value is not None
+                    else DetectedAnomaly.dimension_value.is_(None)
+                )
+                .where(DetectedAnomaly.resolved_at.is_(None))
             )
-            .where(DetectedAnomaly.resolved_at.is_(None))
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
         if severity is None:
             # No breach - resolve any open anomaly
@@ -328,7 +335,10 @@ def detect_and_persist(session: Session, kpi_results: list[KpiResult]) -> tuple[
             threshold.crit_threshold if severity == "crit" else threshold.warn_threshold
         )
         recommendation = _format_recommendation(
-            kpi.metric_name, severity, kpi.value, breach_threshold,
+            kpi.metric_name,
+            severity,
+            kpi.value,
+            breach_threshold,
             kpi.dimension_value or "global",
         )
         if kpi.metric_name in {
@@ -339,6 +349,7 @@ def detect_and_persist(session: Session, kpi_results: list[KpiResult]) -> tuple[
             "queue_unstarted_count",
         }:
             from bdx.analytics.causes import cause_citation
+
             recommendation += cause_citation(session)
 
         if existing:
@@ -351,20 +362,22 @@ def detect_and_persist(session: Session, kpi_results: list[KpiResult]) -> tuple[
                 existing.extra = kpi.extra
             updated_count += 1
         else:
-            session.add(DetectedAnomaly(
-                anomaly_id=str(uuid.uuid4()),
-                metric_name=kpi.metric_name,
-                dimension=kpi.dimension,
-                dimension_value=kpi.dimension_value,
-                severity=severity,
-                current_value=kpi.value,
-                threshold=breach_threshold,
-                recommendation=recommendation,
-                first_seen_at=now,
-                last_seen_at=now,
-                resolved_at=None,
-                extra=kpi.extra or {},
-            ))
+            session.add(
+                DetectedAnomaly(
+                    anomaly_id=str(uuid.uuid4()),
+                    metric_name=kpi.metric_name,
+                    dimension=kpi.dimension,
+                    dimension_value=kpi.dimension_value,
+                    severity=severity,
+                    current_value=kpi.value,
+                    threshold=breach_threshold,
+                    recommendation=recommendation,
+                    first_seen_at=now,
+                    last_seen_at=now,
+                    resolved_at=None,
+                    extra=kpi.extra or {},
+                )
+            )
             new_count += 1
             logger.info(
                 "anomaly.detected",
@@ -387,12 +400,16 @@ def detect_and_persist(session: Session, kpi_results: list[KpiResult]) -> tuple[
 
 def get_active_anomalies(session: Session) -> list[DetectedAnomaly]:
     """Return all unresolved anomalies ordered by severity then last_seen_at."""
-    return session.execute(
-        select(DetectedAnomaly)
-        .where(DetectedAnomaly.resolved_at.is_(None))
-        .order_by(
-            # crit before warn (alphabetically crit < warn, invert)
-            DetectedAnomaly.severity,
-            DetectedAnomaly.last_seen_at.desc(),
+    return (
+        session.execute(
+            select(DetectedAnomaly)
+            .where(DetectedAnomaly.resolved_at.is_(None))
+            .order_by(
+                # crit before warn (alphabetically crit < warn, invert)
+                DetectedAnomaly.severity,
+                DetectedAnomaly.last_seen_at.desc(),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )

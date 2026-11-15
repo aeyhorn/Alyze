@@ -1,8 +1,8 @@
 """REST endpoints for machine state, BDE records and collector runs."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
@@ -15,7 +15,7 @@ from bdx.models.sap import STATUS_LABELS
 router = APIRouter(tags=["machines"], dependencies=[Depends(require_api_key)])
 
 
-def _iso(v: Optional[datetime]) -> Optional[str]:
+def _iso(v: datetime | None) -> str | None:
     return v.isoformat() if v else None
 
 
@@ -58,7 +58,9 @@ def list_machines(session: Session = Depends(get_pg_session)):
     doc_entries = [r.sap_doc_entry for r in rows if r.sap_doc_entry is not None]
     orders = {}
     if doc_entries:
-        for o in session.execute(select(OrderState).where(OrderState.doc_entry.in_(doc_entries))).scalars():
+        for o in session.execute(
+            select(OrderState).where(OrderState.doc_entry.in_(doc_entries))
+        ).scalars():
             orders[o.doc_entry] = o
     result = []
     for r in rows:
@@ -96,12 +98,16 @@ def get_machine(
     row = session.get(MachineState, machine_id)
     if row is None:
         raise HTTPException(status_code=404, detail="machine not found")
-    events = session.execute(
-        select(DomainEvent)
-        .where(DomainEvent.machine_id == machine_id)
-        .order_by(DomainEvent.occurred_at.desc(), DomainEvent.id.desc())
-        .limit(limit)
-    ).scalars().all()
+    events = (
+        session.execute(
+            select(DomainEvent)
+            .where(DomainEvent.machine_id == machine_id)
+            .order_by(DomainEvent.occurred_at.desc(), DomainEvent.id.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
     return {
         "machine": _machine_to_dict(row),
         "events": [DomainEventDTO.model_validate(e).model_dump(mode="json") for e in events],
@@ -127,12 +133,12 @@ def machine_live(machine_id: str, request: Request):
 def bde_records(
     request: Request,
     hours: int = Query(24, ge=1, le=24 * 14),
-    machine_id: Optional[str] = Query(None),
+    machine_id: str | None = Query(None),
 ):
     adapter = getattr(request.app.state, "bde_adapter", None)
     if adapter is None:
         raise HTTPException(status_code=503, detail="BDE adapter not configured")
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
     records = adapter.fetch_recent(since)
     if machine_id:
         records = [r for r in records if r.machine_id == machine_id]
@@ -164,7 +170,11 @@ def list_runs(
     limit: int = Query(50, ge=1, le=1000),
     session: Session = Depends(get_pg_session),
 ):
-    rows = session.execute(select(SnapshotRun).order_by(SnapshotRun.started_at.desc()).limit(limit)).scalars().all()
+    rows = (
+        session.execute(select(SnapshotRun).order_by(SnapshotRun.started_at.desc()).limit(limit))
+        .scalars()
+        .all()
+    )
     return {
         "count": len(rows),
         "runs": [
@@ -173,7 +183,9 @@ def list_runs(
                 "mode": r.mode,
                 "started_at": _iso(r.started_at),
                 "finished_at": _iso(r.finished_at),
-                "duration_seconds": (r.finished_at - r.started_at).total_seconds() if r.finished_at else None,
+                "duration_seconds": (r.finished_at - r.started_at).total_seconds()
+                if r.finished_at
+                else None,
                 "orders_read": r.orders_read,
                 "orders_changed": r.orders_changed,
                 "events_created": r.events_created,

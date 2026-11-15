@@ -1,10 +1,10 @@
 """Confidence formula v0 for living offers."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from bdx.promise.models import GapStatus
-
 
 # Domain / gap weights for confidence deduction (sum of open weights → lower score)
 _GAP_WEIGHTS: dict[str, float] = {
@@ -55,7 +55,9 @@ def compute_confidence(
         status = getattr(g, "status", None) or (g.get("status") if isinstance(g, dict) else None)
         if status not in (GapStatus.OPEN.value, GapStatus.IN_PROGRESS.value, "open", "in_progress"):
             continue
-        gtype = getattr(g, "gap_type", None) or (g.get("gap_type") if isinstance(g, dict) else "vertrieb")
+        gtype = getattr(g, "gap_type", None) or (
+            g.get("gap_type") if isinstance(g, dict) else "vertrieb"
+        )
         score -= _GAP_WEIGHTS.get(str(gtype), 0.1)
 
     if score < 0.0:
@@ -65,7 +67,9 @@ def compute_confidence(
     return round(score, 3)
 
 
-def price_band_from_evaluation(evaluation: dict[str, Any] | None) -> tuple[float | None, float | None]:
+def price_band_from_evaluation(
+    evaluation: dict[str, Any] | None,
+) -> tuple[float | None, float | None]:
     """Derive a simple price band from pricing domain details."""
     if not evaluation:
         return None, None
@@ -97,8 +101,6 @@ def date_band(
     if not early:
         early = requested_date
     late = requested_date
-    if early and requested_date and early > requested_date:
-        late = early
-    elif early and not late:
+    if (early and requested_date and early > requested_date) or (early and not late):
         late = early
     return early, late

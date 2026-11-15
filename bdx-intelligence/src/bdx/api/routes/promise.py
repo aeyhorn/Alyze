@@ -1,7 +1,6 @@
 """Promise Platform API – living offers, gaps, contracts (internal)."""
-from __future__ import annotations
 
-from typing import Optional
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -34,26 +33,26 @@ def _quoter(request: Request):
     try:
         cfg = load_quoter_settings()
         return build_quoter_client(cfg) if cfg.configured else NullQuoterClient()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return NullQuoterClient()
 
 
-@router.post("/promise/offers", response_model=OfferDTO, summary="Create living offer (+ recompute)")
+@router.post(
+    "/promise/offers", response_model=OfferDTO, summary="Create living offer (+ recompute)"
+)
 def post_offer(
     body: OfferCreate,
     request: Request,
     session: Session = Depends(get_pg_session),
 ) -> OfferDTO:
-    offer = pe.create_offer(
-        session, body, sap_engine=_sap(request), quoter=_quoter(request)
-    )
+    offer = pe.create_offer(session, body, sap_engine=_sap(request), quoter=_quoter(request))
     return pe.to_offer_dto(session, offer)
 
 
 @router.get("/promise/offers", response_model=list[OfferDTO], summary="List offers")
 def get_offers(
-    status: Optional[str] = Query(None),
-    customer_ref: Optional[str] = Query(None),
+    status: str | None = Query(None),
+    customer_ref: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     session: Session = Depends(get_pg_session),
 ) -> list[OfferDTO]:
@@ -84,9 +83,7 @@ def post_recompute(
         raise HTTPException(status_code=404, detail="offer not found")
     if offer.status == "cancelled":
         raise HTTPException(status_code=409, detail="offer cancelled")
-    offer = pe.recompute_offer(
-        session, offer, sap_engine=_sap(request), quoter=_quoter(request)
-    )
+    offer = pe.recompute_offer(session, offer, sap_engine=_sap(request), quoter=_quoter(request))
     return pe.to_offer_dto(session, offer)
 
 

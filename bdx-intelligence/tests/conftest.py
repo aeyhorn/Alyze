@@ -1,10 +1,10 @@
 """Shared pytest fixtures using in-memory SQLite and mock data."""
+
 from __future__ import annotations
 
 import os
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
-from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine
@@ -18,13 +18,13 @@ os.environ.setdefault("SAP_DB_USER", "test")
 os.environ.setdefault("SAP_DB_PASSWORD", "test")
 
 from bdx.db.postgres import Base
-from bdx.models.events import DomainEvent, EventType, OrderSnapshot
 from bdx.models.sap import WorkOrder
 
 
 @pytest.fixture(scope="session")
 def engine():
     from sqlalchemy.pool import StaticPool
+
     eng = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},

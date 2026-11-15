@@ -1,8 +1,10 @@
 """MQTT publisher (paho-mqtt)."""
+
 from __future__ import annotations
 
 import threading
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import structlog
 
@@ -53,7 +55,7 @@ class MqttPublisher(EventPublisher):
             if self._client is not None:
                 self._client.loop_stop()
                 self._client.disconnect()
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         self._connected = False
 
@@ -76,7 +78,7 @@ class MqttPublisher(EventPublisher):
                         sent += 1
                     else:
                         logger.warning("mqtt.publish_failed", topic=topic, rc=rc)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("mqtt.error", error=str(exc))
                 self._drop_connection()
         if sent:
@@ -88,7 +90,7 @@ class MqttPublisher(EventPublisher):
             try:
                 self._ensure_client()
                 return True
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("mqtt.health_failed", error=str(exc))
                 self._drop_connection()
                 return False

@@ -1,4 +1,5 @@
 """Customer portal API – token-scoped projection (no internal API key)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
