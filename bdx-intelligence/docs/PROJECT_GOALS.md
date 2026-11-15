@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-15 01:35 (CET)
+> **Zuletzt abgeglichen:** 2026-11-15 02:37 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `main` (`cd6440f`). Der Coverage-Gate ist 68. ruff und mypy sind advisory. Das Environment `prod` hat laut API am 2026-11-15 keine Protection-Rules. Branch Protection auf `main` war von diesem Lauf nicht lesbar (HTTP 403). Secrets sind aus Git nicht prüfbar.
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `main` (`cd6440f`). Der Coverage-Gate ist 68. ruff und mypy sind advisory. Das Environment `prod` hat laut API am 2026-11-15 02:37 CET keine Protection-Rules. Branch Protection auf `main` war von diesem Lauf nicht lesbar (HTTP 403). Secrets sind aus Git nicht prüfbar. PR #161 (nur Doku, derselbe Produktstand) ist am 2026-11-15 00:36 UTC in pytest rot: 3 fehlgeschlagen, 176 bestanden, Coverage 73.69%. Der letzte CI-Lauf auf `main` selbst (`cd6440f`, 2026-11-10 06:22 UTC) war grün.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum ist da. Reviewer, Branch Protection und Secrets fehlen noch als Nachweis.
 
 ### G5 – SQL-Login `bdx_readonly`

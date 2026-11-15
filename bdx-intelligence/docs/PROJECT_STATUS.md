@@ -1,6 +1,6 @@
-﻿# BDX Intelligence – Project Status
+# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-15 01:35 (CET)
+> **Zuletzt aktualisiert:** 2026-11-15 02:37 (CET)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -8,7 +8,7 @@
 | 001 | SAP read-only collector, event store, REST/CLI | ✅ complete (operational on DEV) |
 | 002 | BDE adapter, machine adapter, incremental reading | ✅ complete (operational on DEV) |
 | 003 | Event publishing (MQTT/Kafka), dashboard UI, SAP write-back | ✅ complete (MQTT/Kafka built, no broker yet; write-back DRY_RUN-verified). DEV-Compose läuft über `deploy-dev.yml` |
-| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | ✅ on `main` (`cd6440f`). Coverage-Gate 68. ruff und mypy advisory. `prod` ohne Protection-Rules. Branch Protection von diesem Lauf nicht lesbar |
+| 004 | CI/CD pipeline, quality-gate agents, integration tests, HOTL prompts | ✅ on `main` (`cd6440f`). Coverage-Gate 68. ruff und mypy advisory. `prod` ohne Protection-Rules. Branch Protection von diesem Lauf nicht lesbar. Pytest auf dem Doku-PR vom 2026-11-15 00:36 UTC rot (3 Tests) |
 | 005 | Quote-to-Promise cockpit (parallel inquiry evaluation) | ✅ merged – needs migration + Q2P SAP grants + optional Quoter on DEV |
 | Analytics | KPI engine, anomalies, weakness dashboard. Der Code nennt das Sprint 005; Migrationen `005`+`006` | ✅ merged (#5, #6, #12) – UI `/analytics` |
 | Promise | Promise Platform (Offer/Gaps/Agents/Portal) | ✅ merged (#41) – deploy migrations `007`+`008`; vision: `docs/VISION_PROMISE_PLATFORM.md` |
@@ -158,9 +158,18 @@ code quality) without needing a database or SAP.
   (2026-11-10). This sync started with HEAD equal to `origin/main`.
 * **CI is not fully blocking.** The pytest coverage gate is
   `--cov-fail-under=68`. The ruff and mypy jobs use `continue-on-error`.
-* **`prod` environment** exists. The environments API on 2026-11-15 shows no
-  protection rules, so required reviewers are not configured. Branch
-  protection on `main` returned HTTP 403 to this run and is not confirmed.
+* **Pytest on this tree is red when re-run.** PR #161 (docs only, product
+  tree `cd6440f`) failed CI on 2026-11-15 00:36 UTC: 3 failed, 176 passed,
+  coverage 73.69%. Failed tests:
+  `test_machine_utilization_with_calendar` (no machine row; the test pins
+  the shift to today's weekday 06:00–14:00 and the run was at 00:36 UTC),
+  `test_lateness_scrap_when_no_material_context`, and
+  `test_lateness_waiting_idle` (no lateness row). The last CI on `main`
+  itself was green (`cd6440f`, 2026-11-10 06:22 UTC). This run does not
+  change product code.
+* **`prod` environment** exists. The environments API on 2026-11-15 02:37 CET
+  still shows no protection rules, so required reviewers are not configured.
+  Branch protection on `main` again returned HTTP 403 and is not confirmed.
 * **Secrets are not visible from git.** DEV deploy does not use `DEV_SSH_*`;
   it runs on the self-hosted runner. PROD deploy still expects `PROD_SSH_*`.
   Nightly integration still expects `SAP_DB_*`, `SL_*`, and `POSTGRES_DSN`.
@@ -196,7 +205,8 @@ The checks in this section were not repeated in this sync. Alembic head in the r
 
 | Item | Notes |
 |---|---|
-| **G4 remainder** | Sprint-004-Baum ist auf `main`. Offen: erforderliche Reviewer auf `prod` (API 2026-11-15: keine Protection-Rules), Branch Protection nicht bestätigt (HTTP 403), Secrets aus Git nicht prüfbar |
+| **G4 remainder** | Sprint-004-Baum ist auf `main`. Offen: erforderliche Reviewer auf `prod` (API 2026-11-15 02:37 CET: keine Protection-Rules), Branch Protection nicht bestätigt (HTTP 403), Secrets aus Git nicht prüfbar |
+| Pytest on current tree | PR #161, docs only on `cd6440f`, failed at 2026-11-15 00:36 UTC: `test_machine_utilization_with_calendar`, `test_lateness_scrap_when_no_material_context`, `test_lateness_waiting_idle`. Coverage 73.69% (gate 68). Last CI on `main` was green at `cd6440f` (2026-11-10 06:22 UTC) |
 | SQL login `bdx_readonly` on LDSAP | script `docs/sql/create_bdx_readonly.sql` (DENY CONTROL removed in `7d0fb2f` because it blocked CONNECT). Whether the login exists on LDSAP is not in the repo |
 | DEV compose on 192.168.82.33 | `deploy-dev.yml` succeeded through `cd6440f` (2026-11-10 07:22 +01:00). In-repo marker `.runtime/last-deploy-at` is still `2026-11-07 21:50:15 +01:00`, SHA `6ccc036` |
 | MQTT / Kafka broker | set `MQTT_ENABLED=true`+`MQTT_HOST` or `KAFKA_ENABLED=true`+`KAFKA_BOOTSTRAP_SERVERS`; `pip install -e .[mqtt]` / `.[kafka]` |
@@ -204,7 +214,7 @@ The checks in this section were not repeated in this sync. Alembic head in the r
 | SAP write-back real use | Real writes stay off until an operator turns the dry run off in the host `.env`. Green DEV deploys only pass the workflow check that keeps that dry run on |
 | Multi-company SAP, SSO/SCIM | TBD |
 | Machine `User`/operator and `LastProdEnd` are empty in the feed | needs MDE-side configuration |
-| Open doc-sync PRs | 148 open PRs against `main` on 2026-11-15 01:35 CET, all status-doc reconciles. This run does not merge them |
+| Open doc-sync PRs | 149 open PRs against `main` on 2026-11-15 02:37 CET, all documentation reconciles (141 titled `docs: reconcile project status and goals`). Includes #161. This run does not merge them |
 | `chore/ruff-cleanup-20261108` | one unmerged commit (`ruff --fix` + format). No open PR |
 
 ## Known Limitations
