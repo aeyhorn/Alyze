@@ -1,15 +1,15 @@
 # DORA Metrics — BDX-Intelligence
 
-_Last 30 days (since 2026-10-10, generated 2026-11-09 14:47 UTC)_
+_Last 30 days (since 2026-10-17, generated 2026-11-16 14:22 UTC)_
 
 | Metric | Value |
 |---|---|
-| Deploy frequency | 0.70 / day (21 deploys, 11 ok) |
+| Deploy frequency | 0.77 / day (23 deploys, 13 ok) |
 | Cycle time (median) | 0.6 h |
-| MTTR (median) | 137.5 min |
-| Change failure rate | 38.1 % |
-| CI flakiness (failed runs) | 8.0 % (8/100) |
-| Merged PRs | 11 |
+| MTTR (median) | 244.5 min |
+| Change failure rate | 34.8 % |
+| CI flakiness (failed runs) | 18.4 % (50/272) |
+| Merged PRs | 12 |
 
 ## Recent deploys
 
