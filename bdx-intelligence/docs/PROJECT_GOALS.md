@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-14 04:37 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`cd6440f`): Workflows, Agents, Integrationstests, Prompts. Abnahme offen. Environment `prod` hat keine Protection Rules. Branch Protection für `main` und die Actions-Secrets waren in diesem Lauf nicht lesbar (HTTP 403). Die nächtliche Integration bricht von 2026-11-08 bis 2026-11-13 im Schritt `Install ODBC Driver 18` ab. ruff und mypy sind in `ci.yml` advisory. Das Coverage-Gate liegt bei 68 %.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
@@ -25,6 +25,7 @@
 - **Status:** offen
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
 - **Abhängigkeit:** G5.
+- **Stand:** `deploy-dev.yml` war für `cd6440f` am 2026-11-10 erfolgreich (Run `42768023481`). Die committete Markierung `.runtime/last-deploy-sha` steht auf `6ccc036` (2026-11-07 21:50 +01:00). `/health/live` auf dem Host wurde in diesem Lauf nicht geprüft.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
