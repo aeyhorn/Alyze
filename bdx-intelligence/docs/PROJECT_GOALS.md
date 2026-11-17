@@ -1,8 +1,8 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-09 18:34 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
-> Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
+> IDs bleiben stabil. Analytics, Q2P, Promise und Vorgangsleitstand sind auf `origin/main` und haben keine eigene `G#`, weil `REQUIREMENTS.md` dafür keine Zeile hat.
 
 ## Aktiv
 
@@ -10,14 +10,14 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand laut PROJECT_STATUS:** Der Baum (Workflows, Agents, Skripte, Integrationstests, Prompts) liegt auf `origin/main` (`90a6593`). CI `42638402851` (pytest, Coverage-Untergrenze 68; Ruff und mypy advisory) und Deploy to DEV `42638402840` sind für diesen Commit grün. DEV-Deploy läuft auf dem Self-hosted-Runner des DEV-Hosts, ohne SSH. Environments `dev`, `prod` und `CURSOR_API_KEY` existieren. `prod` hat keine Protection Rules. Actions-Secrets und Branch Protection waren per API nicht lesbar (403).
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum ist erfüllt. Secrets, Reviewer und der erzwungene CI-Check sind offen.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` liegt auf `origin/main`. Es erlaubt nur SELECT und verweigert INSERT, UPDATE, DELETE und ALTER, ohne CONTROL zu verbieten. Ob der Login auf LDSAP existiert, ist seit der DEV-Prüfung vom 2026-11-07 nicht erneut geprüft; damals fehlte er.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
