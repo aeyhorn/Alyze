@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-13 08:38 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,22 +10,23 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
+- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main` (`cd6440f`). Coverage-Gate ist 68 %. Ruff und mypy sind in CI noch advisory. Secrets und Branch Protection waren in diesem Lauf nicht lesbar (API 403).
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Zuletzt dokumentiert: der Login existiert auf LDSAP noch nicht. Dieser Lauf hat LDSAP nicht geprüft.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Abhängigkeit:** G5 für einen Container ohne Windows-Integrated-Auth. Der aktuelle DEV-Deploy läuft mit der Host-Umgebung.
+- **Stand:** `deploy-dev.yml` baut das Image, spielt es auf dem Self-Hosted-Runner des DEV-Hosts aus und prüft `/health/live`. GitHub Actions meldet Erfolg auf `main` bis 2026-11-10 06:22 UTC (`cd6440f`). Der im Repo gespeicherte Stempel `.runtime/last-deploy-at` ist 2026-11-07 21:50 +01:00 (`6ccc036`). Dieser Lauf hat den Host nicht selbst abgefragt.
+- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, der Service-Layer-Trockenlauf bleibt auf dem DEV-Host an, bis ein Operator ihn bewusst ausstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
 
@@ -59,7 +60,7 @@
 
 - **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
+- **Akzeptanz:** Code und die Trockenlauf-Prüfung auf DEV sind da. Echte Service-Layer-Schreibvorgänge bleiben aus, bis ein Operator den Trockenlauf in der Host-Umgebung ausstellt. `.env.example` stellt den Trockenlauf derzeit aus; das widerspricht der Sicherheitsregel und bleibt offen.
 
 ## Geparkt
 
