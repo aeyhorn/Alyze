@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-09 15:54 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,22 +10,23 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`90a6593`). `ci.yml` setzt `--cov-fail-under=68`; Ruff und mypy laufen dort mit `continue-on-error`. CI für diesen Push war grün (Run `42638402851`). Environment `prod` existiert, `protection_rules` ist leer. Branch Protection und die Actions-Secrets lieferten HTTP 403 und sind nicht bestätigt.
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum ist erfüllt; Reviewer, Secrets und Branch Protection sind es in diesem Abgleich nicht.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Dieser Abgleich hat LDSAP nicht abgefragt, der Login gilt deshalb weiter als nicht bestätigt.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
 - **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Stand:** Deploy to DEV für `90a6593` ist grün (Run `42638402840`, Image-Build und Host-Deploy). Der Workflow verlangt ein erfolgreiches `GET /health/live` und bricht ab, wenn die Host-Umgebung den Dry-Run abschaltet. `bdx-collect diagnose` bricht den Job nicht. Dieser Lauf hat `/health` nicht separat geöffnet und die Host-Umgebung nicht gelesen. G5 ist nicht erneut geprüft, deshalb ist G6 nicht erledigt.
+- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, Dry-Run bleibt auf dem DEV-Host an, bis ein Operator ihn bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
 
