@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-10 04:33 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,22 +10,15 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`90a6593`): Workflows, Agents, Skripte, Prompts. CI-Run `42638402851` (Start 15:49 CET) und Deploy-to-DEV `42638402840` (Start 15:52 CET) sind grün. Ruff und mypy bleiben advisory, das Coverage-Gate steht auf 68. Die nächtliche Integration ist am 2026-11-08 und 2026-11-09 rot, bevor pytest startet (`gpg` öffnet `/dev/tty` nicht). Für 2026-11-10 ist bis 04:33 CET kein Lauf erfasst. Branch Protection auf `main` war nicht lesbar (403). Das Environment `prod` hat in der API keine Protection-Rules. Die Secret-Liste war nicht lesbar (403).
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum ist auf `main`. Die übrigen Punkte sind in diesem Lauf nicht belegt.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Am 2026-11-07 existierte der Login auf LDSAP noch nicht. Dieser Lauf hat das nicht erneut geprüft.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
-
-### G6 – Container-Deploy auf dem Docker-Host
-
-- **Status:** offen
-- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
 
@@ -57,9 +50,16 @@
 
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
+- **Status:** erledigt als Code (Sprint 003). Broker bleibt G7. Der Container-Deploy ist G6.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
+- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Dry-Run auf dem Host bewusst abschaltet. Committete Dateien lassen Dry-Run an.
+
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt (letzter grüner Lauf 2026-11-09)
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Stand:** `deploy-dev.yml` baut das Image, spielt es auf dem Self-hosted-Runner des DEV-Hosts aus (kein SSH-Hop) und verlangt `/health/live`. Lauf `42638402840` für `90a6593` ist grün. G5 bleibt offen; der Deploy belegt den SQL-Login nicht.
+- **Akzeptanz:** erfüllt für diesen Lauf. Ob der Stack danach durchgehend lief, steht nicht in Git. Der Deploy-Job bricht ab, wenn die Host-Umgebung Dry-Run abschaltet.
 
 ## Geparkt
 
