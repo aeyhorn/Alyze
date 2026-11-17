@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-15 03:38 (CET)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,22 +10,15 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `main` (`cd6440f`). Der Coverage-Gate ist 68. ruff und mypy sind advisory. Die Environments `prod`, `dev` und `CURSOR_API_KEY` haben laut API am 2026-11-15 03:38 CET keine Protection-Rules. Rulesets: 0. Das Branch-Objekt von `main` meldet `protected: false`; der Protection-Endpoint bleibt HTTP 403. Die Secrets-Liste ist HTTP 403. PR #161 (nur Doku, derselbe Produktstand) ist am 2026-11-15 01:38 UTC in pytest rot: 1 fehlgeschlagen (`test_machine_utilization_with_calendar`), 178 bestanden, 8 abgewählt, Coverage 73.95%. Der letzte CI-Lauf auf `main` selbst (`cd6440f`, 2026-11-10 06:22 UTC) war grün. Die nächtliche Integration scheitert seit 2026-11-10 in der ODBC-Installation (`gpg` und `/dev/tty`, zuletzt Actions `43582578926`). `pr-review.yml` hat zwei `env`-Schlüssel; der Push-Lauf `43664003693` endet ohne Jobs.
+- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum ist da. `prod` hat keine Reviewer. `main` verlangt den CI-Check nicht (`protected: false`). Ob die Secrets gesetzt sind, ist von diesem Lauf nicht lesbar.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. `7d0fb2f` hat DENY CONTROL entfernt, weil es CONNECT blockierte. Ob der Login auf LDSAP existiert, steht nicht im Repo.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
-
-### G6 – Container-Deploy auf dem Docker-Host
-
-- **Status:** offen
-- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
 
@@ -57,9 +50,16 @@
 
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
+- **Status:** erledigt als Code (Sprint 003). Der Broker bleibt G7. Der DEV-Deploy ist G6.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
+- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator den Trockenlauf in der Host-`.env` ausschaltet. In `.env.example` ist der Trockenlauf ausgeschaltet. `deploy-dev.yml` bricht ab, wenn die Host-Datei das tut. Der grüne Deploy von `cd6440f` ist nicht abgebrochen.
+
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Stand:** `deploy-dev.yml` deployt auf dem Self-Hosted-Runner des DEV-Hosts und war grün bis `cd6440f` (2026-11-10 07:22 +01:00), inklusive Migration und Smoke-Test `/health/live`. Der Marker `.runtime/last-deploy-*` im Repo hinkt hinterher (2026-11-07, SHA `6ccc036`). G5 bleibt offen: der Login ist dafür kein belegter Schritt.
+- **Akzeptanz:** erfüllt für den laufenden DEV-Stack. `collector` und `api` kommen über Compose hoch, `/health/live` ist in den grünen Läufen grün. Der Workflow bricht ab, wenn die Host-`.env` den Service-Layer-Trockenlauf ausschaltet.
 
 ## Geparkt
 
