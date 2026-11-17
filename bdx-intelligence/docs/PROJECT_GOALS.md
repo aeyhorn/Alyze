@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-14 03:31 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,22 +10,23 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (ab `936d8c8`, 2026-11-07, inklusive `pyproject.toml` und `docker-compose.yml`). CI-Coverage-Gate ist 68 %. ruff und mypy laufen mit `continue-on-error`. Environments `CURSOR_API_KEY`, `dev` und `prod` existieren; `prod` hat keine Protection Rules. Branch Protection auf `main` antwortete mit HTTP 403. `deploy-dev.yml` nutzt einen Self-hosted-Runner auf dem DEV-Host, keine `DEV_SSH_*`-Secrets. Die nächtlichen Integrationstests vom 2026-11-10 bis 2026-11-13 sterben im Schritt `Install ODBC Driver 18` (Exit 2), bevor pytest startet. PR-CI `43541427938` (2026-11-14 01:35 UTC) lässt `test_machine_utilization_with_calendar` fehlschlagen; der Docs-PR-Lauf um 2026-11-13 23:37 UTC war grün. Coverage in dem roten Lauf: 73,95 %.
+- **Akzeptanz:** Baum ist committet und auf `main`. Offen: ODBC-Install im Nightly reparieren, danach `CURSOR_API_KEY` und die Integrations-Secrets (`SAP_DB_*`, `SL_*`, `POSTGRES_DSN`) bestätigen, Reviewer auf `prod`, `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Letzter dokumentierter Stand (2026-11-07): der Login fehlt auf LDSAP. Dieser Lauf hat LDSAP nicht geprüft.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
 
-- **Status:** offen
+- **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
 - **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Stand:** `Deploy to DEV` für `origin/main` (`cd6440f`) war am 2026-11-10 07:22 Europe/Paris erfolgreich. Der committete Marker `.runtime/last-deploy-sha` zeigt noch `6ccc036` (2026-11-07 21:50 +01:00). Dieser Lauf hat den Host nicht erneut geprüft.
+- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt. Der Workflow bricht ab, wenn die Host-`.env` `SL_DRY_RUN=false` enthält.
 
 ### G7 – MQTT- oder Kafka-Broker
 
