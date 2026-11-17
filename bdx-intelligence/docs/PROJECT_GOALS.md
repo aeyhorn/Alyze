@@ -1,8 +1,8 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-07 20:15 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-14 07:35 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
-> Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
+> IDs bleiben stabil. Dieser Abgleich folgt `origin/main` = `cd6440f`.
 
 ## Aktiv
 
@@ -10,22 +10,8 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand laut PROJECT_STATUS:** Workflows, Agents, Skripte und Prompts sind geschrieben, der Sprint ist dort noch als nicht gelandet markiert.
-- **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
-
-### G5 – SQL-Login `bdx_readonly`
-
-- **Status:** offen
-- **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht.
-- **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
-
-### G6 – Container-Deploy auf dem Docker-Host
-
-- **Status:** offen
-- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
-- **Abhängigkeit:** G5.
-- **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
+- **Stand:** Workflows, Agents, Skripte und Prompts liegen auf `origin/main`. Der Arbeitsbaum ist sauber. Ruff und mypy sind in CI nur beratend. Das Coverage-Gate in CI liegt bei 68 %, der lokale Check-Agent weiter bei 80 %. Das Environment `prod` hat keine Protection Rules. Branch Protection auf `main` war in diesem Lauf nicht lesbar (API 403). Die nächtliche Integration scheitert seit 2026-11-09 im Schritt „Install ODBC Driver 18“, bevor pytest startet. Der jüngste aufgezeichnete Lauf ist 2026-11-13 10:39 UTC; um 06:33 UTC lag noch kein Lauf vom 2026-11-14 vor.
+- **Akzeptanz:** Der Sprint-004-Baum ist committet und gemergt. Offen bleiben erforderliche Reviewer auf `prod` und ein bestätigter Pflicht-Check aus `ci.yml` auf `main`.
 
 ### G7 – MQTT- oder Kafka-Broker
 
@@ -57,9 +43,24 @@
 
 ### G3 – Publishing, Dashboard, Write-back
 
-- **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
+- **Status:** erledigt als Code (Sprint 003). Deploy ist G6. Der Broker bleibt G7.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
+- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator das auf dem Host bewusst umstellt. Committete Dateien schalten Schreibvorgänge nicht frei.
+
+### G5 – SQL-Login `bdx_readonly`
+
+- **Status:** erledigt
+- **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
+- **Stand:** `7d0fb2f` hat `DENY CONTROL` aus dem Skript genommen, nachdem der Login die Datenbank nicht öffnen konnte. `docs/sql/reset_bdx_readonly.sql` liegt im Repo. Spätere Container-Deploys waren grün, einschließlich des Health-Checks auf `/health/live`.
+- **Akzeptanz:** erfüllt, soweit der erfolgreiche DEV-Deploy das zeigt. Kein Schreibrecht auf dem SAP-SQL-Server.
+
+### G6 – Container-Deploy auf dem Docker-Host
+
+- **Status:** erledigt
+- **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
+- **Abhängigkeit:** G5.
+- **Stand:** `deploy-dev` für den aktuellen `main`-Stand `cd6440f` war am 2026-11-10 07:22 CET grün (Image-Build, Deploy, Smoke auf `/health/live`). Der Workflow bricht ab, wenn die Host-Umgebung echte Schreibvorgänge zulässt. Der committete Stempel `.runtime/last-deploy-sha` steht noch auf `6ccc036` (2026-11-07 21:50 +01:00).
+- **Akzeptanz:** erfüllt für den letzten grünen Lauf. Der Compose-Kopfkommentar „NOT yet deployed“ hinkt hinterher.
 
 ## Geparkt
 
