@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-17 00:37 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-17 01:36 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -26,13 +26,13 @@ Koordinator-Lauf. Nur diese Dokumente. Kein Shopfloor-Probe.
 - CI auf `cd6440f`: success (Run 42768023614). Deploy to DEV auf demselben Commit: success (Run 42768023481, Jobs „Build & Push Image“ und „Deploy to DEV host“). An `a66b194` hängt kein Actions-Lauf.
 - Der Marker `bdx-intelligence/.runtime/last-deploy-sha` zeigt `6ccc036` vom 2026-11-07 21:50 +01:00.
 - Nightly Integration, letzter abgeschlossener Lauf: 2026-11-16 10:44 UTC (Run 43851477564) auf `cd6440f`. Fehlgeschlagen sind „Install ODBC Driver 18“ und „Notify on failure“. Die geplanten Läufe vom 2026-11-12 bis 2026-11-15 sind ebenfalls failure. Ein pytest-Schritt ist nicht unter den fehlgeschlagenen Schritten.
-- `pr-review.yml`: der Schritt „Fetch PR diff“ hat zwei `env`-Blöcke. Der Push-Lauf 43971963045 (2026-11-16 22:38 UTC, `751868c` auf `sync/status-20261116`) endet mit null Jobs.
-- Docs-CI von `751868c` (Run 43971975010, 2026-11-16 22:38 UTC, PR #178): success. Tests: 179 passed, 8 deselected, 1 warning, TOTAL 74 % (5 930 Statements, 1 545 missed, Gate 68 %). Lint, Type Check und Docker-Smoke sind success. Auto-merge (Run 43971974955) hat PR #178 übersprungen, weil das Label `trivial` fehlt.
-- Environments `dev`, `prod` und `CURSOR_API_KEY` haben keine Protection Rules (gelesen 2026-11-17 00:37 UTC+1). Die Branch-Ressource von `main` meldet `protected: false`. Rulesets: 0. Der Branch-Protection-Endpunkt antwortet mit HTTP 403.
-- 169 offene Pull Requests, alle Dokumentation. Die höchste Nummer ist 181. Kein offener Produkt-PR. 180 Remote-Branches liegen nicht in `origin/main`. Außerhalb von `cursor/` und `sync/status-*` sind das `origin/chore/ruff-cleanup-20261108` (`57411b2`) und `origin/chore/ruff-cleanup-20261115` (`1c46e17`). Beide haben keinen PR.
+- `pr-review.yml`: der Schritt „Fetch PR diff“ hat zwei `env`-Blöcke. Der Push-Lauf 43981049143 (2026-11-16 23:38 UTC, `1e3d1e5` auf `sync/status-20261117`) endet mit null Jobs.
+- Docs-CI von `1e3d1e5` (Run 43981065146, 2026-11-16 23:38 UTC, PR #182): success. Tests: 179 passed, 8 deselected, 1 warning, TOTAL 74 % (5 930 Statements, 1 545 missed, Gate 68 %, 73,95 %). Lint, Type Check und Docker-Smoke sind success. Auto-merge (Run 43981065295) hat PR #182 übersprungen, weil das Label `trivial` fehlt.
+- Environments `dev`, `prod` und `CURSOR_API_KEY` haben keine Protection Rules (gelesen 2026-11-17 01:35 UTC+1). Die Branch-Ressource von `main` meldet `protected: false`. Rulesets: 0. Der Branch-Protection-Endpunkt und die Actions-Secret-Liste antworten mit HTTP 403.
+- 170 offene Pull Requests, alle Dokumentation. Die höchste Nummer ist 182 (`sync/status-20261117`, offen, nicht gemergt). Kein offener Produkt-PR. 181 Remote-Branches liegen nicht in `origin/main`. Außerhalb von `cursor/` und `sync/status-*` sind das `origin/chore/ruff-cleanup-20261108` (`57411b2`) und `origin/chore/ruff-cleanup-20261115` (`1c46e17`). Beide haben keinen PR.
 - DORA-Schedule Run 43885095274 (erstellt 2026-11-16 14:22 UTC, Abschluss 14:23 UTC, head `cd6440f`) ist success und hat `a66b194` auf `main` gelegt. Die Zahlen stehen in `docs/dora-metrics.md` (Fenster seit 2026-10-17, erzeugt 2026-11-16 14:22 UTC): Deploy-Frequenz 0,77/Tag (23 Deploys, 13 ok), Cycle Time Median 0,6 h, MTTR Median 244,5 min, Change-Failure-Rate 34,8 %, CI-Flakiness 18,4 % (50/272), 12 gemergte PRs.
 - Quoter-Deep-Link bleibt Spezifikation (`docs/QUOTER_DEEP_LINK.md`). Im Produktcode gibt es keinen Treffer auf `return_url`.
-- Dieser Lauf schreibt `sync/status-20261117` und mergt nicht.
+- Dieser Lauf aktualisiert `sync/status-20261117` (PR #182, offen) und mergt nicht. Die Sitzung startete auf `cursor/projekt-dokumente-sync-6c16` bei `a66b194`; der Arbeitsbaum war sauber.
 
 ---
 
@@ -147,10 +147,10 @@ code quality) without needing a database or SAP.
 | **`.github/workflows/ci.yml`** | ✅ on `main` | push/PR to `main`: ruff and mypy are advisory (`continue-on-error`), pytest coverage gate is `--cov-fail-under=68`, Docker build smoke test (imports `bdx`). Working dir = `bdx-intelligence/`. Last `main` run on `cd6440f` succeeded (Run 42768023614). `a66b194` has no CI run. |
 | **`.github/workflows/integration.yml`** | 🟡 on `main`, nightly red | cron `0 3 * * *` + `workflow_dispatch`. Last completed run 2026-11-16 10:44 UTC (43851477564) failed in „Install ODBC Driver 18“ and „Notify on failure“. Scheduled runs from 2026-11-12 through 2026-11-15 failed the same way. The fixture keeps the Service Layer dry-run guard on, so a green run still cannot write to SAP. |
 | **`.github/workflows/deploy-dev.yml`** | ✅ on `main`, last run green | push to `main` builds `ghcr.io/aeyhorn/alyze/bdx-intelligence:dev` plus a sha tag. The self-hosted runner on the DEV host pulls, migrates, and recreates `collector` + `api`. Smoke: `/health/live`. The job aborts when the host env file turns the dry-run guard off. Last success: 2026-11-10, commit `cd6440f` (Run 42768023481). No deploy run is attached to `a66b194`. |
-| **`.github/workflows/deploy-prod.yml`** | ✅ written, reviewers not confirmed | `workflow_dispatch` only. The workflow text expects required reviewers on environment `prod`. The Environments API on 2026-11-17 00:37 UTC+1 reported no protection rules for `prod`. Inputs include `run_migrations` and `confirm_sl_write`. |
+| **`.github/workflows/deploy-prod.yml`** | ✅ written, reviewers not confirmed | `workflow_dispatch` only. The workflow text expects required reviewers on environment `prod`. The Environments API on 2026-11-17 01:35 UTC+1 reported no protection rules for `prod`. Inputs include `run_migrations` and `confirm_sl_write`. |
 | **`.github/workflows/ci-triage.yml`** | ✅ written | `workflow_run` on failed CI → `scripts/ci_triage.py` fetches failed job logs, runs a Cursor cloud agent (`composer-2.5`) to produce a root-cause comment, posts it on the PR. Opt-in via `CURSOR_API_KEY` secret (no-op + green without it) |
-| **`.github/workflows/pr-review.yml`** | 🟡 invalid workflow file | Step „Fetch PR diff“ has two `env` blocks, so push runs finish with zero jobs (latest 43971963045, 2026-11-16 22:38 UTC, `751868c` on `sync/status-20261116`). The intended path is `scripts/pr_review.py` on PR open/sync/reopen. |
-| **`.github/workflows/auto-merge.yml`** | ✅ written | PR labeled `trivial` + only test/doc files + no protected paths (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) → `gh pr merge --squash --auto --delete-branch`. Run 43971974955 skipped PR #178 because the `trivial` label is absent. |
+| **`.github/workflows/pr-review.yml`** | 🟡 invalid workflow file | Step „Fetch PR diff“ has two `env` blocks, so push runs finish with zero jobs (latest 43981049143, 2026-11-16 23:38 UTC, `1e3d1e5` on `sync/status-20261117`). The intended path is `scripts/pr_review.py` on PR open/sync/reopen. |
+| **`.github/workflows/auto-merge.yml`** | ✅ written | PR labeled `trivial` + only test/doc files + no protected paths (`sap_sl/`, `db/`, `alembic/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `pyproject.toml`) → `gh pr merge --squash --auto --delete-branch`. Run 43981065295 skipped PR #182 because the `trivial` label is absent. |
 | **`.github/workflows/dora.yml`** | ✅ ran this week | weekly Mon 06:00 UTC → `scripts/dora_metrics.py` commits `docs/dora-metrics.md`. Schedule run 43885095274 (2026-11-16 14:22 UTC, head `cd6440f`) succeeded and pushed `a66b194`. |
 | **Quality-gate agents** (`src/bdx/agents/`) | ✅ written | `base.py` (Severity/Status/Finding/CheckResult), `docs.py` (DocumentationAgent: README, required docs, status freshness ≤90 d, module + public-symbol docstrings, API routes vs `ARCHITECTURE.md`, env vars vs `ARCHITECTURE.md`), `tests.py` (TestAgent: shells out to pytest, parses JUnit XML + coverage.json, gates ≥80 % overall / ≥50 % per module / ≤10 % skipped), `quality.py` (QualityAgent: ruff JSON, mypy, smell scan — TODO without owner, `print()` in prod, empty `except:`), `runner.py` (AgentRunner + RunnerReport, JSON serialisable, exit 0/1/2). Pure static — no DB/SAP import |
 | **CLI `bdx-collect check`** | ✅ written | `check` (all agents), `check-docs`, `check-tests`, `check-quality`; each accepts `--json <path>` for a CI artifact; exit code 0 passed / 1 warned / 2 failed |
@@ -167,8 +167,8 @@ code quality) without needing a database or SAP.
 * **The tree is on `origin/main`.** Workflows, agents, scripts, integration tests, prompts and rules are in `a66b194`. The only commit after `cd6440f` is the DORA snapshot. Nothing from Sprint 004 is only local.
 * **DEV deploy runs on the self-hosted runner.** `deploy-dev.yml` does not read `DEV_SSH_*`. PROD still documents `PROD_SSH_*`.
 * **The Actions secret list was not readable** in this run (HTTP 403). Names the workflows still mention: `CURSOR_API_KEY` (triage and PR review, no-op without it), `PROD_SSH_*`, and the nightly SAP, Service Layer, and Postgres secrets. The nightly job fails in the ODBC install step, before those secrets are used.
-* **Repo settings read this run (2026-11-17 00:37 UTC+1):** environments `dev`, `prod`, and `CURSOR_API_KEY` have empty protection-rule lists. The `main` branch resource reports `protected: false`. Repository rulesets: length 0. The branch-protection endpoint returned HTTP 403.
-* **`pr-review.yml` starts zero jobs** because „Fetch PR diff“ has two `env` keys (latest run 43971963045, 2026-11-16 22:38 UTC, `751868c`).
+* **Repo settings read this run (2026-11-17 01:35 UTC+1):** environments `dev`, `prod`, and `CURSOR_API_KEY` have empty protection-rule lists. The `main` branch resource reports `protected: false`. Repository rulesets: length 0. The branch-protection endpoint and the Actions secret list returned HTTP 403.
+* **`pr-review.yml` starts zero jobs** because „Fetch PR diff“ has two `env` keys (latest run 43981049143, 2026-11-16 23:38 UTC, `1e3d1e5` on `sync/status-20261117`).
 * **Landing Sprint 004 in git is done.** Still open: the nightly ODBC install, the invalid PR-review workflow, reviewers and branch protection, and a lint-cleanup PR that Actions is not allowed to open.
 
 ## Operational status (DEV, verified 2026-11-07)
@@ -198,8 +198,8 @@ This probe is from 2026-11-07. Later commits added Alembic `003`–`008`. Succes
 | Item | Notes |
 |---|---|
 | **Nightly integration** | Last completed run 2026-11-16 10:44 UTC (43851477564) fails in „Install ODBC Driver 18“ and „Notify on failure“. Scheduled runs from 2026-11-12 through 2026-11-15 failed the same way. Pytest is not among the failed steps. |
-| **PR review workflow** | `pr-review.yml` has two `env` blocks on „Fetch PR diff“. Push run 43971963045 (2026-11-16 22:38 UTC, `751868c` on `sync/status-20261116`) finished with zero jobs. |
-| **`prod` reviewers and branch protection** | Environments `dev`, `prod`, and `CURSOR_API_KEY` have empty protection-rule lists (read 2026-11-17 00:37 UTC+1). The `main` branch resource reports `protected: false`. Rulesets length is 0. The protection endpoint and the Actions secret list returned HTTP 403. |
+| **PR review workflow** | `pr-review.yml` has two `env` blocks on „Fetch PR diff“. Push run 43981049143 (2026-11-16 23:38 UTC, `1e3d1e5` on `sync/status-20261117`) finished with zero jobs. |
+| **`prod` reviewers and branch protection** | Environments `dev`, `prod`, and `CURSOR_API_KEY` have empty protection-rule lists (read 2026-11-17 01:35 UTC+1). The `main` branch resource reports `protected: false`. Rulesets length is 0. The protection endpoint and the Actions secret list returned HTTP 403. |
 | **DORA weekly** | Cron `0 6 * * 1` created schedule run 43885095274 on 2026-11-16 at 14:22 UTC (finished 14:23 UTC, head `cd6440f`). The job committed `a66b194`. Snapshot: deploy frequency 0.77/day, cycle time median 0.6 h, MTTR median 244.5 min, change failure rate 34.8 %, CI flakiness 18.4 % (50/272), 12 merged PRs. No further Actions run is attached to `a66b194`. |
 | SQL login `bdx_readonly` on LDSAP | `create_bdx_readonly.sql` and `reset_bdx_readonly.sql` are on `main`. Commit `7d0fb2f` records that the login existed on 2026-11-07 and could not open `DEV_SBO_LEISINGER` (`DENY CONTROL` blocked CONNECT). Not re-checked against LDSAP in this run. |
 | Plaintext password in git | `docs/sql/reset_bdx_readonly.sql` contains a quoted password literal for the SQL login. It does not belong in the repo. This row does not repeat the value. |
@@ -210,7 +210,7 @@ This probe is from 2026-11-07. Later commits added Alembic `003`–`008`. Succes
 | Multi-company SAP, SSO/SCIM | TBD |
 | Machine `User`/operator and `LastProdEnd` are empty in the feed | needs MDE-side configuration |
 | Ruff cleanup branches | `origin/chore/ruff-cleanup-20261108` (`57411b2`) and `origin/chore/ruff-cleanup-20261115` (`1c46e17`, 2026-11-15 11:45 UTC) are each one commit ahead of their base and have no open PR. Run 43710438515 pushed the newer branch, then „Create trivial PR“ failed because Actions may not create pull requests. CI lint stays advisory. |
-| Open sync PRs | 169 open pull requests, all documentation. Highest number is 181. No product PR is open. This run opens `sync/status-20261117` and does not merge. |
+| Open sync PRs | 170 open pull requests, all documentation. Highest number is 182. No product PR is open. This run updates `sync/status-20261117` (PR #182) and does not merge. |
 
 ## Known Limitations
 
@@ -241,7 +241,7 @@ bdx-intelligence/
 │   └── cli/               # bdx-collect (incl. check / check-docs / check-tests / check-quality)
 ├── alembic/               # migrations 001–008
 ├── tests/                 # unit tests on SQLite; tests/integration/ skips without DEV creds.
-│                          # Docs CI 43971975010 (2026-11-16): 179 passed, 8 deselected, 74 % coverage
+│                          # Docs CI 43981065146 (2026-11-16): 179 passed, 8 deselected, 74 % coverage
 ├── scripts/               # ci_triage.py, pr_review.py, create_pr.py, dora_metrics.py
 ├── Dockerfile, docker-compose.yml
 ├── AGENTS.md              # canonical agent guide (SAP safety, invariants, workflow)
