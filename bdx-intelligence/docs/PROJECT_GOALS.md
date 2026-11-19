@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-19 13:36 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-19 13:37 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
