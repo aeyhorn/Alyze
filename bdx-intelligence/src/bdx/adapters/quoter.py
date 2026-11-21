@@ -262,3 +262,66 @@ def build_quoter_client(settings: QuoterSettings | None = None) -> QuoterClient:
     if not cfg.configured:
         return NullQuoterClient()
     return HttpQuoterClient(cfg)
+
+
+def build_quoter_work_url(
+    *,
+    settings: QuoterSettings,
+    datenraum: str,
+    offer_id: str,
+    return_url: str,
+    gap_id: str | None = None,
+    gap_title: str | None = None,
+    item_code: str | None = None,
+    qty: float | int | None = None,
+    kunde: str | None = None,
+) -> str:
+    """Build the BDX → Quoter Deep Link (``/work?...&return_url=...``).
+
+    See ``docs/QUOTER_DEEP_LINK.md``. Raises ``ValueError`` when the UI base,
+    datenraum, offer_id or return_url is missing.
+    """
+    from urllib.parse import urlencode
+
+    ui = settings.resolved_ui_url
+    if not ui:
+        raise ValueError("QUOTER_UI_URL / QUOTER_BASE_URL missing")
+    if not (datenraum or "").strip():
+        raise ValueError("datenraum required")
+    if not (offer_id or "").strip():
+        raise ValueError("offer_id required")
+    if not (return_url or "").strip():
+        raise ValueError("return_url required")
+
+    params: dict[str, str] = {
+        "datenraum": datenraum.strip(),
+        "offer_id": offer_id.strip(),
+        "return_url": return_url.strip(),
+    }
+    if gap_id:
+        params["gap_id"] = gap_id
+    if gap_title:
+        params["gap_title"] = gap_title
+    if item_code:
+        params["item_code"] = item_code
+    if qty is not None:
+        params["qty"] = str(qty)
+    if kunde:
+        params["kunde"] = kunde
+    return f"{ui}/work?{urlencode(params)}"
+
+
+def build_promise_return_url(
+    *,
+    promise_origin: str,
+    offer_id: str,
+    gap_id: str | None = None,
+) -> str:
+    """Absolute Promise-UI URL used as ``return_url`` for the Quoter Deep Link."""
+    from urllib.parse import urlencode
+
+    origin = promise_origin.rstrip("/")
+    query = {"offer": offer_id}
+    if gap_id:
+        query["gap"] = gap_id
+    return f"{origin}/promise?{urlencode(query)}"

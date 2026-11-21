@@ -278,23 +278,24 @@ def test_machine_utilization_with_calendar(asession):
     from bdx.analytics.kpis import compute_machine_utilization
 
     _add_machine(asession, "MAZAK-02")
-    # Add 8 h shift on today's weekday
-    today_wd = datetime.now(UTC).weekday()
-    asession.add(ShiftCalendar(
-        machine_id=None,
-        weekday=today_wd,
-        shift_start="06:00",
-        shift_end="14:00",  # 8 h shift
-        valid_from="2000-01-01",
-    ))
-    # 4 h running in last 24 h (entirely within today's shift)
+    # Seed every weekday so planned_s > 0 regardless of UTC wall-clock
+    # (a single "today" row is empty before 06:00 UTC and flakes in CI nights).
+    for wd in range(7):
+        asession.add(ShiftCalendar(
+            machine_id=None,
+            weekday=wd,
+            shift_start="06:00",
+            shift_end="14:00",  # 8 h shift
+            valid_from="2000-01-01",
+        ))
+    # 4 h running in last 24 h
     _add_history(asession, "MAZAK-02", "running", 4 * 3600, offset_hours=2)
     asession.commit()
 
     results = compute_machine_utilization(asession, window_hours=24)
     machine_r = next((r for r in results if r.dimension == "machine" and r.dimension_value == "MAZAK-02"), None)
     assert machine_r is not None
-    # 4h / (≤8h) = 50% or more depending on overlap
+    # 4h over planned shift overlap in the window
     assert machine_r.value >= 0.0
 
 
