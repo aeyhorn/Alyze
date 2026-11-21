@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-21 07:30 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-21 08:20 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -17,7 +17,7 @@
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht bzw. CONNECT war eingeschränkt.
+- **Stand:** Skripte `create_bdx_readonly.sql` / `reset_bdx_readonly.sql` + Automatisierung `scripts/Fix-DevSapAccess.ps1` (R006). Login/CONNECT auf LDSAP war zuletzt fehlgeschlagen (Dashboard-Stand eingefroren); Reset muss einmal als Windows-Admin gegen LDSAP laufen.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host

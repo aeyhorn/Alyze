@@ -11,7 +11,8 @@ Offene Punkte, die schon in `docs/PROJECT_GOALS.md` stehen, werden hier nicht wi
 | R003 | cloud | 2026-11-21 | G10 | done | Quoter Deep-Link mit `QUOTER_UI_URL`/`return_url` in Promise-API und Promise-UI (Im Quoter klären / Return→Recompute). |
 | R004 | cloud | 2026-11-21 | G4 | done | Analytics nutzbarer machen: zeitstabiler Kalender-Test und CLI `seed-shift-calendar` für geplante Schichten. |
 | R005 | cloud | 2026-11-21 | G6 | open | Auf dem DEV-Host Alembic auf head (`008`), `grant_q2p_readonly.sql` und `QUOTER_ENABLED=true` bestätigen. |
+| R006 | cloud | 2026-11-21 | G5 | done | Host-Skript für SAP-Login-Reset + `collect --once`: `scripts/Fix-DevSapAccess.ps1` (SQL+Collector) und `scripts/fix-dev-sap-access.sh` (nur Collector). |
 
 Quellen: `desktop` oder `cloud`. Status: `open`, `in-progress`, `done`.
 
-Nächste freie ID: `R006`.
+Nächste freie ID: `R007`.
