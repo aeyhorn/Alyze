@@ -11,6 +11,7 @@ from bdx.adapters.bde import NullBDEAdapter, ScadaTelemetryBDEAdapter, telemetry
 from bdx.config import MqttSettings
 from bdx.models.events import DomainEvent
 from bdx.publish.base import NullPublisher, event_to_message
+from bdx.publish import RecordingPublisher, build_all_publishers
 from bdx.publish.mqtt import MqttPublisher, build_publisher
 
 T0 = datetime(2026, 11, 7, 8, 0, tzinfo=timezone.utc)
@@ -102,6 +103,18 @@ class TestPublisher:
     def test_null_publisher(self):
         p = NullPublisher()
         assert p.publish([_event()]) == 0 and p.health_check() is True
+
+    def test_recording_publisher(self):
+        p = RecordingPublisher()
+        ev = _event()
+        assert p.publish([ev]) == 1
+        assert p.published == [ev]
+        assert p.name == "recording"
+        p.clear()
+        assert p.published == []
+
+    def test_build_all_publishers_null_by_default(self):
+        assert isinstance(build_all_publishers(), NullPublisher)
 
     def test_build_publisher_disabled_by_default(self):
         assert isinstance(build_publisher(MqttSettings(enabled=False, host="")), NullPublisher)

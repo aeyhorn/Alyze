@@ -47,3 +47,20 @@ class NullPublisher(EventPublisher):
 
     def publish(self, events: Iterable[DomainEvent]) -> int:
         return 0
+
+
+class RecordingPublisher(EventPublisher):
+    """In-memory publisher for local checks and unit tests (no broker)."""
+
+    name = "recording"
+
+    def __init__(self) -> None:
+        self.published: list[DomainEvent] = []
+
+    def publish(self, events: Iterable[DomainEvent]) -> int:
+        batch = list(events)
+        self.published.extend(batch)
+        return len(batch)
+
+    def clear(self) -> None:
+        self.published.clear()

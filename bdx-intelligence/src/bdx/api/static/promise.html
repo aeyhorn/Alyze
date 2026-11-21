@@ -157,6 +157,7 @@
       <div style="display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:14px">
         <div>
           <h2 style="margin-top:0">Gaps</h2>
+          <div id="quoter-bar" class="actions" style="margin-bottom:8px"></div>
           <div id="gaps"></div>
           <h2>Evidence</h2>
           <div id="evidence" class="scroll" style="max-height:220px"></div>
@@ -270,13 +271,26 @@ function renderDetail() {
       ${g.detail?`<div class="m">${g.detail}</div>`:''}
       ${g.status==='open'||g.status==='in_progress'?`
         <div class="actions">
+          ${(g.gap_type==='technik'||g.gap_type==='kalkulation'||g.source_agent==='quote')
+            ? `<button data-quoter="${g.id}">Im Quoter klären</button>` : ''}
           <button data-resolve="${g.id}">Erledigt</button>
           <button data-waive="${g.id}">Waive</button>
         </div>`:''}
     </div>`).join('') : '<div class="empty">Keine Gaps</div>';
 
+  const quoterBar = document.getElementById('quoter-bar');
+  if (quoterBar) {
+    quoterBar.innerHTML = o.datenraum
+      ? `<button id="btn-quoter-offer">Im Quoter öffnen</button>
+         <span class="m" id="quoter-toast"></span>`
+      : `<span class="m">Kein Datenraum – Quoter-Deep-Link nicht verfügbar</span>`;
+    const btnOffer = document.getElementById('btn-quoter-offer');
+    if (btnOffer) btnOffer.onclick = () => openQuoter();
+  }
+
   document.getElementById('gaps').querySelectorAll('[data-resolve]').forEach(b => b.onclick = () => resolveGap(b.dataset.resolve, false));
   document.getElementById('gaps').querySelectorAll('[data-waive]').forEach(b => b.onclick = () => resolveGap(b.dataset.waive, true));
+  document.getElementById('gaps').querySelectorAll('[data-quoter]').forEach(b => b.onclick = () => openQuoter(b.dataset.quoter));
 
   const ev = o.evidence || [];
   document.getElementById('evidence').innerHTML = ev.length ? ev.slice(0,40).map(e =>
@@ -305,6 +319,64 @@ async function resolveGap(id, waive) {
     method:'POST', body: JSON.stringify({ resolution_note: note, waive })
   });
   await selectOffer(current.id);
+}
+
+async function openQuoter(gapId) {
+  if (!current) return;
+  const toast = document.getElementById('quoter-toast');
+  try {
+    const body = {
+      promise_origin: window.location.origin,
+      gap_id: gapId || null,
+    };
+    const link = await api(`/promise/offers/${current.id}/quoter-link`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    if (!link.enabled || !link.url) {
+      if (toast) toast.textContent = link.detail || 'Quoter-Link nicht verfügbar';
+      else alert(link.detail || 'Quoter-Link nicht verfügbar');
+      return;
+    }
+    window.open(link.url, '_blank', 'noopener');
+  } catch (e) {
+    if (toast) toast.textContent = e.message;
+    else alert(e.message);
+  }
+}
+
+async function handleQuoterReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('quoter_return') !== '1') {
+    const offerId = params.get('offer');
+    if (offerId) await selectOffer(offerId);
+    return;
+  }
+  const offerId = params.get('offer_id') || params.get('offer');
+  const status = params.get('quoter_status') || 'saved';
+  if (!offerId) return;
+  await selectOffer(offerId);
+  const toast = document.getElementById('quoter-toast');
+  if (status === 'cancelled') {
+    if (toast) toast.textContent = 'Quoter abgebrochen – Akte unverändert';
+    return;
+  }
+  try {
+    current = await api(`/promise/offers/${offerId}/recompute`, { method:'POST', body:'{}' });
+    renderDetail();
+    await loadList();
+    if (toast) toast.textContent = 'Quoter-Stand übernommen';
+  } catch (e) {
+    if (toast) toast.textContent = e.message;
+  }
+  // Drop one-shot return flags from the URL without reloading.
+  params.delete('quoter_return');
+  params.delete('quoter_status');
+  params.delete('offer_id');
+  params.delete('gap_id');
+  if (!params.get('offer') && offerId) params.set('offer', offerId);
+  const qs = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
 }
 
 document.getElementById('btn-create').onclick = async () => {
@@ -356,7 +428,7 @@ document.getElementById('btn-refresh').onclick = loadList;
 document.getElementById('filter-status').onchange = loadList;
 
 refreshHealth();
-loadList();
+loadList().then(() => handleQuoterReturn());
 </script>
 </body>
 </html>

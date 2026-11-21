@@ -172,10 +172,13 @@ domain checks in parallel (SAP live + PG machine/order state):
 | pricing | **bdx-quoter** (Datenraum) else ITM1/OPLN | Kalkulation / Listenpreis |
 | personnel | *gap* → open question | Schicht / Qualifikation (noch Mensch) |
 
-**bdx-quoter** (Docker `:8020`): optional `QUOTER_*` settings; adapter
+**bdx-quoter** (Docker `:8020`): optional `QUOTER_*` settings (`QUOTER_ENABLED`,
+`QUOTER_BASE_URL`, `QUOTER_UI_URL`, `QUOTER_API_KEY`, `QUOTER_TIMEOUT_SECONDS`,
+`QUOTER_HEALTH_PATH`, `QUOTER_RUN_PATH`, `QUOTER_PROJEKT_PATH`); adapter
 `src/bdx/adapters/quoter.py`. Inquiry fields `datenraum` / `kunde` / `use_llm`
-trigger a quote; quoter `offen[]` becomes Q2P `open_questions`. See
-[Q2P_QUOTER.md](Q2P_QUOTER.md).
+trigger a quote; quoter `offen[]` becomes Q2P `open_questions`. Promise-UI Deep
+Link: `POST /api/v1/promise/offers/{id}/quoter-link` builds `/work?…&return_url=…`
+(see [QUOTER_DEEP_LINK.md](QUOTER_DEEP_LINK.md), [Q2P_QUOTER.md](Q2P_QUOTER.md)).
 
 Missing SELECT grants degrade the domain to `unknown` + an explicit `open_questions` entry
 instead of failing the whole evaluation. `bdx-collect serve` attaches the SAP engine so the
@@ -190,7 +193,8 @@ bdx-collect report [--all] [-s P|R|L|C]   # orders from order_state (open by def
 bdx-collect events [-t TYPE] [-m MACHINE]  # recent domain events
 bdx-collect machines [--live]              # machine state (optionally one live cycle first)
 bdx-collect runs                           # collector runs
-bdx-collect diagnose                       # PG, SAP, XMSK, SCADA, MQTT
+bdx-collect diagnose                       # PG, SAP, XMSK, SCADA, MQTT/Kafka, schema
+bdx-collect seed-shift-calendar            # global Mon–Fri shifts for utilization KPIs
 bdx-collect collect [--once] [--full]      # collector loop (SAP + machines)
 bdx-collect serve                          # API + dashboard
 ```
