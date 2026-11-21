@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-21 07:30 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-21 07:40 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,14 +10,14 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Sprint-004-Baum liegt auf `origin/main`. Analytics-Kalendertest ist zeitstabil (R004); Branch Protection / `prod`-Reviewer und Nightly ODBC bleiben offen.
+- **Stand:** Sprint-004-Baum liegt auf `origin/main` (`dba9183`). CI-Lauf `44876377779` ist grün; Coverage-Gate ist `--cov-fail-under=68`, ruff und mypy bleiben `continue-on-error`. Nightly `44723784538` (2026-11-20) scheitert bei „Install ODBC Driver 18“. Branch-Protection-API war HTTP 403, Rulesets leer, Environment `prod` ohne Protection Rules. R004 ist auf `main`.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` ist fertig. Der Login existiert auf LDSAP noch nicht bzw. CONNECT war eingeschränkt.
+- **Stand:** Skript `docs/sql/create_bdx_readonly.sql` liegt im Repo. Commit `7d0fb2f` (2026-11-07) hält fest, dass `DENY CONTROL` CONNECT blockierte. Dieser Lauf hat LDSAP nicht abgefragt; der Login gilt weder als fehlend noch als funktionsfähig.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
@@ -25,7 +25,7 @@
 - **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
 - **Abhängigkeit:** G5 ist nicht mehr Voraussetzung für den laufenden DEV-Deploy.
-- **Stand:** DEV-Deploy war grün (2026-11-10). Offen laut R005: Schema head `008`, Q2P-Grants, Quoter ENABLED auf dem Host.
+- **Stand:** DEV-Deploy von `dba9183` ist grün (Lauf `44876377782`, Image-Build und Schritt „Deploy + smoke test“). `.runtime/last-deploy-sha` auf `main` steht weiter auf `6ccc036` (2026-11-07 21:50 +01:00) und hinkt Actions hinterher. Offen laut R005: Schema head `008`, Q2P-Grants, Quoter ENABLED auf dem Host. Die Host-`.env` wurde nicht gelesen.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
@@ -46,7 +46,7 @@
 
 - **Status:** in Arbeit (BDX-Seite geliefert)
 - **Ziel:** Aus der Promise-Akte fehlende Technik/Kalkulation im Quoter klären und mit `return_url` zurückkehren → Recompute.
-- **Stand:** R003: `QUOTER_UI_URL`, `build_quoter_work_url`, API `POST …/quoter-link`, Promise-UI Buttons + Return-Handling. Quoter-Repo muss `/work` und Fertig-Redirect noch liefern (siehe `docs/QUOTER_DEEP_LINK.md`).
+- **Stand:** Auf `origin/main` (#188, R003): `QUOTER_UI_URL`, `build_quoter_work_url`, API `POST …/quoter-link`, Promise-UI Buttons + Return-Handling. Quoter-Repo muss `/work` und Fertig-Redirect noch liefern (siehe `docs/QUOTER_DEEP_LINK.md`).
 - **Akzeptanz:** Gap „Im Quoter klären“ öffnet Deep Link; nach Save kehrt der Browser zur Akte zurück und Gaps/Evidence aktualisieren sich.
 
 ## Erledigt
