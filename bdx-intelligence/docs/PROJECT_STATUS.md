@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-21 07:30 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-21 08:20 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -193,7 +193,7 @@ Cloud-Anforderungen R001–R004 im Code geliefert (Branch `cursor/data-use-requi
 | **R005 DEV host enablement** | `alembic upgrade head` → `008`; run `docs/sql/grant_q2p_readonly.sql`; set `QUOTER_ENABLED=true` + `QUOTER_BASE_URL`; optional `bdx-collect seed-shift-calendar` |
 | **Commit + merge Sprint 004** | Sprint-004 tree is on `origin/main`; remaining: branch protection, `prod` reviewers, nightly ODBC |
 | **Configure repo secrets + environments** | `CURSOR_API_KEY`, `DEV_SSH_*`, `PROD_SSH_*`, `SAP_DB_*`, `SL_*`, `POSTGRES_DSN`; `prod` env with required reviewers; branch protection requiring `ci.yml` |
-| SQL login `bdx_readonly` on LDSAP | script ready in `docs/sql/create_bdx_readonly.sql` (run as sysadmin); prerequisite for container deployment |
+| SQL login `bdx_readonly` on LDSAP | Reset/collect via `scripts/Fix-DevSapAccess.ps1` (Windows admin + Docker context `remote-prod`). Template: `docs/sql/reset_bdx_readonly.sql` (no password in git). Host-only collect: `scripts/fix-dev-sap-access.sh`. |
 | Deploy `docker-compose.yml` on 192.168.82.33 | after the SQL login exists; PG is already there |
 | MQTT / Kafka broker | set `MQTT_ENABLED=true`+`MQTT_HOST` or `KAFKA_ENABLED=true`+`KAFKA_BOOTSTRAP_SERVERS`; `pip install -e .[mqtt]` / `.[kafka]` |
 | Run collector against PROD | read-only; but **needs a separate PG database** (or mode-prefixed `source_key`) to avoid mixing DEV/PROD data in `order_state`. Currently only single-order probes done |

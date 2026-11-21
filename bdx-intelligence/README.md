@@ -116,6 +116,14 @@ docker compose --env-file .env up -d --build
 
 Requires a SQL login (`SAP_DB_TRUSTED_CONNECTION=no`) – Windows integrated auth is not available in Linux containers.
 
+If the Dashboard `Stand` is stale and diagnose shows SAP login failed for `DEV_SBO_LEISINGER`, run from a Windows admin PC in the LAN:
+
+```powershell
+pwsh ./scripts/Fix-DevSapAccess.ps1
+```
+
+That resets `bdx_readonly` on LDSAP (password from `.env`) and runs `collect --once` on the DEV host via Docker context `remote-prod`. Collector-only on the host: `bash scripts/fix-dev-sap-access.sh`.
+
 ---
 
 ## Running Tests
