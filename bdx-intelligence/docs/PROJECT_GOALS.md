@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-21 07:12 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-21 07:34 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`a66b194`, 2026-11-16 14:23 UTC). Der einzige Commit seit `cd6440f` ist der DORA-Snapshot. CI (Run 42768023614) und der DEV-Deploy (Run 42768023481) von `cd6440f` sind grün. An `a66b194` hängt kein Produkt-CI-/Deploy-Lauf. Docs-CI auf Sync-Spitzen scheitert weiter an `test_machine_utilization_with_calendar` (zuletzt Run 44871642825 auf `1195682`). Environments ohne Protection Rules; `main` ohne Branch Protection. Abgleich 2026-11-21 07:12 UTC+1.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`a66b194`, 2026-11-16 14:23 UTC). Der einzige Commit seit `cd6440f` ist der DORA-Snapshot. CI (Run 42768023614) und der DEV-Deploy (Run 42768023481) von `cd6440f` sind grün. An `a66b194` hängt kein Produkt-CI-/Deploy-Lauf. Docs-CI auf `b2abaff` (Run 44874580557, aktualisiert 2026-11-21 06:15:05 UTC) ist grün: 179 passed, 8 deselected, 1 warning in 5,64 s, 1 545 missed, 73,95 %, Gate 68 % erreicht. Der vorherige grüne Docs-CI bleibt Run 44838149396 auf `216e259`. Dazwischen ist Run 44871642825 auf `1195682` rot, nur `test_machine_utilization_with_calendar`. Environments ohne Protection Rules; `main` ohne Branch Protection. Abgleich 2026-11-21 07:34 UTC+1.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`. Der Baum auf `main` ist erfüllt. Secrets, Reviewer und der Pflichtcheck sind in diesem Lauf offen: die Secret-Liste antwortet mit HTTP 403, Protection Rules sind leer.
 
 ### G5 – SQL-Login `bdx_readonly`
