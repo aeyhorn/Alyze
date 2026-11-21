@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-21 08:20 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-21 08:28 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Sprint-004-Baum liegt auf `origin/main`. Analytics-Kalendertest ist zeitstabil (R004); Branch Protection / `prod`-Reviewer und Nightly ODBC bleiben offen.
+- **Stand:** Sprint-004-Baum liegt auf `origin/main` (`71e8726`, inkl. #190). CI dafür ist grün; ruff und mypy bleiben advisory, das Coverage-Gate liegt bei 68. Branch-Protection-API liefert HTTP 403, Rulesets sind leer, `prod` hat keine Protection Rules. Nightly scheitert weiter bei „Install ODBC Driver 18“ (2026-11-20, pytest startet nicht).
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
@@ -25,7 +25,7 @@
 - **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
 - **Abhängigkeit:** G5 ist nicht mehr Voraussetzung für den laufenden DEV-Deploy.
-- **Stand:** DEV-Deploy war grün (2026-11-10). Offen laut R005: Schema head `008`, Q2P-Grants, Quoter ENABLED auf dem Host.
+- **Stand:** Deploy to DEV für `71e8726` ist grün (Image, `alembic upgrade head`, `/health/live`). `.runtime/last-deploy-sha` auf `main` bleibt `6ccc036` und hinkt Actions hinterher. R005 bleibt offen: Q2P-Grants und Quoter ENABLED sind nicht bestätigt; der Schema-Lauf wurde nicht am Host nachgelesen. Host-Umgebung wurde hier nicht gelesen.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
@@ -67,7 +67,7 @@
 
 - **Status:** erledigt als Code (Sprint 003). Broker und Deploy sind G6 und G7.
 - **Ziel:** Events publizieren, Dashboard, Service-Layer-Write-back mit Audit.
-- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator `SL_DRY_RUN` in der echten `.env` setzt. Committete Dateien setzen das Flag nie auf `false`.
+- **Akzeptanz:** Code und DRY_RUN-Prüfung auf DEV sind da. Echte SL-Schreibvorgänge bleiben aus, bis ein Operator das Flag in der echten Host-Umgebung setzt. `.env.example` schaltet Schreibvorgänge derzeit frei; dieser Lauf ändert die Beispieldatei nicht.
 
 ## Geparkt
 
