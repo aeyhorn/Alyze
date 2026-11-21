@@ -51,6 +51,13 @@ def health(
     else:
         checks["quoter"] = "disabled"
 
+    checks["schema"] = _schema_revision(pg_session) if pg_ok else {"status": "unknown"}
+    checks["prod_isolation"] = _prod_isolation_status()
+
+    publisher_name = type(publisher).__name__ if publisher is not None else "None"
+    if publisher is not None:
+        checks["publisher_name"] = getattr(publisher, "name", publisher_name)
+
     status = "ok" if (pg_ok and collector.get("status") in ("ok", "unknown", "empty")) else "degraded"
     return {
         "status": status,
@@ -107,3 +114,45 @@ def _safe(fn) -> bool:  # noqa: ANN001
         return bool(fn())
     except Exception:
         return False
+
+
+def _schema_revision(session: Session) -> dict:
+    """Report Alembic ``version_num`` so operators can see if migrations 005–008 landed."""
+    try:
+        from sqlalchemy import text
+
+        row = session.execute(text("SELECT version_num FROM alembic_version")).first()
+        if not row:
+            return {"status": "empty", "revision": None}
+        revision = row[0]
+        return {
+            "status": "ok",
+            "revision": revision,
+            "head_expected": "008",
+            "at_head": str(revision).startswith("008") or revision == "008",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "error": str(exc)}
+
+
+def _prod_isolation_status() -> dict:
+    """Warn when SAP_MODE=prod would share the DEV event store."""
+    import os
+
+    from bdx.config import PostgresSettings
+
+    mode = (os.environ.get("SAP_MODE") or "dev").lower()
+    settings = PostgresSettings()
+    has_prod_dsn = bool(settings.postgres_dsn_prod)
+    if mode == "prod" and not has_prod_dsn:
+        return {
+            "status": "warn",
+            "sap_mode": mode,
+            "postgres_dsn_prod": False,
+            "detail": "SAP_MODE=prod without POSTGRES_DSN_PROD – DEV/PROD data would mix",
+        }
+    return {
+        "status": "ok",
+        "sap_mode": mode,
+        "postgres_dsn_prod": has_prod_dsn,
+    }

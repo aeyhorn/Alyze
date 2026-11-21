@@ -1,6 +1,6 @@
 ﻿# BDX Intelligence – Project Status
 
-> **Zuletzt aktualisiert:** 2026-11-09 14:50 (UTC+1)
+> **Zuletzt aktualisiert:** 2026-11-21 07:30 (UTC+1)
 > _Diese Zeile muss bei jeder Bearbeitung dieses Dokuments auf das aktuelle Datum + Uhrzeit gesetzt werden (siehe `AGENTS.md`, Abschnitt „Dokumentation“)._
 
 | Sprint | Scope | Status |
@@ -103,7 +103,7 @@ set `QUOTER_ENABLED=true` + `QUOTER_BASE_URL=http://<docker-host>:8020`; open `h
 | API `/api/v1/promise/*` + `/api/v1/portal/{token}` | ✅ | portal is token-scoped, no API key |
 | UI `/promise` + `/portal/{token}` | ✅ | |
 | Vision doc | ✅ | `docs/VISION_PROMISE_PLATFORM.md` |
-| Quoter Deep Link Contract | 📝 spezifiziert | Entscheidung: Deep Link + `return_url`; Spec/Prompt: `docs/QUOTER_DEEP_LINK.md` (Quoter-Implementierung + BDX-UI folgen) |
+| Quoter Deep Link Contract | 🟡 BDX geliefert | Spec: `docs/QUOTER_DEEP_LINK.md`. BDX: `QUOTER_UI_URL`, `POST /api/v1/promise/offers/{id}/quoter-link`, Promise-UI „Im Quoter klären“ + Return→Recompute (R003/G10). Quoter `/work` + Fertig-Redirect noch offen. |
 
 **Deploy notes**: `alembic upgrade head` (`007`+`008`); open `/promise`; publish contract then share portal link.
 
@@ -176,11 +176,22 @@ code quality) without needing a database or SAP.
 * XMSK `Order` is not always a DocNum: *QT350MY* reports `10886/NEU` (free text = item + variant). Such references are kept raw (`order_ref`) and not linked.
 * `MDE='0'` machines (*SQT250 MSY*) have no data acquisition → state `unknown`.
 
+## Data use (2026-11-21)
+
+Cloud-Anforderungen R001–R004 im Code geliefert (Branch `cursor/data-use-requirements-f097`):
+
+- Health/Diagnose: Alembic-Revision + Warnung `SAP_MODE=prod` ohne `POSTGRES_DSN_PROD`
+- `RecordingPublisher` + Publisher-Exports; Diagnose nutzt MQTT/Kafka
+- Quoter Deep-Link (API + Promise-UI); `QUOTER_UI_URL` in `.env.example`
+- Analytics: stabiler Kalender-Test; CLI `bdx-collect seed-shift-calendar`
+- Offen host-seitig: R005 (Schema `008`, Q2P-Grants, Quoter ENABLED), Broker (G7), PROD-PG (G8)
+
 ## Open items / next steps
 
 | Item | Notes |
 |---|---|
-| **Commit + merge Sprint 004** | everything is built but untracked/uncommitted; first PR touches `pyproject.toml` → CODEOWNER review (not auto-mergeable) |
+| **R005 DEV host enablement** | `alembic upgrade head` → `008`; run `docs/sql/grant_q2p_readonly.sql`; set `QUOTER_ENABLED=true` + `QUOTER_BASE_URL`; optional `bdx-collect seed-shift-calendar` |
+| **Commit + merge Sprint 004** | Sprint-004 tree is on `origin/main`; remaining: branch protection, `prod` reviewers, nightly ODBC |
 | **Configure repo secrets + environments** | `CURSOR_API_KEY`, `DEV_SSH_*`, `PROD_SSH_*`, `SAP_DB_*`, `SL_*`, `POSTGRES_DSN`; `prod` env with required reviewers; branch protection requiring `ci.yml` |
 | SQL login `bdx_readonly` on LDSAP | script ready in `docs/sql/create_bdx_readonly.sql` (run as sysadmin); prerequisite for container deployment |
 | Deploy `docker-compose.yml` on 192.168.82.33 | after the SQL login exists; PG is already there |

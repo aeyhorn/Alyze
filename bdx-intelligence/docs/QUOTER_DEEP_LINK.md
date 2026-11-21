@@ -197,11 +197,14 @@ Verschwinden auf Gap-Resolve über Fingerprint/`title`.
 
 Nicht Teil der Quoter-Implementierung, aber Vertragspartner:
 
-- Env: `QUOTER_UI_URL` (neu), weiterhin `QUOTER_BASE_URL` für API.
-- Promise-UI: Button an Gaps `gap_type` ∈ {`technik`,`kalkulation`} bzw. Inputs
-  der Prozessgräte mit `source_agent=quote`.
-- Vor dem Öffnen: optional AgentJob `in_progress` markieren.
-- Bei Return: Recompute + Toast „Quoter-Stand übernommen“.
+- Env: `QUOTER_UI_URL` (neu), weiterhin `QUOTER_BASE_URL` für API. ✅
+- Helper `build_quoter_work_url` / `build_promise_return_url` + API
+  `POST /api/v1/promise/offers/{id}/quoter-link`. ✅
+- Promise-UI: Button an Gaps `gap_type` ∈ {`technik`,`kalkulation`} bzw.
+  `source_agent=quote`, plus „Im Quoter öffnen“. ✅
+- Bei Return (`quoter_return=1`): Recompute + Toast „Quoter-Stand übernommen“. ✅
+- Vor dem Öffnen: optional AgentJob `in_progress` markieren (noch offen).
+- Quoter-Repo: `/work` + Fertig-Redirect (Abschnitt 8) noch offen.
 
 ---
 

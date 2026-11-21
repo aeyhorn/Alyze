@@ -349,20 +349,59 @@ def diagnose(
     except Exception as exc:
         console.print(f"   [red]✗ Failed: {exc}[/red]")
 
-    # MQTT
-    console.print("\n[bold]5. Event publisher (MQTT)[/bold]")
+    # Event publishers (MQTT / Kafka)
+    console.print("\n[bold]5. Event publisher (MQTT / Kafka)[/bold]")
     try:
-        from bdx.config import load_mqtt_settings
-        from bdx.publish.mqtt import build_publisher
+        from bdx.config import load_kafka_settings, load_mqtt_settings
+        from bdx.publish.mqtt import build_all_publishers
 
-        q_cfg = load_mqtt_settings()
-        if not (q_cfg.enabled and q_cfg.host):
-            console.print("   [dim]disabled (MQTT_ENABLED=false or no MQTT_HOST)[/dim]")
+        mqtt_cfg = load_mqtt_settings()
+        kafka_cfg = load_kafka_settings()
+        mqtt_on = bool(mqtt_cfg.enabled and mqtt_cfg.host)
+        kafka_on = bool(getattr(kafka_cfg, "configured", False))
+        if not mqtt_on and not kafka_on:
+            console.print("   [dim]disabled (no MQTT_HOST / KAFKA_BOOTSTRAP_SERVERS)[/dim]")
         else:
-            pub = build_publisher(q_cfg)
+            pub = build_all_publishers()
             ok = pub.health_check()
-            console.print(f"   [green]✓ Connected to {q_cfg.host}:{q_cfg.port}[/green]" if ok else "   [red]✗ Unreachable[/red]")
+            label = getattr(pub, "name", type(pub).__name__)
+            console.print(
+                f"   [green]✓ {label} healthy[/green]" if ok else f"   [red]✗ {label} unhealthy[/red]"
+            )
+            if mqtt_on:
+                console.print(f"   MQTT: {mqtt_cfg.host}:{mqtt_cfg.port}")
+            if kafka_on:
+                console.print(f"   Kafka: {kafka_cfg.bootstrap_servers}")
             pub.close()
+    except Exception as exc:
+        console.print(f"   [red]✗ Failed: {exc}[/red]")
+
+    # Schema + PROD isolation
+    console.print("\n[bold]6. Schema & PROD isolation[/bold]")
+    try:
+        import os
+
+        from sqlalchemy import text
+
+        from bdx.config import PostgresSettings
+
+        session = _get_pg_session()
+        row = session.execute(text("SELECT version_num FROM alembic_version")).first()
+        revision = row[0] if row else None
+        console.print(f"   Alembic revision: {revision or '—'}")
+        if revision and not str(revision).startswith("008"):
+            console.print("   [yellow]! Expected head 008 (analytics/promise/q2p)[/yellow]")
+        mode = (os.environ.get("SAP_MODE") or "dev").lower()
+        pg = PostgresSettings()
+        if mode == "prod" and not pg.postgres_dsn_prod:
+            console.print(
+                "   [yellow]! SAP_MODE=prod without POSTGRES_DSN_PROD – DEV/PROD would mix[/yellow]"
+            )
+        else:
+            console.print(
+                f"   SAP_MODE={mode}  POSTGRES_DSN_PROD={'set' if pg.postgres_dsn_prod else 'empty'}"
+            )
+        session.close()
     except Exception as exc:
         console.print(f"   [red]✗ Failed: {exc}[/red]")
 
@@ -559,6 +598,66 @@ def serve(
         port=port or cfg.api_port,
         log_level="info",
     )
+
+
+@app.command("seed-shift-calendar")
+def seed_shift_calendar(
+    start: str = typer.Option("06:00", "--start", help="Shift start HH:MM"),
+    end: str = typer.Option("14:00", "--end", help="Shift end HH:MM"),
+    weekdays: str = typer.Option(
+        "0,1,2,3,4",
+        "--weekdays",
+        help="Comma-separated Python weekdays (0=Mon … 6=Sun)",
+    ),
+    replace: bool = typer.Option(
+        False,
+        "--replace",
+        help="Delete existing global (machine_id IS NULL) rows before insert",
+    ),
+):
+    """Seed a global Mon–Fri shift calendar so utilization KPIs have planned time."""
+    from sqlalchemy import delete, select
+
+    from bdx.models.analytics import ShiftCalendar
+
+    wd_list = [int(x.strip()) for x in weekdays.split(",") if x.strip() != ""]
+    for wd in wd_list:
+        if wd < 0 or wd > 6:
+            raise typer.BadParameter(f"weekday out of range: {wd}")
+
+    session = _get_pg_session()
+    try:
+        if replace:
+            session.execute(
+                delete(ShiftCalendar).where(ShiftCalendar.machine_id.is_(None))
+            )
+        existing = {
+            row.weekday
+            for row in session.execute(
+                select(ShiftCalendar).where(ShiftCalendar.machine_id.is_(None))
+            ).scalars()
+        }
+        added = 0
+        for wd in wd_list:
+            if wd in existing and not replace:
+                continue
+            session.add(
+                ShiftCalendar(
+                    machine_id=None,
+                    weekday=wd,
+                    shift_start=start,
+                    shift_end=end,
+                    valid_from="2000-01-01",
+                )
+            )
+            added += 1
+        session.commit()
+        console.print(
+            f"[green]Shift calendar seeded[/green]: +{added} rows "
+            f"(weekdays={wd_list}, {start}–{end}, replace={replace})"
+        )
+    finally:
+        session.close()
 
 
 # ── Quality-gate agents ─────────────────────────────────────────────────────

@@ -12,7 +12,14 @@ from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("POSTGRES_DSN", "sqlite:///:memory:")
 
-from bdx.adapters.quoter import HttpQuoterClient, NullQuoterClient, QuoterQuote, _normalise
+from bdx.adapters.quoter import (
+    HttpQuoterClient,
+    NullQuoterClient,
+    QuoterQuote,
+    _normalise,
+    build_promise_return_url,
+    build_quoter_work_url,
+)
 from bdx.config import QuoterSettings
 from bdx.db.postgres import Base
 from bdx.models.events import MachineState
@@ -133,3 +140,42 @@ def test_null_quoter():
     n = NullQuoterClient()
     assert n.health() is False
     assert n.quote(datenraum="/x").ok is False
+
+
+def test_resolved_ui_url_falls_back_to_base_origin():
+    s = QuoterSettings(enabled=True, base_url="http://192.168.82.33:8020/api", ui_url="")
+    assert s.resolved_ui_url == "http://192.168.82.33:8020"
+    s2 = QuoterSettings(enabled=True, base_url="http://x:8020", ui_url="http://ui:8020/")
+    assert s2.resolved_ui_url == "http://ui:8020"
+
+
+def test_build_quoter_work_url():
+    settings = QuoterSettings(enabled=True, base_url="http://192.168.82.33:8020")
+    return_url = build_promise_return_url(
+        promise_origin="http://192.168.82.33:8085",
+        offer_id="offer-1",
+        gap_id="gap-9",
+    )
+    assert return_url == "http://192.168.82.33:8085/promise?offer=offer-1&gap=gap-9"
+    url = build_quoter_work_url(
+        settings=settings,
+        datenraum="/data/proj",
+        offer_id="offer-1",
+        return_url=return_url,
+        gap_id="gap-9",
+        gap_title="Prüfplan fehlt",
+        item_code="WN-1",
+        qty=10,
+    )
+    assert url.startswith("http://192.168.82.33:8020/work?")
+    assert "datenraum=%2Fdata%2Fproj" in url
+    assert "offer_id=offer-1" in url
+    assert "gap_id=gap-9" in url
+    assert "return_url=" in url
+    with pytest.raises(ValueError):
+        build_quoter_work_url(
+            settings=QuoterSettings(enabled=False, base_url=""),
+            datenraum="/x",
+            offer_id="1",
+            return_url="http://h/promise",
+        )

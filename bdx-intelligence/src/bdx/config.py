@@ -223,6 +223,10 @@ class QuoterSettings(BaseSettings):
         "",
         description="e.g. http://192.168.82.33:8020 (no trailing slash)",
     )
+    ui_url: str = Field(
+        "",
+        description="Browser entry for Deep Links (default: origin of base_url)",
+    )
     api_key: str = Field("", description="Optional X-API-Key for the quoter API")
     timeout_seconds: float = Field(120.0, ge=5)
     # Override path discovery when the real web/server.py routes are known
@@ -233,6 +237,22 @@ class QuoterSettings(BaseSettings):
     @property
     def configured(self) -> bool:
         return self.enabled and bool(self.base_url)
+
+    @property
+    def resolved_ui_url(self) -> str:
+        """UI base without trailing slash; falls back to the API origin."""
+        raw = (self.ui_url or "").strip().rstrip("/")
+        if raw:
+            return raw
+        base = (self.base_url or "").strip().rstrip("/")
+        if not base:
+            return ""
+        from urllib.parse import urlsplit, urlunsplit
+
+        parts = urlsplit(base)
+        if not parts.scheme or not parts.netloc:
+            return base
+        return urlunsplit((parts.scheme, parts.netloc, "", "", ""))
 
 
 def load_quoter_settings() -> QuoterSettings:
