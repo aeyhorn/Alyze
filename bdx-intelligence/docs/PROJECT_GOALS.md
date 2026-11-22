@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-22 01:36 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-22 02:37 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,7 +10,7 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`71e8726`, 2026-11-21 08:25 +01:00, inklusive #188 und #190). Produkt-CI 44880160970 ist grün: 183 passed, 8 deselected, 1 warning in 5,72 s, 6 093 Statements, 1 627 missed, 73,30 %, Gate 68 %. Ruff und mypy bleiben advisory. DEV-Deploy 44880160990 auf demselben SHA ist grün. Docs-CI von `89cd6c2` (PR #192, 44962787640) ist grün und zählt denselben Produktstand (183 passed, 7,27 s, 73,30 %). Dieser neue Commit auf `sync/status-20261122` hat noch kein CI-Ergebnis. Branch-Ressource `main` meldet `protected: false` (SHA `71e8726`, Antwort 2026-11-22 00:34:12 GMT); Rulesets Länge 0 (Antwort 00:34:12 GMT); Environments ohne Protection Rules (Antwort 00:34:12 GMT). Branch-Protection-Endpunkt HTTP 403 (2026-11-22 00:34:13 GMT), Secret-Liste HTTP 403 (00:34:13 GMT). Nightly 44895693730 (2026-11-21 10:43 UTC, head `71e8726`) scheitert weiter bei „Install ODBC Driver 18“; der Lauf davor bleibt 44723784538. `pr-review.yml` startet auf Push null Jobs; der jüngste ist 44962776607 (`89cd6c2`, 23:38:25 UTC). Abgleich 2026-11-22 01:36 UTC+1.
+- **Stand:** Der Sprint-004-Baum liegt auf `origin/main` (`71e8726`, 2026-11-21 08:25 +01:00, inklusive #188 und #190). Produkt-CI 44880160970 ist grün: 183 passed, 8 deselected, 1 warning in 5,72 s, 6 093 Statements, 1 627 missed, 73,30 %, Gate 68 %. Ruff und mypy bleiben advisory. DEV-Deploy 44880160990 auf demselben SHA ist grün. Docs-CI von `164505f` (PR #192, 44967452019) ist rot auf einem reinen Doku-Diff gegen `71e8726` (2 failed, 181 passed, 7,33 s, 73,05 %). Der vorherige grüne Docs-CI bleibt 44962787640 auf `89cd6c2` (183 passed, 7,27 s, 73,30 %). Dieser neue Commit auf `sync/status-20261122` hat noch kein CI-Ergebnis. Branch-Ressource `main` meldet `protected: false` (SHA `71e8726`, Antwort 2026-11-22 01:36:41 GMT); Rulesets Länge 0 (Antwort 01:36:41 GMT); Environments ohne Protection Rules (Antwort 01:36:55 GMT). Branch-Protection-Endpunkt HTTP 403 (2026-11-22 01:36:42 GMT), Secret-Liste HTTP 403 (01:36:42 GMT). Nightly 44895693730 (2026-11-21 10:43 UTC, head `71e8726`) scheitert weiter bei „Install ODBC Driver 18“; der Lauf davor bleibt 44723784538. `pr-review.yml` startet auf Push null Jobs; der jüngste ist 44967448176 (`164505f`, 00:36:34 UTC). Abgleich 2026-11-22 02:37 UTC+1.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
