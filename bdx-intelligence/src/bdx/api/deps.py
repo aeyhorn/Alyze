@@ -1,8 +1,9 @@
 """FastAPI dependency injection helpers."""
+
 from __future__ import annotations
 
 import secrets
-from typing import Generator, Optional
+from collections.abc import Generator
 
 from fastapi import Header, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -25,8 +26,8 @@ def get_sap_status(request: Request) -> bool:
 
 def require_api_key(
     request: Request,
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
-    api_key: Optional[str] = Query(None, include_in_schema=False),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+    api_key: str | None = Query(None, include_in_schema=False),
 ) -> None:
     """Optional API-key protection.
 

@@ -12,6 +12,7 @@ GET /api/v1/analytics/bottleneck     - machine rank by utilization times queue h
 GET /api/v1/analytics/weaknesses     - shop-floor weakness list used by the dashboard
 POST /api/v1/analytics/run           - trigger an analytics cycle on demand
 """
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
@@ -57,7 +58,9 @@ def _kpi_payload(session: Session, row: KpiSnapshot) -> dict:
 
 @router.get("/kpis", summary="Latest KPI values (all metrics, all dimensions)")
 def list_kpis(
-    dimension: str | None = Query(None, description="Filter by dimension: global, machine, item_group"),
+    dimension: str | None = Query(
+        None, description="Filter by dimension: global, machine, item_group"
+    ),
     session: Session = Depends(get_pg_session),
 ) -> dict:
     """Return the most recent computed value for every metric+dimension combination."""
@@ -77,27 +80,25 @@ def list_kpis(
         .subquery()
     )
 
-    q = (
-        select(KpiSnapshot)
-        .join(
-            subq,
-            (KpiSnapshot.metric_name == subq.c.metric_name)
-            & (KpiSnapshot.dimension == subq.c.dimension)
-            & (
-                (KpiSnapshot.dimension_value == subq.c.dimension_value)
-                | (
-                    KpiSnapshot.dimension_value.is_(None)
-                    & subq.c.dimension_value.is_(None)
-                )
-            )
-            & (KpiSnapshot.computed_at == subq.c.latest),
+    q = select(KpiSnapshot).join(
+        subq,
+        (KpiSnapshot.metric_name == subq.c.metric_name)
+        & (KpiSnapshot.dimension == subq.c.dimension)
+        & (
+            (KpiSnapshot.dimension_value == subq.c.dimension_value)
+            | (KpiSnapshot.dimension_value.is_(None) & subq.c.dimension_value.is_(None))
         )
+        & (KpiSnapshot.computed_at == subq.c.latest),
     )
 
     if dimension:
         q = q.where(KpiSnapshot.dimension == dimension)
 
-    rows = session.execute(q.order_by(KpiSnapshot.metric_name, KpiSnapshot.dimension_value)).scalars().all()
+    rows = (
+        session.execute(q.order_by(KpiSnapshot.metric_name, KpiSnapshot.dimension_value))
+        .scalars()
+        .all()
+    )
 
     return {
         "count": len(rows),
@@ -118,23 +119,24 @@ def get_kpi(metric_name: str, session: Session = Depends(get_pg_session)) -> dic
         .group_by(KpiSnapshot.dimension, KpiSnapshot.dimension_value)
         .subquery()
     )
-    rows = session.execute(
-        select(KpiSnapshot)
-        .join(
-            subq,
-            (KpiSnapshot.dimension == subq.c.dimension)
-            & (
-                (KpiSnapshot.dimension_value == subq.c.dimension_value)
-                | (
-                    KpiSnapshot.dimension_value.is_(None)
-                    & subq.c.dimension_value.is_(None)
+    rows = (
+        session.execute(
+            select(KpiSnapshot)
+            .join(
+                subq,
+                (KpiSnapshot.dimension == subq.c.dimension)
+                & (
+                    (KpiSnapshot.dimension_value == subq.c.dimension_value)
+                    | (KpiSnapshot.dimension_value.is_(None) & subq.c.dimension_value.is_(None))
                 )
+                & (KpiSnapshot.computed_at == subq.c.latest),
             )
-            & (KpiSnapshot.computed_at == subq.c.latest),
+            .where(KpiSnapshot.metric_name == metric_name)
+            .order_by(KpiSnapshot.dimension_value)
         )
-        .where(KpiSnapshot.metric_name == metric_name)
-        .order_by(KpiSnapshot.dimension_value)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not rows:
         raise HTTPException(status_code=404, detail=f"no data for metric '{metric_name}'")
@@ -207,8 +209,7 @@ def list_anomalies(
     if include_resolved:
         since = datetime.now(UTC) - timedelta(hours=hours)
         q = q.where(
-            (DetectedAnomaly.resolved_at.is_(None))
-            | (DetectedAnomaly.last_seen_at >= since)
+            (DetectedAnomaly.resolved_at.is_(None)) | (DetectedAnomaly.last_seen_at >= since)
         )
     else:
         q = q.where(DetectedAnomaly.resolved_at.is_(None))
@@ -241,9 +242,7 @@ def list_thresholds(
     session: Session = Depends(get_pg_session),
 ) -> dict:
     """Return current warn/crit thresholds (auto-tuned or seed values)."""
-    q = select(MetricThreshold).order_by(
-        MetricThreshold.metric_name, MetricThreshold.dimension
-    )
+    q = select(MetricThreshold).order_by(MetricThreshold.metric_name, MetricThreshold.dimension)
     if metric:
         q = q.where(MetricThreshold.metric_name == metric)
 
@@ -264,9 +263,15 @@ def _iso(value: datetime | None) -> str | None:
 @router.get("/quality", summary="Latest measurement-quality gates")
 def get_quality(session: Session = Depends(get_pg_session)) -> dict:
     """Return whether utilization and cycle time may be trusted."""
-    row = session.execute(
-        select(MeasurementQuality).order_by(MeasurementQuality.computed_at.desc(), MeasurementQuality.id.desc())
-    ).scalars().first()
+    row = (
+        session.execute(
+            select(MeasurementQuality).order_by(
+                MeasurementQuality.computed_at.desc(), MeasurementQuality.id.desc()
+            )
+        )
+        .scalars()
+        .first()
+    )
     if row is None:
         return {"available": False}
     return {
@@ -352,9 +357,11 @@ def list_causes(
 
 @router.get("/bottleneck", summary="Machines ranked by utilization times waiting hours")
 def list_bottlenecks(session: Session = Depends(get_pg_session)) -> dict:
-    rows = session.execute(
-        select(BottleneckRank).order_by(BottleneckRank.score.desc())
-    ).scalars().all()
+    rows = (
+        session.execute(select(BottleneckRank).order_by(BottleneckRank.score.desc()))
+        .scalars()
+        .all()
+    )
     return {
         "count": len(rows),
         "machines": [

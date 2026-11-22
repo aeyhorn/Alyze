@@ -1,16 +1,16 @@
 """Persistence helpers for Q2P inquiry cases."""
+
 from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from bdx.q2p.models import (
-    Decision,
     InquiryCreate,
     InquiryDecision,
     InquiryStatus,
@@ -54,8 +54,8 @@ def get_inquiry(session: Session, inquiry_id: str) -> Q2PInquiry | None:
 def list_inquiries(
     session: Session,
     *,
-    status: Optional[str] = None,
-    item_code: Optional[str] = None,
+    status: str | None = None,
+    item_code: str | None = None,
     limit: int = 50,
 ) -> list[Q2PInquiry]:
     q = select(Q2PInquiry).order_by(Q2PInquiry.created_at.desc()).limit(min(limit, 200))

@@ -1,4 +1,5 @@
 """Tests for the diagnosis layer: quality, flow segments, causes, bottleneck."""
+
 from __future__ import annotations
 
 import os
@@ -51,41 +52,59 @@ def _ago(hours: float) -> datetime:
     return _now() - timedelta(hours=hours)
 
 
-def _order(session, doc_entry: int, status: str = "R", item_code: str = "PART-A",
-           planned: float = 100, rejected: float = 0, due_days: int = -2) -> None:
+def _order(
+    session,
+    doc_entry: int,
+    status: str = "R",
+    item_code: str = "PART-A",
+    planned: float = 100,
+    rejected: float = 0,
+    due_days: int = -2,
+) -> None:
     now = _now()
-    session.add(OrderState(
-        source_key=f"OWOR:{doc_entry}",
-        doc_entry=doc_entry,
-        doc_num=doc_entry,
-        status=status,
-        item_code=item_code,
-        planned_qty=Decimal(str(planned)),
-        completed_qty=Decimal("0"),
-        rejected_qty=Decimal(str(rejected)),
-        due_date=(date.today() + timedelta(days=due_days)).isoformat(),
-        fingerprint="x",
-        captured_at=now,
-        snapshot_run_id=str(uuid.uuid4()),
-        first_seen_at=now,
-        last_changed_at=now,
-    ))
+    session.add(
+        OrderState(
+            source_key=f"OWOR:{doc_entry}",
+            doc_entry=doc_entry,
+            doc_num=doc_entry,
+            status=status,
+            item_code=item_code,
+            planned_qty=Decimal(str(planned)),
+            completed_qty=Decimal("0"),
+            rejected_qty=Decimal(str(rejected)),
+            due_date=(date.today() + timedelta(days=due_days)).isoformat(),
+            fingerprint="x",
+            captured_at=now,
+            snapshot_run_id=str(uuid.uuid4()),
+            first_seen_at=now,
+            last_changed_at=now,
+        )
+    )
 
 
-def _event(session, etype: EventType, doc_entry: int | None = None, machine_id: str | None = None,
-           item_code: str | None = None, hours_ago: float = 0, payload: dict | None = None) -> None:
-    session.add(DomainEvent(
-        event_id=str(uuid.uuid4()),
-        event_type=etype,
-        source_key=f"OWOR:{doc_entry}" if doc_entry else f"MACHINE:{machine_id}",
-        doc_entry=doc_entry,
-        doc_num=doc_entry,
-        item_code=item_code,
-        machine_id=machine_id,
-        payload=payload or {},
-        occurred_at=_ago(hours_ago),
-        snapshot_run_id=str(uuid.uuid4()),
-    ))
+def _event(
+    session,
+    etype: EventType,
+    doc_entry: int | None = None,
+    machine_id: str | None = None,
+    item_code: str | None = None,
+    hours_ago: float = 0,
+    payload: dict | None = None,
+) -> None:
+    session.add(
+        DomainEvent(
+            event_id=str(uuid.uuid4()),
+            event_type=etype,
+            source_key=f"OWOR:{doc_entry}" if doc_entry else f"MACHINE:{machine_id}",
+            doc_entry=doc_entry,
+            doc_num=doc_entry,
+            item_code=item_code,
+            machine_id=machine_id,
+            payload=payload or {},
+            occurred_at=_ago(hours_ago),
+            snapshot_run_id=str(uuid.uuid4()),
+        )
+    )
 
 
 def test_flow_segments_four_parts(session):
@@ -95,22 +114,26 @@ def test_flow_segments_four_parts(session):
     _event(session, EventType.ORDER_RELEASED, doc_entry=1, hours_ago=10)
     _event(session, EventType.MACHINE_ORDER_STARTED, doc_entry=1, machine_id="M1", hours_ago=6)
     _event(session, EventType.ORDER_CLOSED, doc_entry=1, hours_ago=1)
-    session.add(MachineStateHistory(
-        machine_id="M1",
-        state="setup",
-        sap_doc_entry=1,
-        started_at=_ago(6),
-        ended_at=_ago(5),
-        duration_s=3600,
-    ))
-    session.add(MachineStateHistory(
-        machine_id="M1",
-        state="running",
-        sap_doc_entry=1,
-        started_at=_ago(5),
-        ended_at=_ago(2),
-        duration_s=3 * 3600,
-    ))
+    session.add(
+        MachineStateHistory(
+            machine_id="M1",
+            state="setup",
+            sap_doc_entry=1,
+            started_at=_ago(6),
+            ended_at=_ago(5),
+            duration_s=3600,
+        )
+    )
+    session.add(
+        MachineStateHistory(
+            machine_id="M1",
+            state="running",
+            sap_doc_entry=1,
+            started_at=_ago(5),
+            ended_at=_ago(2),
+            duration_s=3 * 3600,
+        )
+    )
     session.commit()
 
     assert build_flow_segments(session) == 1
@@ -126,13 +149,15 @@ def test_flow_segments_four_parts(session):
 def test_cycle_time_reads_segments(session):
     from bdx.analytics.kpis import compute_cycle_time
 
-    session.add(OrderFlowSegment(
-        doc_entry=7,
-        item_code="PART-A",
-        closed_at=_ago(1),
-        total_h=3.0,
-        computed_at=_now(),
-    ))
+    session.add(
+        OrderFlowSegment(
+            doc_entry=7,
+            item_code="PART-A",
+            closed_at=_ago(1),
+            total_h=3.0,
+            computed_at=_now(),
+        )
+    )
     _event(session, EventType.ORDER_RELEASED, doc_entry=7, hours_ago=20)
     _event(session, EventType.ORDER_CLOSED, doc_entry=7, hours_ago=1)
     session.commit()
@@ -146,16 +171,18 @@ def test_cycle_time_reads_segments(session):
 def test_quality_marks_utilization_unreliable_without_calendar(session):
     from bdx.analytics.quality import record_measurement_quality
 
-    session.add(MachineState(
-        machine_id="M1",
-        online=True,
-        mde_enabled=True,
-        order_ref="100",
-        sap_doc_entry=100,
-        first_seen_at=_now(),
-        last_seen_at=_now(),
-        last_changed_at=_now(),
-    ))
+    session.add(
+        MachineState(
+            machine_id="M1",
+            online=True,
+            mde_enabled=True,
+            order_ref="100",
+            sap_doc_entry=100,
+            first_seen_at=_now(),
+            last_seen_at=_now(),
+            last_changed_at=_now(),
+        )
+    )
     _event(session, EventType.MACHINE_ONLINE, machine_id="M1", hours_ago=1)
     session.commit()
 
@@ -168,23 +195,27 @@ def test_quality_marks_utilization_unreliable_without_calendar(session):
 def test_quality_reliable_when_linked_and_calendar_present(session):
     from bdx.analytics.quality import record_measurement_quality
 
-    session.add(MachineState(
-        machine_id="M1",
-        online=True,
-        mde_enabled=True,
-        order_ref="100",
-        sap_doc_entry=100,
-        first_seen_at=_ago(24 * 10),
-        last_seen_at=_now(),
-        last_changed_at=_now(),
-    ))
-    session.add(ShiftCalendar(
-        machine_id=None,
-        weekday=0,
-        shift_start="06:00",
-        shift_end="14:00",
-        valid_from="2000-01-01",
-    ))
+    session.add(
+        MachineState(
+            machine_id="M1",
+            online=True,
+            mde_enabled=True,
+            order_ref="100",
+            sap_doc_entry=100,
+            first_seen_at=_ago(24 * 10),
+            last_seen_at=_now(),
+            last_changed_at=_now(),
+        )
+    )
+    session.add(
+        ShiftCalendar(
+            machine_id=None,
+            weekday=0,
+            shift_start="06:00",
+            shift_end="14:00",
+            valid_from="2000-01-01",
+        )
+    )
     _event(session, EventType.ORDER_RELEASED, doc_entry=1, hours_ago=24 * 10)
     session.commit()
 
@@ -198,23 +229,29 @@ def test_component_coverage_ignores_finished_good(session):
 
     _order(session, 5, item_code="FINISHED", planned=100)
     session.commit()
-    components = [{
-        "doc_entry": 5,
-        "item_code": "BOLT",
-        "planned_qty": 10,
-        "issued_qty": 0,
-    }]
-    stock = [{
-        "item_code": "BOLT",
-        "qty_available": 0,
-        "qty_on_hand": 0,
-    }]
+    components = [
+        {
+            "doc_entry": 5,
+            "item_code": "BOLT",
+            "planned_qty": 10,
+            "issued_qty": 0,
+        }
+    ]
+    stock = [
+        {
+            "item_code": "BOLT",
+            "qty_available": 0,
+            "qty_on_hand": 0,
+        }
+    ]
     results = compute_material_coverage(session, stock, [], component_rows=components)
     item = next(r for r in results if r.dimension == "item_group")
     assert item.dimension_value == "BOLT"
     assert item.value == pytest.approx(0.0)
     assert "FINISHED" not in {r.dimension_value for r in results}
-    global_row = next(r for r in results if r.metric_name == "material_coverage_pct" and r.dimension == "global")
+    global_row = next(
+        r for r in results if r.metric_name == "material_coverage_pct" and r.dimension == "global"
+    )
     assert 5 in global_row.extra["critical_doc_entries"]
 
 
@@ -247,15 +284,24 @@ def test_lateness_waiting_idle(session):
 
     _order(session, 11, status="L", due_days=-1)
     _event(session, EventType.ORDER_RELEASED, doc_entry=11, hours_ago=20)
-    _event(session, EventType.MACHINE_ORDER_STARTED, doc_entry=11, machine_id="M1", item_code="PART-A", hours_ago=2)
+    _event(
+        session,
+        EventType.MACHINE_ORDER_STARTED,
+        doc_entry=11,
+        machine_id="M1",
+        item_code="PART-A",
+        hours_ago=2,
+    )
     _event(session, EventType.ORDER_CLOSED, doc_entry=11, hours_ago=1)
-    session.add(MachineStateHistory(
-        machine_id="M2",
-        state="idle",
-        started_at=_ago(18),
-        ended_at=_ago(4),
-        duration_s=14 * 3600,
-    ))
+    session.add(
+        MachineStateHistory(
+            machine_id="M2",
+            state="idle",
+            started_at=_ago(18),
+            ended_at=_ago(4),
+            duration_s=14 * 3600,
+        )
+    )
     session.commit()
     build_flow_segments(session)
 
@@ -268,29 +314,45 @@ def test_bottleneck_capacity_vs_steering(session):
 
     now = _now()
     for machine_id in ("BUSY", "IDLE"):
-        session.add(MachineState(
-            machine_id=machine_id,
-            online=True,
-            mde_enabled=True,
-            first_seen_at=now,
-            last_seen_at=now,
-            last_changed_at=now,
-        ))
-    session.add(MachineStateHistory(
-        machine_id="BUSY",
-        state="running",
-        started_at=_ago(20),
-        ended_at=_ago(1),
-        duration_s=19 * 3600,
-    ))
+        session.add(
+            MachineState(
+                machine_id=machine_id,
+                online=True,
+                mde_enabled=True,
+                first_seen_at=now,
+                last_seen_at=now,
+                last_changed_at=now,
+            )
+        )
+    session.add(
+        MachineStateHistory(
+            machine_id="BUSY",
+            state="running",
+            started_at=_ago(20),
+            ended_at=_ago(1),
+            duration_s=19 * 3600,
+        )
+    )
     _order(session, 21, status="R", item_code="BUSY-PART", due_days=2)
     _order(session, 22, status="R", item_code="IDLE-PART", due_days=2)
     _event(session, EventType.ORDER_RELEASED, doc_entry=21, item_code="BUSY-PART", hours_ago=12)
     _event(session, EventType.ORDER_RELEASED, doc_entry=22, item_code="IDLE-PART", hours_ago=12)
-    _event(session, EventType.MACHINE_ORDER_STARTED, doc_entry=99, machine_id="BUSY",
-           item_code="BUSY-PART", hours_ago=30)
-    _event(session, EventType.MACHINE_ORDER_STARTED, doc_entry=98, machine_id="IDLE",
-           item_code="IDLE-PART", hours_ago=30)
+    _event(
+        session,
+        EventType.MACHINE_ORDER_STARTED,
+        doc_entry=99,
+        machine_id="BUSY",
+        item_code="BUSY-PART",
+        hours_ago=30,
+    )
+    _event(
+        session,
+        EventType.MACHINE_ORDER_STARTED,
+        doc_entry=98,
+        machine_id="IDLE",
+        item_code="IDLE-PART",
+        hours_ago=30,
+    )
     session.commit()
 
     rows = rank_bottlenecks(session, window_hours=24)
@@ -298,7 +360,9 @@ def test_bottleneck_capacity_vs_steering(session):
     assert by_machine["BUSY"].interpretation == "capacity"
     assert by_machine["BUSY"].queue_hours == pytest.approx(12.0, abs=0.2)
     assert by_machine["IDLE"].interpretation == "steering"
-    stored = session.execute(select(BottleneckRank).where(BottleneckRank.machine_id == "BUSY")).scalar_one()
+    stored = session.execute(
+        select(BottleneckRank).where(BottleneckRank.machine_id == "BUSY")
+    ).scalar_one()
     assert stored.score > 0
 
 

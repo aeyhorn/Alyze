@@ -1,18 +1,17 @@
 """Tests for the Service Layer write-back operations and the Kafka publisher."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 from bdx.config import KafkaSettings, SapMode
 from bdx.models.events import SLOperation
 from bdx.sap_sl.client import DryRunError, ServiceLayerError
 from bdx.sap_sl.operations import (
     PRODUCTION_ORDER_BASE_TYPE,
-    close_order,
     cancel_order,
+    close_order,
     release_order,
     report_production,
 )
@@ -33,7 +32,9 @@ class TestReleaseCloseCancel:
         client = _client(dry_run=True)
         res = release_order(session, client, 42)
         assert res.status == "dry_run" and res.dry_run is True
-        client.sl_call.assert_called_once_with("PATCH", "ProductionOrders(42)", body={"Status": "R"})
+        client.sl_call.assert_called_once_with(
+            "PATCH", "ProductionOrders(42)", body={"Status": "R"}
+        )
         row = session.query(SLOperation).one()
         assert row.operation == "release" and row.status == "dry_run" and row.doc_entry == 42
         assert row.payload == {"Status": "R"} and row.mode == "dev"
@@ -76,8 +77,14 @@ class TestReportProduction:
         res = report_production(session, client, 42, 25.0, "W01", doc_num=420)
         assert res.status == "dry_run"
         client.sl_call.assert_called_once_with(
-            "POST", "ReceiptFromProduction",
-            body={"BaseEntry": 42, "BaseType": PRODUCTION_ORDER_BASE_TYPE, "Quantity": 25.0, "Warehouse": "W01"},
+            "POST",
+            "ReceiptFromProduction",
+            body={
+                "BaseEntry": 42,
+                "BaseType": PRODUCTION_ORDER_BASE_TYPE,
+                "Quantity": 25.0,
+                "Warehouse": "W01",
+            },
         )
         row = session.query(SLOperation).one()
         assert row.operation == "report_production" and row.doc_num == 420
@@ -91,6 +98,7 @@ class TestReportProduction:
 
 # ── Kafka publisher ───────────────────────────────────────────────────────────
 
+
 def _event(event_type: str = "ORDER_CREATED", source_key: str = "OWOR:1"):
     from bdx.models.events import DomainEvent, EventType
 
@@ -98,8 +106,13 @@ def _event(event_type: str = "ORDER_CREATED", source_key: str = "OWOR:1"):
         event_id="e1",
         event_type=EventType(event_type).value,
         source_key=source_key,
-        doc_entry=1, doc_num=1, item_code="A", machine_id=None,
-        payload={"x": 1}, occurred_at=datetime.now(timezone.utc), snapshot_run_id="r",
+        doc_entry=1,
+        doc_num=1,
+        item_code="A",
+        machine_id=None,
+        payload={"x": 1},
+        occurred_at=datetime.now(UTC),
+        snapshot_run_id="r",
     )
 
 
@@ -108,17 +121,26 @@ class TestKafkaPublisher:
         from bdx.publish.base import NullPublisher
         from bdx.publish.kafka import build_kafka_publisher
 
-        assert isinstance(build_kafka_publisher(KafkaSettings(enabled=False, bootstrap_servers="")), NullPublisher)
-        assert isinstance(build_kafka_publisher(KafkaSettings(enabled=True, bootstrap_servers="")), NullPublisher)
+        assert isinstance(
+            build_kafka_publisher(KafkaSettings(enabled=False, bootstrap_servers="")), NullPublisher
+        )
+        assert isinstance(
+            build_kafka_publisher(KafkaSettings(enabled=True, bootstrap_servers="")), NullPublisher
+        )
         from bdx.publish.kafka import KafkaPublisher
 
-        assert isinstance(build_kafka_publisher(KafkaSettings(enabled=True, bootstrap_servers="broker:9092")), KafkaPublisher)
+        assert isinstance(
+            build_kafka_publisher(KafkaSettings(enabled=True, bootstrap_servers="broker:9092")),
+            KafkaPublisher,
+        )
 
     def test_publish_with_mock_producer(self):
         from bdx.publish.kafka import KafkaPublisher
 
         producer = MagicMock()
-        pub = KafkaPublisher(KafkaSettings(enabled=True, bootstrap_servers="b:9092", topic="t"), producer=producer)
+        pub = KafkaPublisher(
+            KafkaSettings(enabled=True, bootstrap_servers="b:9092", topic="t"), producer=producer
+        )
         sent = pub.publish([_event(), _event("ORDER_CLOSED", "OWOR:2")])
         assert sent == 2
         assert producer.produce.call_count == 2
@@ -134,7 +156,9 @@ class TestKafkaPublisher:
     def test_publish_empty(self):
         from bdx.publish.kafka import KafkaPublisher
 
-        pub = KafkaPublisher(KafkaSettings(enabled=True, bootstrap_servers="b"), producer=MagicMock())
+        pub = KafkaPublisher(
+            KafkaSettings(enabled=True, bootstrap_servers="b"), producer=MagicMock()
+        )
         assert pub.publish([]) == 0
 
     def test_error_drops_producer_and_never_raises(self):
@@ -148,7 +172,6 @@ class TestKafkaPublisher:
 
     def test_composite(self):
         from bdx.publish.kafka import _Composite
-        from bdx.publish.mqtt import MqttPublisher
 
         mqtt = MagicMock()
         mqtt.name = "mqtt"
@@ -172,5 +195,7 @@ class TestKafkaPublisher:
         from bdx.publish.base import NullPublisher
         from bdx.publish.mqtt import build_all_publishers
 
-        with patch.dict(os.environ, {"MQTT_ENABLED": "false", "KAFKA_ENABLED": "false"}, clear=False):
+        with patch.dict(
+            os.environ, {"MQTT_ENABLED": "false", "KAFKA_ENABLED": "false"}, clear=False
+        ):
             assert isinstance(build_all_publishers(), NullPublisher)

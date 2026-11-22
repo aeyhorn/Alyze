@@ -16,6 +16,7 @@ KPIs produced:
   gr_delay_days              - median days late for overdue GR receipts
   stock_coverage_days        - on-hand stock / avg daily consumption (days)
 """
+
 from __future__ import annotations
 
 import statistics
@@ -44,6 +45,7 @@ class ProcurementContext:
 # ---------------------------------------------------------------------------
 # 1. Material coverage - can open FAs be started with current stock?
 # ---------------------------------------------------------------------------
+
 
 def compute_material_coverage(
     session: Session,
@@ -86,8 +88,9 @@ def compute_material_coverage(
                 orders_by_item.setdefault(item_code, set()).add(int(row["doc_entry"]))
     else:
         open_orders = session.execute(
-            select(OrderState.item_code, OrderState.planned_qty, OrderState.completed_qty)
-            .where(OrderState.status.in_(["P", "R"]))
+            select(OrderState.item_code, OrderState.planned_qty, OrderState.completed_qty).where(
+                OrderState.status.in_(["P", "R"])
+            )
         ).all()
         for item_code, planned, completed in open_orders:
             remaining = max(0.0, float(planned or 0) - float(completed or 0))
@@ -110,19 +113,21 @@ def compute_material_coverage(
         total_covered += covered
 
         coverage_pct = round(100.0 * covered / needed, 2) if needed > 0 else 100.0
-        results.append(KpiResult(
-            metric_name="material_coverage_pct",
-            dimension="item_group",
-            dimension_value=item_code,
-            value=coverage_pct,
-            window_hours=window_hours,
-            extra={
-                "demand": round(needed, 3),
-                "available": round(available, 3),
-                "po_incoming": round(po_incoming, 3),
-                "gap": round(max(0.0, needed - available - po_incoming), 3),
-            },
-        ))
+        results.append(
+            KpiResult(
+                metric_name="material_coverage_pct",
+                dimension="item_group",
+                dimension_value=item_code,
+                value=coverage_pct,
+                window_hours=window_hours,
+                extra={
+                    "demand": round(needed, 3),
+                    "available": round(available, 3),
+                    "po_incoming": round(po_incoming, 3),
+                    "gap": round(max(0.0, needed - available - po_incoming), 3),
+                },
+            )
+        )
 
         # Item is "critical" when stock + open PO does not cover demand
         if available + po_incoming < needed:
@@ -131,32 +136,38 @@ def compute_material_coverage(
     # Global coverage
     if total_demand > 0:
         global_pct = round(100.0 * total_covered / total_demand, 2)
-        results.append(KpiResult(
-            metric_name="material_coverage_pct",
-            dimension="global",
-            dimension_value=None,
-            value=global_pct,
-            window_hours=window_hours,
-            extra={
-                "items_checked": len(demand),
-                "critical_items": critical_items[:50],
-                "critical_doc_entries": sorted({
-                    doc_entry
-                    for item_code in critical_items
-                    for doc_entry in orders_by_item.get(item_code, set())
-                })[:100],
-            },
-        ))
+        results.append(
+            KpiResult(
+                metric_name="material_coverage_pct",
+                dimension="global",
+                dimension_value=None,
+                value=global_pct,
+                window_hours=window_hours,
+                extra={
+                    "items_checked": len(demand),
+                    "critical_items": critical_items[:50],
+                    "critical_doc_entries": sorted(
+                        {
+                            doc_entry
+                            for item_code in critical_items
+                            for doc_entry in orders_by_item.get(item_code, set())
+                        }
+                    )[:100],
+                },
+            )
+        )
 
     # Critical items count as a separate KPI
-    results.append(KpiResult(
-        metric_name="critical_items_count",
-        dimension="global",
-        dimension_value=None,
-        value=float(len(critical_items)),
-        window_hours=window_hours,
-        extra={"items": critical_items[:50]},
-    ))
+    results.append(
+        KpiResult(
+            metric_name="critical_items_count",
+            dimension="global",
+            dimension_value=None,
+            value=float(len(critical_items)),
+            window_hours=window_hours,
+            extra={"items": critical_items[:50]},
+        )
+    )
 
     return results
 
@@ -164,6 +175,7 @@ def compute_material_coverage(
 # ---------------------------------------------------------------------------
 # 2. PO lead time (actual) and supplier on-time delivery
 # ---------------------------------------------------------------------------
+
 
 def compute_po_lead_time(
     lead_time_rows: list[dict[str, Any]],
@@ -188,31 +200,39 @@ def compute_po_lead_time(
     results: list[KpiResult] = []
 
     for supplier, days_list in by_supplier.items():
-        results.append(KpiResult(
-            metric_name="po_lead_time_days",
-            dimension="supplier",
-            dimension_value=supplier,
-            value=round(statistics.median(days_list), 1),
-            window_hours=window_hours,
-            extra={
-                "p95": round(_percentile(days_list, 95), 1),
-                "sample_count": len(days_list),
-                "supplier_name": next(
-                    (r.get("supplier_name") for r in lead_time_rows if r.get("supplier_code") == supplier),
-                    supplier,
-                ),
-            },
-        ))
+        results.append(
+            KpiResult(
+                metric_name="po_lead_time_days",
+                dimension="supplier",
+                dimension_value=supplier,
+                value=round(statistics.median(days_list), 1),
+                window_hours=window_hours,
+                extra={
+                    "p95": round(_percentile(days_list, 95), 1),
+                    "sample_count": len(days_list),
+                    "supplier_name": next(
+                        (
+                            r.get("supplier_name")
+                            for r in lead_time_rows
+                            if r.get("supplier_code") == supplier
+                        ),
+                        supplier,
+                    ),
+                },
+            )
+        )
 
     if all_days:
-        results.append(KpiResult(
-            metric_name="po_lead_time_days",
-            dimension="global",
-            dimension_value=None,
-            value=round(statistics.median(all_days), 1),
-            window_hours=window_hours,
-            extra={"p95": round(_percentile(all_days, 95), 1), "sample_count": len(all_days)},
-        ))
+        results.append(
+            KpiResult(
+                metric_name="po_lead_time_days",
+                dimension="global",
+                dimension_value=None,
+                value=round(statistics.median(all_days), 1),
+                window_hours=window_hours,
+                extra={"p95": round(_percentile(all_days, 95), 1), "sample_count": len(all_days)},
+            )
+        )
 
     return results
 
@@ -238,30 +258,34 @@ def compute_supplier_otd(
         total_on_time += on_time
         supplier = row.get("supplier_code") or "unknown"
         rate = round(100.0 * on_time / lines, 2)
-        results.append(KpiResult(
-            metric_name="supplier_otd_rate",
-            dimension="supplier",
-            dimension_value=supplier,
-            value=rate,
-            window_hours=window_hours,
-            extra={
-                "on_time_lines": on_time,
-                "total_lines": lines,
-                "avg_delay_days": round(float(row.get("avg_delay_days") or 0), 1),
-                "supplier_name": row.get("supplier_name") or supplier,
-            },
-        ))
+        results.append(
+            KpiResult(
+                metric_name="supplier_otd_rate",
+                dimension="supplier",
+                dimension_value=supplier,
+                value=rate,
+                window_hours=window_hours,
+                extra={
+                    "on_time_lines": on_time,
+                    "total_lines": lines,
+                    "avg_delay_days": round(float(row.get("avg_delay_days") or 0), 1),
+                    "supplier_name": row.get("supplier_name") or supplier,
+                },
+            )
+        )
 
     if total_lines > 0:
         global_rate = round(100.0 * total_on_time / total_lines, 2)
-        results.append(KpiResult(
-            metric_name="supplier_otd_rate",
-            dimension="global",
-            dimension_value=None,
-            value=global_rate,
-            window_hours=window_hours,
-            extra={"on_time_lines": total_on_time, "total_lines": total_lines},
-        ))
+        results.append(
+            KpiResult(
+                metric_name="supplier_otd_rate",
+                dimension="global",
+                dimension_value=None,
+                value=global_rate,
+                window_hours=window_hours,
+                extra={"on_time_lines": total_on_time, "total_lines": total_lines},
+            )
+        )
 
     return results
 
@@ -269,6 +293,7 @@ def compute_supplier_otd(
 # ---------------------------------------------------------------------------
 # 3. Overdue purchase order lines
 # ---------------------------------------------------------------------------
+
 
 def compute_po_overdue(
     overdue_rows: list[dict[str, Any]],
@@ -280,13 +305,15 @@ def compute_po_overdue(
         overdue_rows: rows from fetch_overdue_po_lines
     """
     if not overdue_rows:
-        return [KpiResult(
-            metric_name="po_overdue_count",
-            dimension="global",
-            dimension_value=None,
-            value=0.0,
-            window_hours=window_hours,
-        )]
+        return [
+            KpiResult(
+                metric_name="po_overdue_count",
+                dimension="global",
+                dimension_value=None,
+                value=0.0,
+                window_hours=window_hours,
+            )
+        ]
 
     # Per supplier counts
     by_supplier: dict[str, int] = {}
@@ -301,38 +328,46 @@ def compute_po_overdue(
 
     results: list[KpiResult] = []
     for supplier, count in by_supplier.items():
-        results.append(KpiResult(
-            metric_name="po_overdue_count",
-            dimension="supplier",
-            dimension_value=supplier,
-            value=float(count),
-            window_hours=window_hours,
-        ))
+        results.append(
+            KpiResult(
+                metric_name="po_overdue_count",
+                dimension="supplier",
+                dimension_value=supplier,
+                value=float(count),
+                window_hours=window_hours,
+            )
+        )
 
     median_delay = round(statistics.median(delays), 1) if delays else 0.0
-    results.append(KpiResult(
-        metric_name="po_overdue_count",
-        dimension="global",
-        dimension_value=None,
-        value=float(len(overdue_rows)),
-        window_hours=window_hours,
-        extra={
-            "median_delay_days": median_delay,
-            "max_delay_days": round(max(delays), 1) if delays else 0,
-            "item_codes": sorted({row.get("item_code") for row in overdue_rows if row.get("item_code")})[:100],
-        },
-    ))
+    results.append(
+        KpiResult(
+            metric_name="po_overdue_count",
+            dimension="global",
+            dimension_value=None,
+            value=float(len(overdue_rows)),
+            window_hours=window_hours,
+            extra={
+                "median_delay_days": median_delay,
+                "max_delay_days": round(max(delays), 1) if delays else 0,
+                "item_codes": sorted(
+                    {row.get("item_code") for row in overdue_rows if row.get("item_code")}
+                )[:100],
+            },
+        )
+    )
 
     # GR delay as its own metric (how late are overdue deliveries?)
     if delays:
-        results.append(KpiResult(
-            metric_name="gr_delay_days",
-            dimension="global",
-            dimension_value=None,
-            value=round(statistics.median(delays), 1),
-            window_hours=window_hours,
-            extra={"p95": round(_percentile(delays, 95), 1), "count": len(delays)},
-        ))
+        results.append(
+            KpiResult(
+                metric_name="gr_delay_days",
+                dimension="global",
+                dimension_value=None,
+                value=round(statistics.median(delays), 1),
+                window_hours=window_hours,
+                extra={"p95": round(_percentile(delays, 95), 1), "count": len(delays)},
+            )
+        )
 
     return results
 
@@ -340,6 +375,7 @@ def compute_po_overdue(
 # ---------------------------------------------------------------------------
 # 4. Stock coverage days
 # ---------------------------------------------------------------------------
+
 
 def compute_stock_coverage(
     stock_rows: list[dict[str, Any]],
@@ -377,27 +413,34 @@ def compute_stock_coverage(
             continue  # No consumption -> infinite coverage, skip
         coverage = stock_qty / avg_daily
         all_coverage.append(coverage)
-        results.append(KpiResult(
-            metric_name="stock_coverage_days",
-            dimension="item_group",
-            dimension_value=item_code,
-            value=round(coverage, 1),
-            window_hours=window_hours,
-            extra={
-                "on_hand": round(stock_qty, 3),
-                "avg_daily_consumption": round(avg_daily, 4),
-            },
-        ))
+        results.append(
+            KpiResult(
+                metric_name="stock_coverage_days",
+                dimension="item_group",
+                dimension_value=item_code,
+                value=round(coverage, 1),
+                window_hours=window_hours,
+                extra={
+                    "on_hand": round(stock_qty, 3),
+                    "avg_daily_consumption": round(avg_daily, 4),
+                },
+            )
+        )
 
     if all_coverage:
-        results.append(KpiResult(
-            metric_name="stock_coverage_days",
-            dimension="global",
-            dimension_value=None,
-            value=round(statistics.median(all_coverage), 1),
-            window_hours=window_hours,
-            extra={"p10": round(_percentile(all_coverage, 10), 1), "items_tracked": len(all_coverage)},
-        ))
+        results.append(
+            KpiResult(
+                metric_name="stock_coverage_days",
+                dimension="global",
+                dimension_value=None,
+                value=round(statistics.median(all_coverage), 1),
+                window_hours=window_hours,
+                extra={
+                    "p10": round(_percentile(all_coverage, 10), 1),
+                    "items_tracked": len(all_coverage),
+                },
+            )
+        )
 
     return results
 
@@ -405,6 +448,7 @@ def compute_stock_coverage(
 # ---------------------------------------------------------------------------
 # Top-level runner (called by analytics collector when SAP connection available)
 # ---------------------------------------------------------------------------
+
 
 def compute_all_procurement_kpis(
     session: Session,
@@ -444,9 +488,15 @@ def compute_all_procurement_kpis(
         overdue_rows = fetch_overdue_po_lines(sap_conn)
         consumption_rows = fetch_item_consumption(sap_conn, since_date)
 
-        results.extend(compute_material_coverage(
-            session, stock_rows, open_po_rows, window_hours, component_rows=component_rows,
-        ))
+        results.extend(
+            compute_material_coverage(
+                session,
+                stock_rows,
+                open_po_rows,
+                window_hours,
+                component_rows=component_rows,
+            )
+        )
         results.extend(compute_po_lead_time(lead_time_rows, window_hours))
         results.extend(compute_supplier_otd(otd_rows, window_hours))
         results.extend(compute_po_overdue(overdue_rows, window_hours))
@@ -462,7 +512,9 @@ def compute_all_procurement_kpis(
             item_code = row.get("item_code")
             if doc_entry is None or not item_code:
                 continue
-            remaining = max(0.0, float(row.get("planned_qty") or 0) - float(row.get("issued_qty") or 0))
+            remaining = max(
+                0.0, float(row.get("planned_qty") or 0) - float(row.get("issued_qty") or 0)
+            )
             if remaining <= 0:
                 continue
             if item_code in critical_items:

@@ -5,12 +5,13 @@ against SAP (when an engine is available) and the local event store, then
 collapses the answers into one promise result + an explicit open-question list
 for anything that still needs a human.
 """
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -33,7 +34,7 @@ def evaluate_promise(
     *,
     item_code: str,
     qty: Decimal | float,
-    requested_date: Optional[date] = None,
+    requested_date: date | None = None,
     sap_engine: Engine | None = None,
     pg_session: Session | None = None,
     quoter: QuoterClient | None = None,
@@ -126,7 +127,7 @@ def _run_sap_domain(engine: Engine, name: str, fn: Any) -> DomainResult:
     try:
         with engine.connect() as conn:
             return fn(conn)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("q2p.domain_failed", domain=name, error=str(exc))
         return DomainResult(
             domain=name,
@@ -343,7 +344,7 @@ def _check_pricing_combined(
         try:
             with sap_engine.connect() as conn:
                 sap_result = _check_pricing_sap(conn, item_code)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             sap_result = DomainResult(
                 domain="pricing",
                 status=DomainStatus.UNKNOWN,
@@ -439,7 +440,11 @@ def _check_quoter_pricing(
         )
 
     offen_q = quote.offen
-    summary = f"Quoter Netto {quote.netto_eur:g} EUR" if quote.netto_eur is not None else "Quoter-Kalkulation"
+    summary = (
+        f"Quoter Netto {quote.netto_eur:g} EUR"
+        if quote.netto_eur is not None
+        else "Quoter-Kalkulation"
+    )
     if quote.position_count:
         summary += f" · {quote.position_count} Positionen"
     if offen_q:
@@ -544,9 +549,7 @@ def _check_capacity(session: Session, item_code: str, qty: Decimal) -> DomainRes
         for m in machines
     ]
 
-    backlog_qty = sum(
-        max(float(o.planned_qty) - float(o.completed_qty), 0.0) for o in open_same
-    )
+    backlog_qty = sum(max(float(o.planned_qty) - float(o.completed_qty), 0.0) for o in open_same)
     details = {
         "machines_total": len(machines),
         "machines_online": len(online),
@@ -603,7 +606,7 @@ def _check_capacity(session: Session, item_code: str, qty: Decimal) -> DomainRes
     )
 
 
-def _collapse(domains: list[DomainResult], requested_date: Optional[date]) -> PromiseResult:
+def _collapse(domains: list[DomainResult], requested_date: date | None) -> PromiseResult:
     open_questions: list[dict[str, str]] = []
     blockers: list[str] = []
     for d in domains:
@@ -656,7 +659,7 @@ def _collapse(domains: list[DomainResult], requested_date: Optional[date]) -> Pr
     )
 
 
-def _date_str(value: Any) -> Optional[str]:
+def _date_str(value: Any) -> str | None:
     if value is None:
         return None
     if isinstance(value, datetime):

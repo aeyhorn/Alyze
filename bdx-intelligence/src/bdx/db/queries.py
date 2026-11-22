@@ -3,10 +3,12 @@
 Only SELECT statements are defined here.  All queries are parameterized to
 prevent SQL injection.  Table/column names follow SAP B1 conventions.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
-from typing import Any, Sequence
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -116,6 +118,7 @@ OITM_BY_ITEMCODE_SQL = text(
 
 # ── Query helpers ─────────────────────────────────────────────────────────────
 
+
 def fetch_open_orders(conn: Connection) -> list[dict[str, Any]]:
     """Return all open production orders as a list of dicts."""
     result = conn.execute(OWOR_OPEN_ORDERS_SQL)
@@ -141,7 +144,9 @@ def fetch_order_by_docentry(conn: Connection, doc_entry: int) -> dict[str, Any] 
     return dict(row._mapping) if row else None
 
 
-def fetch_orders_by_docentries(conn: Connection, doc_entries: Sequence[int]) -> list[dict[str, Any]]:
+def fetch_orders_by_docentries(
+    conn: Connection, doc_entries: Sequence[int]
+) -> list[dict[str, Any]]:
     """Return the given orders by DocEntry (chunked, parameterized)."""
     rows: list[dict[str, Any]] = []
     entries = [int(d) for d in doc_entries]
@@ -242,26 +247,34 @@ ITM1_PRICES_SQL = text(
 )
 
 
-def _safe_fetch(conn: Connection, stmt: Any, params: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
+def _safe_fetch(
+    conn: Connection, stmt: Any, params: dict[str, Any]
+) -> tuple[list[dict[str, Any]], str | None]:
     """Execute *stmt*; on permission/object errors return ([], error_message)."""
     try:
         result = conn.execute(stmt, params)
         return [dict(row._mapping) for row in result], None
-    except Exception as exc:  # noqa: BLE001 – degrade gracefully for missing grants
+    except Exception as exc:
         return [], str(exc)
 
 
-def fetch_warehouse_stock(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+def fetch_warehouse_stock(
+    conn: Connection, item_code: str
+) -> tuple[list[dict[str, Any]], str | None]:
     """Return OITW rows for *item_code* (on-hand / committed / on-order)."""
     return _safe_fetch(conn, OITW_BY_ITEM_SQL, {"item_code": item_code})
 
 
-def fetch_open_purchase_lines(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+def fetch_open_purchase_lines(
+    conn: Connection, item_code: str
+) -> tuple[list[dict[str, Any]], str | None]:
     """Return open purchase-order lines (OPOR/POR1) for *item_code*."""
     return _safe_fetch(conn, OPOR_OPEN_LINES_BY_ITEM_SQL, {"item_code": item_code})
 
 
-def fetch_bom_components(conn: Connection, item_code: str) -> tuple[list[dict[str, Any]], str | None]:
+def fetch_bom_components(
+    conn: Connection, item_code: str
+) -> tuple[list[dict[str, Any]], str | None]:
     """Return product-tree components (OITT/ITT1) for *item_code*."""
     return _safe_fetch(conn, OITT_BOM_COMPONENTS_SQL, {"item_code": item_code})
 

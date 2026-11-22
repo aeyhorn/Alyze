@@ -1,4 +1,5 @@
 """Offer Engine – create, recompute, decide, portal projections."""
+
 from __future__ import annotations
 
 import hashlib
@@ -112,7 +113,10 @@ def _gaps_for(session: Session, offer_id: str) -> list[Gap]:
 def _evidence_for(session: Session, offer_id: str) -> list[Evidence]:
     return list(
         session.scalars(
-            select(Evidence).where(Evidence.offer_id == offer_id).order_by(Evidence.created_at.desc()).limit(100)
+            select(Evidence)
+            .where(Evidence.offer_id == offer_id)
+            .order_by(Evidence.created_at.desc())
+            .limit(100)
         )
     )
 
@@ -120,7 +124,10 @@ def _evidence_for(session: Session, offer_id: str) -> list[Evidence]:
 def _jobs_for(session: Session, offer_id: str) -> list[AgentJob]:
     return list(
         session.scalars(
-            select(AgentJob).where(AgentJob.offer_id == offer_id).order_by(AgentJob.created_at.desc()).limit(50)
+            select(AgentJob)
+            .where(AgentJob.offer_id == offer_id)
+            .order_by(AgentJob.created_at.desc())
+            .limit(50)
         )
     )
 
@@ -131,7 +138,9 @@ def _latest_contract(session: Session, offer_id: str) -> Contract | None:
     ).first()
 
 
-def _upsert_gaps(session: Session, offer: Offer, incoming: list[dict[str, Any]], *, agent: str) -> None:
+def _upsert_gaps(
+    session: Session, offer: Offer, incoming: list[dict[str, Any]], *, agent: str
+) -> None:
     existing = {g.fingerprint: g for g in _gaps_for(session, offer.id)}
     seen: set[str] = set()
     now = _now()
@@ -213,9 +222,7 @@ def _run_job(
     try:
         result = runner()
         job.status = (
-            AgentJobStatus.NEEDS_APPROVAL.value
-            if result.needs_human
-            else AgentJobStatus.DONE.value
+            AgentJobStatus.NEEDS_APPROVAL.value if result.needs_human else AgentJobStatus.DONE.value
         )
         job.result_payload = {
             "summary": result.summary,
@@ -228,7 +235,7 @@ def _run_job(
         _upsert_gaps(session, offer, result.gaps, agent=kind.value)
         _add_evidence(session, offer.id, result.evidence)
         return job
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("agent.failed", kind=kind.value, offer_id=offer.id)
         job.status = AgentJobStatus.FAILED.value
         job.error = str(exc)
@@ -311,7 +318,10 @@ def _persist_contract_from_agent(session: Session, offer: Offer, payload: dict[s
     existing = _latest_contract(session, offer.id)
     now = _now()
     title = str(payload.get("title") or f"Angebot {offer.item_code}")
-    if existing and existing.status in (ContractStatus.DRAFT.value, ContractStatus.INTERNAL_REVIEW.value):
+    if existing and existing.status in (
+        ContractStatus.DRAFT.value,
+        ContractStatus.INTERNAL_REVIEW.value,
+    ):
         existing.body = body
         existing.title = title
         existing.updated_at = now
@@ -333,7 +343,9 @@ def _persist_contract_from_agent(session: Session, offer: Offer, payload: dict[s
             created_at=now,
             updated_at=now,
             version=version,
-            status=ContractStatus.INTERNAL_REVIEW.value if payload.get("firm") else ContractStatus.DRAFT.value,
+            status=ContractStatus.INTERNAL_REVIEW.value
+            if payload.get("firm")
+            else ContractStatus.DRAFT.value,
             title=title,
             body=body,
             customer_visible=False,
@@ -429,7 +441,9 @@ def portal_reject(session: Session, offer: Offer, body: PortalReject) -> Contrac
 
 def to_offer_dto(session: Session, offer: Offer, *, include_children: bool = True) -> OfferDTO:
     gaps = _gaps_for(session, offer.id) if include_children else []
-    open_count = sum(1 for g in gaps if g.status in (GapStatus.OPEN.value, GapStatus.IN_PROGRESS.value))
+    open_count = sum(
+        1 for g in gaps if g.status in (GapStatus.OPEN.value, GapStatus.IN_PROGRESS.value)
+    )
     dto = OfferDTO.model_validate(offer)
     dto.open_gap_count = open_count
     if include_children:

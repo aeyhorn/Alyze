@@ -16,6 +16,7 @@ Tables covered:
   PDN1  - Goods receipt PO line items
   OIVL  - Inventory value ledger (consumption/movements)
 """
+
 from __future__ import annotations
 
 from typing import Any

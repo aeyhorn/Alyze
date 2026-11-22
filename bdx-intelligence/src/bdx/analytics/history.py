@@ -5,6 +5,7 @@ materialised into ``machine_state_history`` and fills the gap.  Designed
 to run incrementally - tracks the newest ``started_at`` per machine so it
 never re-processes already-materialised intervals.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -31,10 +32,7 @@ def build_machine_state_history(session: Session) -> int:
 
     Returns the total number of new rows inserted.
     """
-    machines = [
-        row.machine_id
-        for row in session.execute(select(MachineState.machine_id)).all()
-    ]
+    machines = [row.machine_id for row in session.execute(select(MachineState.machine_id)).all()]
 
     total_inserted = 0
     for machine_id in machines:
@@ -49,8 +47,9 @@ def build_machine_state_history(session: Session) -> int:
 def _latest_materialised_at(session: Session, machine_id: str) -> datetime | None:
     """Return the ``started_at`` of the newest history row for this machine."""
     result = session.execute(
-        select(func.max(MachineStateHistory.started_at))
-        .where(MachineStateHistory.machine_id == machine_id)
+        select(func.max(MachineStateHistory.started_at)).where(
+            MachineStateHistory.machine_id == machine_id
+        )
     ).scalar()
     return result
 
@@ -84,19 +83,19 @@ def _build_for_machine(session: Session, machine_id: str) -> int:
         started_at = event.occurred_at
         next_event = events[idx + 1] if idx + 1 < len(events) else None
         ended_at: datetime | None = next_event.occurred_at if next_event else None
-        duration_s: float | None = (
-            (ended_at - started_at).total_seconds() if ended_at else None
-        )
+        duration_s: float | None = (ended_at - started_at).total_seconds() if ended_at else None
 
-        session.add(MachineStateHistory(
-            machine_id=machine_id,
-            state=new_state,
-            started_at=started_at,
-            ended_at=ended_at,
-            duration_s=duration_s,
-            sap_doc_entry=event.doc_entry,
-            sap_item_code=event.item_code,
-        ))
+        session.add(
+            MachineStateHistory(
+                machine_id=machine_id,
+                state=new_state,
+                started_at=started_at,
+                ended_at=ended_at,
+                duration_s=duration_s,
+                sap_doc_entry=event.doc_entry,
+                sap_item_code=event.item_code,
+            )
+        )
         inserted += 1
 
     return inserted

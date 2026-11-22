@@ -1,4 +1,5 @@
 """Quote agent – runs Q2P evaluation (+ optional bdx-quoter via datenraum)."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -12,7 +13,6 @@ from bdx.adapters.quoter import QuoterClient
 from bdx.promise.agents.base import AgentResult
 from bdx.promise.models import Offer
 from bdx.q2p.service import evaluate_promise
-
 
 _DOMAIN_TO_GAP: dict[str, str] = {
     "item": "technik",

@@ -1,9 +1,11 @@
 """bdx-quoter HTTP adapter + Q2P pricing integration."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
+
 import httpx
 import pytest
 from sqlalchemy import create_engine
@@ -36,7 +38,7 @@ def session():
     )
     Base.metadata.create_all(eng)
     s = sessionmaker(bind=eng)()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     s.add(
         MachineState(
             machine_id="M1",

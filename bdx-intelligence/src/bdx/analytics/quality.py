@@ -1,4 +1,5 @@
 """Measurement quality: link rate, history depth, shift calendar, Little's Law."""
+
 from __future__ import annotations
 
 import statistics
@@ -19,11 +20,13 @@ HISTORY_DAYS_MIN = 7.0
 LITTLES_DEVIATION_MAX = 0.30
 
 # KPI names the API must flag when the corresponding gate fails.
-UTILIZATION_METRICS = frozenset({
-    "machine_utilization_pct",
-    "oee_availability_pct",
-    "setup_ratio_pct",
-})
+UTILIZATION_METRICS = frozenset(
+    {
+        "machine_utilization_pct",
+        "oee_availability_pct",
+        "setup_ratio_pct",
+    }
+)
 CYCLE_TIME_METRICS = frozenset({"cycle_time_hours"})
 
 
@@ -37,8 +40,9 @@ def _as_utc(value: datetime | None) -> datetime | None:
 
 def _median_cycle_hours(session: Session, since: datetime) -> tuple[float | None, int]:
     segments = session.execute(
-        select(OrderFlowSegment.total_h, OrderFlowSegment.closed_at)
-        .where(OrderFlowSegment.total_h.is_not(None))
+        select(OrderFlowSegment.total_h, OrderFlowSegment.closed_at).where(
+            OrderFlowSegment.total_h.is_not(None)
+        )
     ).all()
     hours: list[float] = []
     for total_h, closed_at in segments:
@@ -92,15 +96,21 @@ def record_measurement_quality(
 
     shift_rows = session.execute(select(func.count()).select_from(ShiftCalendar)).scalar() or 0
 
-    wip = float(session.execute(
-        select(func.count()).select_from(OrderState).where(OrderState.status.in_(["P", "R"]))
-    ).scalar() or 0)
-    closed_n = session.execute(
-        select(func.count())
-        .select_from(DomainEvent)
-        .where(DomainEvent.event_type == EventType.ORDER_CLOSED)
-        .where(DomainEvent.occurred_at >= since)
-    ).scalar() or 0
+    wip = float(
+        session.execute(
+            select(func.count()).select_from(OrderState).where(OrderState.status.in_(["P", "R"]))
+        ).scalar()
+        or 0
+    )
+    closed_n = (
+        session.execute(
+            select(func.count())
+            .select_from(DomainEvent)
+            .where(DomainEvent.event_type == EventType.ORDER_CLOSED)
+            .where(DomainEvent.occurred_at >= since)
+        ).scalar()
+        or 0
+    )
     throughput = float(closed_n) / float(window_hours) if window_hours else 0.0
     median_ct, _samples = _median_cycle_hours(session, since)
 
@@ -149,9 +159,15 @@ def record_measurement_quality(
 
 
 def latest_quality(session: Session) -> MeasurementQuality | None:
-    return session.execute(
-        select(MeasurementQuality).order_by(MeasurementQuality.computed_at.desc(), MeasurementQuality.id.desc())
-    ).scalars().first()
+    return (
+        session.execute(
+            select(MeasurementQuality).order_by(
+                MeasurementQuality.computed_at.desc(), MeasurementQuality.id.desc()
+            )
+        )
+        .scalars()
+        .first()
+    )
 
 
 def reliability_for_metric(session: Session, metric_name: str) -> bool | None:

@@ -11,11 +11,12 @@ Events (all carry ``source_key = "MACHINE:<machine_id>"`` and ``machine_id``):
 When the order reference is numeric and matches an ``order_state.doc_num`` the
 event is linked to the SAP production order (``doc_entry``, ``item_code``).
 """
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Sequence
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import select
@@ -32,7 +33,9 @@ def machine_source_key(machine_id: str) -> str:
     return f"MACHINE:{machine_id}"
 
 
-def _resolve_sap_order(session: Session, status: MachineStatus) -> tuple[int | None, int | None, str | None]:
+def _resolve_sap_order(
+    session: Session, status: MachineStatus
+) -> tuple[int | None, int | None, str | None]:
     """Return (doc_entry, doc_num, item_code) for the machine's order reference."""
     doc_num = status.sap_doc_num
     if doc_num is None:
@@ -66,7 +69,7 @@ def _event(
     )
 
 
-def _apply_status(row: MachineState, st: MachineStatus, now: datetime, sap) -> None:  # noqa: ANN001
+def _apply_status(row: MachineState, st: MachineStatus, now: datetime, sap) -> None:
     row.online = True
     row.mde_enabled = st.mde_enabled
     row.exec_state = st.exec_state
@@ -105,7 +108,7 @@ def detect_machine_changes(
     The session is flushed but NOT committed; the caller commits together with
     the events (see :func:`run_machine_cycle`).
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     events: list[DomainEvent] = []
 
     existing = {r.machine_id: r for r in session.execute(select(MachineState)).scalars().all()}
@@ -120,52 +123,136 @@ def detect_machine_changes(
             row = MachineState(machine_id=st.machine_id, first_seen_at=now, last_changed_at=now)
             _apply_status(row, st, now, sap)
             session.add(row)
-            events.append(_event(EventType.MACHINE_ONLINE, st, run_id, now, sap, {
-                "state": st.state, "exec": st.exec_state, "order_ref": st.order_ref,
-            }))
+            events.append(
+                _event(
+                    EventType.MACHINE_ONLINE,
+                    st,
+                    run_id,
+                    now,
+                    sap,
+                    {
+                        "state": st.state,
+                        "exec": st.exec_state,
+                        "order_ref": st.order_ref,
+                    },
+                )
+            )
             if st.order_ref:
-                events.append(_event(EventType.MACHINE_ORDER_STARTED, st, run_id, now, sap, {
-                    "order_ref": st.order_ref, "part": st.part, "operation": st.operation,
-                    "pieces": st.pieces,
-                }))
+                events.append(
+                    _event(
+                        EventType.MACHINE_ORDER_STARTED,
+                        st,
+                        run_id,
+                        now,
+                        sap,
+                        {
+                            "order_ref": st.order_ref,
+                            "part": st.part,
+                            "operation": st.operation,
+                            "pieces": st.pieces,
+                        },
+                    )
+                )
             continue
 
         changed = False
 
         if not row.online:
-            events.append(_event(EventType.MACHINE_ONLINE, st, run_id, now, sap, {
-                "state": st.state, "exec": st.exec_state, "offline_since": row.last_seen_at.isoformat(),
-            }))
+            events.append(
+                _event(
+                    EventType.MACHINE_ONLINE,
+                    st,
+                    run_id,
+                    now,
+                    sap,
+                    {
+                        "state": st.state,
+                        "exec": st.exec_state,
+                        "offline_since": row.last_seen_at.isoformat(),
+                    },
+                )
+            )
             changed = True
 
         if (row.state or None) != st.state or (row.exec_state or None) != (st.exec_state or None):
-            events.append(_event(EventType.MACHINE_STATE_CHANGED, st, run_id, now, sap, {
-                "prev_state": row.state, "new_state": st.state,
-                "prev_exec": row.exec_state, "new_exec": st.exec_state,
-                "raw_state": st.raw_state, "mode": st.mode, "order_ref": st.order_ref,
-            }))
+            events.append(
+                _event(
+                    EventType.MACHINE_STATE_CHANGED,
+                    st,
+                    run_id,
+                    now,
+                    sap,
+                    {
+                        "prev_state": row.state,
+                        "new_state": st.state,
+                        "prev_exec": row.exec_state,
+                        "new_exec": st.exec_state,
+                        "raw_state": st.raw_state,
+                        "mode": st.mode,
+                        "order_ref": st.order_ref,
+                    },
+                )
+            )
             changed = True
 
         prev_order = row.order_ref or None
         new_order = st.order_ref or None
         if prev_order != new_order:
             if prev_order:
-                events.append(_event(EventType.MACHINE_ORDER_FINISHED, st, run_id, now,
-                                     (row.sap_doc_entry, _safe_int(prev_order), row.sap_item_code), {
-                    "order_ref": prev_order, "part": row.part, "pieces": row.pieces,
-                    "started_at": row.last_changed_at.isoformat(),
-                }))
+                events.append(
+                    _event(
+                        EventType.MACHINE_ORDER_FINISHED,
+                        st,
+                        run_id,
+                        now,
+                        (row.sap_doc_entry, _safe_int(prev_order), row.sap_item_code),
+                        {
+                            "order_ref": prev_order,
+                            "part": row.part,
+                            "pieces": row.pieces,
+                            "started_at": row.last_changed_at.isoformat(),
+                        },
+                    )
+                )
             if new_order:
-                events.append(_event(EventType.MACHINE_ORDER_STARTED, st, run_id, now, sap, {
-                    "order_ref": new_order, "part": st.part, "operation": st.operation,
-                    "pieces": st.pieces,
-                }))
+                events.append(
+                    _event(
+                        EventType.MACHINE_ORDER_STARTED,
+                        st,
+                        run_id,
+                        now,
+                        sap,
+                        {
+                            "order_ref": new_order,
+                            "part": st.part,
+                            "operation": st.operation,
+                            "pieces": st.pieces,
+                        },
+                    )
+                )
             changed = True
-        elif new_order and st.pieces is not None and row.pieces is not None and st.pieces > row.pieces:
-            events.append(_event(EventType.MACHINE_PIECES_REPORTED, st, run_id, now, sap, {
-                "order_ref": new_order, "part": st.part,
-                "prev_pieces": row.pieces, "new_pieces": st.pieces, "delta": st.pieces - row.pieces,
-            }))
+        elif (
+            new_order
+            and st.pieces is not None
+            and row.pieces is not None
+            and st.pieces > row.pieces
+        ):
+            events.append(
+                _event(
+                    EventType.MACHINE_PIECES_REPORTED,
+                    st,
+                    run_id,
+                    now,
+                    sap,
+                    {
+                        "order_ref": new_order,
+                        "part": st.part,
+                        "prev_pieces": row.pieces,
+                        "new_pieces": st.pieces,
+                        "delta": st.pieces - row.pieces,
+                    },
+                )
+            )
             changed = True
         elif new_order and st.pieces is not None and row.pieces is None:
             changed = True
@@ -182,18 +269,20 @@ def detect_machine_changes(
         if _aware(row.last_seen_at) < stale_before:
             row.online = False
             row.last_changed_at = now
-            events.append(DomainEvent(
-                event_id=str(uuid.uuid4()),
-                event_type=EventType.MACHINE_OFFLINE.value,
-                source_key=machine_source_key(machine_id),
-                machine_id=machine_id,
-                doc_entry=row.sap_doc_entry,
-                doc_num=_safe_int(row.order_ref),
-                item_code=row.sap_item_code,
-                payload={"last_seen_at": row.last_seen_at.isoformat(), "last_state": row.state},
-                occurred_at=now,
-                snapshot_run_id=run_id,
-            ))
+            events.append(
+                DomainEvent(
+                    event_id=str(uuid.uuid4()),
+                    event_type=EventType.MACHINE_OFFLINE.value,
+                    source_key=machine_source_key(machine_id),
+                    machine_id=machine_id,
+                    doc_entry=row.sap_doc_entry,
+                    doc_num=_safe_int(row.order_ref),
+                    item_code=row.sap_item_code,
+                    payload={"last_seen_at": row.last_seen_at.isoformat(), "last_state": row.state},
+                    occurred_at=now,
+                    snapshot_run_id=run_id,
+                )
+            )
 
     session.flush()
     if events:
@@ -203,7 +292,7 @@ def detect_machine_changes(
 
 def _aware(dt: datetime) -> datetime:
     """SQLite returns naive datetimes; treat them as UTC."""
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _safe_int(v: str | None) -> int | None:
@@ -215,21 +304,23 @@ def _safe_int(v: str | None) -> int | None:
 
 def run_machine_cycle(
     adapter: MachineAdapter,
-    pg_session_factory,  # noqa: ANN001
+    pg_session_factory,
     offline_after_seconds: int = 120,
-    publisher=None,  # noqa: ANN001
+    publisher=None,
 ) -> tuple[list[MachineStatus], list[DomainEvent]]:
     """One machine-collector cycle: fetch → diff → persist → publish."""
     statuses = adapter.get_all_status()
     run_id = str(uuid.uuid4())
     with pg_session_factory() as session:
-        events = detect_machine_changes(session, statuses, run_id, offline_after_seconds=offline_after_seconds)
+        events = detect_machine_changes(
+            session, statuses, run_id, offline_after_seconds=offline_after_seconds
+        )
         new_events = persist_events(session, events) if events else []
         session.commit()
     if publisher is not None and new_events:
         try:
             publisher.publish(new_events)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("publish.failed", error=str(exc))
     logger.info("machine.cycle.ok", machines=len(statuses), events=len(new_events))
     return statuses, new_events

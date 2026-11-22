@@ -1,4 +1,5 @@
 """ORM models and Pydantic DTOs for the Sprint 005 analytics tables."""
+
 from __future__ import annotations
 
 import uuid
@@ -27,7 +28,9 @@ class KpiSnapshot(Base):
     dimension_value: Mapped[str | None] = mapped_column(String(128), nullable=True)
     value: Mapped[float] = mapped_column(Float, nullable=False)
     window_hours: Mapped[int] = mapped_column(Integer, nullable=False)
-    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     # optional extra context (e.g. sample_count, unit, p95 alongside median)
     extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
@@ -37,7 +40,9 @@ class MetricThreshold(Base):
 
     __tablename__ = "metric_thresholds"
     __table_args__ = (
-        UniqueConstraint("metric_name", "dimension", "dimension_value", name="uq_metric_thresholds_dim"),
+        UniqueConstraint(
+            "metric_name", "dimension", "dimension_value", name="uq_metric_thresholds_dim"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -91,9 +96,9 @@ class ShiftCalendar(Base):
     machine_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     # 0=Mon … 6=Sun (Python weekday())
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
-    shift_start: Mapped[str] = mapped_column(String(5), nullable=False)   # "HH:MM"
-    shift_end: Mapped[str] = mapped_column(String(5), nullable=False)     # "HH:MM"
-    valid_from: Mapped[str] = mapped_column(String(10), nullable=False)   # "YYYY-MM-DD"
+    shift_start: Mapped[str] = mapped_column(String(5), nullable=False)  # "HH:MM"
+    shift_end: Mapped[str] = mapped_column(String(5), nullable=False)  # "HH:MM"
+    valid_from: Mapped[str] = mapped_column(String(10), nullable=False)  # "YYYY-MM-DD"
 
 
 class MachineStateHistory(Base):
@@ -147,7 +152,9 @@ class MeasurementQuality(Base):
     __tablename__ = "measurement_quality"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     link_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     linked_orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     machine_orders_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -1,4 +1,5 @@
 """FastAPI application factory."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -104,7 +105,7 @@ def create_app(
             from bdx.adapters.quoter import build_quoter_client
 
             app.state.quoter_client = build_quoter_client(load_quoter_settings())
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("quoter.init_failed", error=str(exc))
             from bdx.adapters.quoter import NullQuoterClient
 
@@ -153,7 +154,12 @@ def create_app(
         # Serve same SPA shell; JS reads token from path
         return FileResponse(_STATIC_DIR / "portal.html", media_type="text/html")
 
-    logger.info("app.ready", host=app_cfg.api_host, port=app_cfg.api_port, api_key_enabled=bool(app.state.api_key))
+    logger.info(
+        "app.ready",
+        host=app_cfg.api_host,
+        port=app_cfg.api_port,
+        api_key_enabled=bool(app.state.api_key),
+    )
     return app
 
 
@@ -174,7 +180,9 @@ def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> Non
 
     try:
         bde_cfg = load_bde_settings()
-        app.state.bde_adapter = bde_adapter or (build_bde_adapter(bde_cfg) if bde_cfg.configured else None)
+        app.state.bde_adapter = bde_adapter or (
+            build_bde_adapter(bde_cfg) if bde_cfg.configured else None
+        )
         if isinstance(app.state.bde_adapter, NullBDEAdapter):
             app.state.bde_adapter = None
     except Exception as exc:
@@ -183,6 +191,7 @@ def _init_adapters(app: FastAPI, machine_adapter, bde_adapter, publisher) -> Non
 
     try:
         from bdx.publish.mqtt import build_all_publishers
+
         app.state.publisher = publisher or build_all_publishers()
     except Exception as exc:
         logger.warning("publisher.init_failed", error=str(exc))

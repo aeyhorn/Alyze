@@ -1,4 +1,5 @@
 """Capacity agent – machines bid / propose slots from live machine_state."""
+
 from __future__ import annotations
 
 from typing import Any

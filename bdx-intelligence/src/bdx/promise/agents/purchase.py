@@ -1,4 +1,5 @@
 """Purchase agent – turns material/BOM shortages into einkauf gaps + proposals."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -37,7 +38,7 @@ def run_purchase_agent(offer: Offer, *, sap_engine: Engine | None) -> AgentResul
             stock, stock_err = sap_queries.fetch_warehouse_stock(conn, offer.item_code)
             pos, po_err = sap_queries.fetch_open_purchase_lines(conn, offer.item_code)
             bom, bom_err = sap_queries.fetch_bom_components(conn, offer.item_code)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return AgentResult(
             ok=False,
             summary=f"Einkauf-Agent Fehler: {exc}",
@@ -122,9 +123,11 @@ def run_purchase_agent(offer: Offer, *, sap_engine: Engine | None) -> AgentResul
         try:
             with sap_engine.connect() as conn:
                 c_stock, _ = sap_queries.fetch_warehouse_stock(conn, code)
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
-        c_avail = sum(float(r.get("on_hand") or 0) - float(r.get("is_committed") or 0) for r in c_stock)
+        c_avail = sum(
+            float(r.get("on_hand") or 0) - float(r.get("is_committed") or 0) for r in c_stock
+        )
         per = float(c.get("quantity") or 0)
         needed = per * need
         if c_avail < needed:

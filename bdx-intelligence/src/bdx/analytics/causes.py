@@ -4,6 +4,7 @@ Priority, first match wins:
   material_gap, overdue_po, waiting_idle, bottleneck, scrap, unstable.
 Orders with no evidence are stored as ``unassigned``.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -56,7 +57,9 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value
 
 
-def _overlap_hours(start: datetime, end: datetime, row_start: datetime, row_end: datetime | None) -> float:
+def _overlap_hours(
+    start: datetime, end: datetime, row_start: datetime, row_end: datetime | None
+) -> float:
     stop = row_end or end
     lo = max(start, row_start)
     hi = min(end, stop)
@@ -70,11 +73,15 @@ def _idle_hours_between(session: Session, start: datetime | None, end: datetime 
     end_utc = _as_utc(end)
     if start_utc is None or end_utc is None or end_utc <= start_utc:
         return 0.0
-    rows = session.execute(
-        select(MachineStateHistory)
-        .where(MachineStateHistory.state == "idle")
-        .where(MachineStateHistory.started_at <= end_utc)
-    ).scalars().all()
+    rows = (
+        session.execute(
+            select(MachineStateHistory)
+            .where(MachineStateHistory.state == "idle")
+            .where(MachineStateHistory.started_at <= end_utc)
+        )
+        .scalars()
+        .all()
+    )
     total = 0.0
     for row in rows:
         row_start = _as_utc(row.started_at)
@@ -124,7 +131,9 @@ def classify_lateness(
         row.machine_id
         for row in session.execute(
             select(BottleneckRank).where(BottleneckRank.interpretation == "capacity")
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     }
 
     closed_at = {
@@ -140,10 +149,14 @@ def classify_lateness(
         row.doc_entry: int(row.cnt)
         for row in session.execute(
             select(DomainEvent.doc_entry, func.count().label("cnt"))
-            .where(DomainEvent.event_type.in_([
-                EventType.QUANTITY_CHANGED,
-                EventType.DUE_DATE_CHANGED,
-            ]))
+            .where(
+                DomainEvent.event_type.in_(
+                    [
+                        EventType.QUANTITY_CHANGED,
+                        EventType.DUE_DATE_CHANGED,
+                    ]
+                )
+            )
             .where(DomainEvent.doc_entry.is_not(None))
             .group_by(DomainEvent.doc_entry)
         ).all()
@@ -193,22 +206,24 @@ def classify_lateness(
             scrap=scrap,
             unstable=unstable,
         )
-        session.add(LatenessCause(
-            doc_entry=order.doc_entry,
-            item_code=order.item_code,
-            cause=cause,
-            due_date=due,
-            closed_at=closed,
-            evidence={
-                "wait_h": wait_h,
-                "idle_h": round(idle_h, 3),
-                "machine_id": machine_id,
-                "rejected_qty": rejected,
-                "planned_qty": planned,
-                "change_count": change_counts.get(order.doc_entry, 0),
-            },
-            computed_at=now,
-        ))
+        session.add(
+            LatenessCause(
+                doc_entry=order.doc_entry,
+                item_code=order.item_code,
+                cause=cause,
+                due_date=due,
+                closed_at=closed,
+                evidence={
+                    "wait_h": wait_h,
+                    "idle_h": round(idle_h, 3),
+                    "machine_id": machine_id,
+                    "rejected_qty": rejected,
+                    "planned_qty": planned,
+                    "change_count": change_counts.get(order.doc_entry, 0),
+                },
+                computed_at=now,
+            )
+        )
         written += 1
 
     session.commit()

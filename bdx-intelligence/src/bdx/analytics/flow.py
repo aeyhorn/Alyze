@@ -1,4 +1,5 @@
 """Order flow segments: release-to-start, setup, run, post-process to SAP close."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -43,11 +44,15 @@ def build_flow_segments(session: Session) -> int:
         for row in session.execute(
             select(DomainEvent.doc_entry)
             .where(DomainEvent.doc_entry.is_not(None))
-            .where(DomainEvent.event_type.in_([
-                EventType.ORDER_RELEASED,
-                EventType.ORDER_CLOSED,
-                EventType.MACHINE_ORDER_STARTED,
-            ]))
+            .where(
+                DomainEvent.event_type.in_(
+                    [
+                        EventType.ORDER_RELEASED,
+                        EventType.ORDER_CLOSED,
+                        EventType.MACHINE_ORDER_STARTED,
+                    ]
+                )
+            )
         ).all()
         if row.doc_entry is not None
     }
@@ -57,8 +62,9 @@ def build_flow_segments(session: Session) -> int:
     item_codes = {
         row.doc_entry: row.item_code
         for row in session.execute(
-            select(OrderState.doc_entry, OrderState.item_code)
-            .where(OrderState.doc_entry.in_(list(doc_entries)))
+            select(OrderState.doc_entry, OrderState.item_code).where(
+                OrderState.doc_entry.in_(list(doc_entries))
+            )
         ).all()
     }
 
@@ -85,13 +91,18 @@ def build_flow_segments(session: Session) -> int:
             .where(DomainEvent.event_type == EventType.MACHINE_ORDER_FINISHED)
         ).scalar()
 
-        history = session.execute(
-            select(MachineStateHistory)
-            .where(MachineStateHistory.sap_doc_entry == doc_entry)
-        ).scalars().all()
+        history = (
+            session.execute(
+                select(MachineStateHistory).where(MachineStateHistory.sap_doc_entry == doc_entry)
+            )
+            .scalars()
+            .all()
+        )
         setup_s = sum((h.duration_s or 0.0) for h in history if h.state == "setup")
         run_s = sum((h.duration_s or 0.0) for h in history if h.state == "running")
-        run_ends = [_as_utc(h.ended_at) for h in history if h.state == "running" and h.ended_at is not None]
+        run_ends = [
+            _as_utc(h.ended_at) for h in history if h.state == "running" and h.ended_at is not None
+        ]
         last_run_end = max(run_ends) if run_ends else _as_utc(finished_at)
 
         wait_h = _hours(released_at, first_start)

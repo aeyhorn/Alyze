@@ -1,8 +1,9 @@
 """Quote-to-Promise cockpit – service + API tests (no real SAP)."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock
 
@@ -53,7 +54,7 @@ def client(session_factory):
 
 
 def _seed_capacity(session):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session.add(
         MachineState(
             machine_id="M1",
@@ -104,7 +105,7 @@ def test_evaluate_without_sap_lists_human_questions(session):
 
 
 def test_evaluate_capacity_warn_when_busy(session):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session.add(
         MachineState(
             machine_id="M1",

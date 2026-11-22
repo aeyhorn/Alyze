@@ -14,6 +14,7 @@ The ``higher_is_worse`` flag is embedded in the seed definition for each
 metric:  True → alert when the measured value EXCEEDS the threshold
          False → alert when the measured value FALLS BELOW the threshold
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -40,27 +41,27 @@ TUNING_WINDOW_DAYS = 30
 # These are used as initial thresholds until enough real data accumulates.
 FIXED_SEED_THRESHOLDS: dict[str, tuple[float, float, bool]] = {
     # Order KPIs - higher is worse
-    "cycle_time_hours":         (72.0,  168.0, True),   # warn >3d, crit >7d
-    "on_time_delivery_rate":    (85.0,  70.0,  False),  # warn <85%, crit <70%
-    "backlog_overdue_count":    (5.0,   20.0,  True),
-    "rejection_rate_pct":       (2.0,   5.0,   True),
-    "release_to_start_hours":   (8.0,   24.0,  True),   # warn >8h, crit >24h
-    "order_change_frequency":   (2.0,   5.0,   True),
+    "cycle_time_hours": (72.0, 168.0, True),  # warn >3d, crit >7d
+    "on_time_delivery_rate": (85.0, 70.0, False),  # warn <85%, crit <70%
+    "backlog_overdue_count": (5.0, 20.0, True),
+    "rejection_rate_pct": (2.0, 5.0, True),
+    "release_to_start_hours": (8.0, 24.0, True),  # warn >8h, crit >24h
+    "order_change_frequency": (2.0, 5.0, True),
     # Machine KPIs - lower utilization is worse
-    "machine_utilization_pct":  (60.0,  40.0,  False),  # warn <60%, crit <40%
-    "setup_ratio_pct":          (20.0,  35.0,  True),   # warn >20%, crit >35%
-    "mttr_hours":               (2.0,   8.0,   True),
-    "mtbf_hours":               (24.0,  8.0,   False),  # want MTBF to be high
-    "queue_unstarted_count":    (3.0,   10.0,  True),
-    "oee_availability_pct":     (70.0,  50.0,  False),
+    "machine_utilization_pct": (60.0, 40.0, False),  # warn <60%, crit <40%
+    "setup_ratio_pct": (20.0, 35.0, True),  # warn >20%, crit >35%
+    "mttr_hours": (2.0, 8.0, True),
+    "mtbf_hours": (24.0, 8.0, False),  # want MTBF to be high
+    "queue_unstarted_count": (3.0, 10.0, True),
+    "oee_availability_pct": (70.0, 50.0, False),
     # Procurement / inventory KPIs
-    "material_coverage_pct":    (80.0,  60.0,  False),  # warn <80%, crit <60%
-    "critical_items_count":     (2.0,   5.0,   True),   # warn >2, crit >5 items
-    "po_lead_time_days":        (14.0,  30.0,  True),   # warn >14d, crit >30d
-    "supplier_otd_rate":        (85.0,  70.0,  False),  # warn <85%, crit <70%
-    "po_overdue_count":         (2.0,   5.0,   True),   # warn >2 lines, crit >5
-    "gr_delay_days":            (7.0,   21.0,  True),   # warn >7d, crit >21d
-    "stock_coverage_days":      (7.0,   3.0,   False),  # warn <7d, crit <3d
+    "material_coverage_pct": (80.0, 60.0, False),  # warn <80%, crit <60%
+    "critical_items_count": (2.0, 5.0, True),  # warn >2, crit >5 items
+    "po_lead_time_days": (14.0, 30.0, True),  # warn >14d, crit >30d
+    "supplier_otd_rate": (85.0, 70.0, False),  # warn <85%, crit <70%
+    "po_overdue_count": (2.0, 5.0, True),  # warn >2 lines, crit >5
+    "gr_delay_days": (7.0, 21.0, True),  # warn >7d, crit >21d
+    "stock_coverage_days": (7.0, 3.0, False),  # warn <7d, crit <3d
 }
 
 
@@ -87,16 +88,20 @@ def _upsert_threshold(
     higher_is_worse: bool,
 ) -> None:
     """Insert or update a MetricThreshold row."""
-    existing = session.execute(
-        select(MetricThreshold)
-        .where(MetricThreshold.metric_name == metric_name)
-        .where(MetricThreshold.dimension == dimension)
-        .where(
-            MetricThreshold.dimension_value == dimension_value
-            if dimension_value is not None
-            else MetricThreshold.dimension_value.is_(None)
+    existing = (
+        session.execute(
+            select(MetricThreshold)
+            .where(MetricThreshold.metric_name == metric_name)
+            .where(MetricThreshold.dimension == dimension)
+            .where(
+                MetricThreshold.dimension_value == dimension_value
+                if dimension_value is not None
+                else MetricThreshold.dimension_value.is_(None)
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
 
     now = _now_utc()
     if existing:
@@ -107,17 +112,19 @@ def _upsert_threshold(
         existing.sample_count = sample_count
         existing.higher_is_worse = higher_is_worse
     else:
-        session.add(MetricThreshold(
-            metric_name=metric_name,
-            dimension=dimension,
-            dimension_value=dimension_value,
-            warn_threshold=warn,
-            crit_threshold=crit,
-            method=method,
-            updated_at=now,
-            sample_count=sample_count,
-            higher_is_worse=higher_is_worse,
-        ))
+        session.add(
+            MetricThreshold(
+                metric_name=metric_name,
+                dimension=dimension,
+                dimension_value=dimension_value,
+                warn_threshold=warn,
+                crit_threshold=crit,
+                method=method,
+                updated_at=now,
+                sample_count=sample_count,
+                higher_is_worse=higher_is_worse,
+            )
+        )
 
 
 def seed_fixed_thresholds(session: Session) -> int:
@@ -128,13 +135,24 @@ def seed_fixed_thresholds(session: Session) -> int:
     """
     inserted = 0
     for metric_name, (warn, crit, hiw) in FIXED_SEED_THRESHOLDS.items():
-        existing = session.execute(
-            select(MetricThreshold).where(MetricThreshold.metric_name == metric_name)
-        ).scalars().first()
+        existing = (
+            session.execute(
+                select(MetricThreshold).where(MetricThreshold.metric_name == metric_name)
+            )
+            .scalars()
+            .first()
+        )
         if existing is None:
             _upsert_threshold(
-                session, metric_name, "global", None,
-                warn, crit, "fixed", 0, hiw,
+                session,
+                metric_name,
+                "global",
+                None,
+                warn,
+                crit,
+                "fixed",
+                0,
+                hiw,
             )
             inserted += 1
     session.commit()
@@ -162,17 +180,21 @@ def tune_thresholds(session: Session) -> int:
     ).all()
 
     for metric_name, dimension, dimension_value in rows:
-        values_query = session.execute(
-            select(KpiSnapshot.value)
-            .where(KpiSnapshot.metric_name == metric_name)
-            .where(KpiSnapshot.dimension == dimension)
-            .where(
-                KpiSnapshot.dimension_value == dimension_value
-                if dimension_value is not None
-                else KpiSnapshot.dimension_value.is_(None)
+        values_query = (
+            session.execute(
+                select(KpiSnapshot.value)
+                .where(KpiSnapshot.metric_name == metric_name)
+                .where(KpiSnapshot.dimension == dimension)
+                .where(
+                    KpiSnapshot.dimension_value == dimension_value
+                    if dimension_value is not None
+                    else KpiSnapshot.dimension_value.is_(None)
+                )
+                .where(KpiSnapshot.computed_at >= since)
             )
-            .where(KpiSnapshot.computed_at >= since)
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         values = [float(v) for v in values_query if v is not None]
 
@@ -195,8 +217,15 @@ def tune_thresholds(session: Session) -> int:
             method = "percentile"
 
         _upsert_threshold(
-            session, metric_name, dimension, dimension_value,
-            round(warn, 4), round(crit, 4), method, len(values), higher_is_worse,
+            session,
+            metric_name,
+            dimension,
+            dimension_value,
+            round(warn, 4),
+            round(crit, 4),
+            method,
+            len(values),
+            higher_is_worse,
         )
         updated += 1
 
@@ -212,13 +241,17 @@ def get_threshold(
     dimension_value: str | None = None,
 ) -> MetricThreshold | None:
     """Return the active threshold for a metric+dimension combo, or None."""
-    return session.execute(
-        select(MetricThreshold)
-        .where(MetricThreshold.metric_name == metric_name)
-        .where(MetricThreshold.dimension == dimension)
-        .where(
-            MetricThreshold.dimension_value == dimension_value
-            if dimension_value is not None
-            else MetricThreshold.dimension_value.is_(None)
+    return (
+        session.execute(
+            select(MetricThreshold)
+            .where(MetricThreshold.metric_name == metric_name)
+            .where(MetricThreshold.dimension == dimension)
+            .where(
+                MetricThreshold.dimension_value == dimension_value
+                if dimension_value is not None
+                else MetricThreshold.dimension_value.is_(None)
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )

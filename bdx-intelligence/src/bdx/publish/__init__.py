@@ -4,6 +4,7 @@ MQTT and Kafka are optional. When no broker is configured the
 :class:`NullPublisher` is used and events stay in PostgreSQL.
 :class:`RecordingPublisher` captures events in memory for local checks/tests.
 """
+
 from __future__ import annotations
 
 from bdx.publish.base import (
@@ -17,11 +18,11 @@ from bdx.publish.mqtt import MqttPublisher, build_all_publishers, build_publishe
 
 __all__ = [
     "EventPublisher",
+    "KafkaPublisher",
+    "MqttPublisher",
     "NullPublisher",
     "RecordingPublisher",
-    "MqttPublisher",
-    "KafkaPublisher",
-    "build_publisher",
     "build_all_publishers",
+    "build_publisher",
     "event_to_message",
 ]

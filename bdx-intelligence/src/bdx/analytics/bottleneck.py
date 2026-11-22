@@ -1,4 +1,5 @@
 """Bottleneck rank: shift utilization times hours of released work still waiting."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -48,10 +49,7 @@ def rank_bottlenecks(session: Session, window_hours: int = 24 * 7) -> list[Bottl
         for r in compute_machine_utilization(session, window_hours=window_hours)
         if r.dimension == "machine" and r.dimension_value
     }
-    machines = [
-        row.machine_id
-        for row in session.execute(select(MachineState.machine_id)).all()
-    ]
+    machines = [row.machine_id for row in session.execute(select(MachineState.machine_id)).all()]
     for machine_id in machines:
         utils.setdefault(machine_id, 0.0)
 
@@ -88,8 +86,7 @@ def rank_bottlenecks(session: Session, window_hours: int = 24 * 7) -> list[Bottl
         ).all()
     }
     open_released = session.execute(
-        select(OrderState.doc_entry, OrderState.item_code)
-        .where(OrderState.status == "R")
+        select(OrderState.doc_entry, OrderState.item_code).where(OrderState.status == "R")
     ).all()
 
     queue_hours: dict[str, float] = dict.fromkeys(machines, 0.0)

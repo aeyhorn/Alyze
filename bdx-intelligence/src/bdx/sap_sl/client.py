@@ -10,6 +10,7 @@ Responsibilities
 
 This module is WRITE-channel only.  All reads go through MSSQL (db/sap.py).
 """
+
 from __future__ import annotations
 
 import threading
@@ -24,8 +25,8 @@ from bdx.config import SapMode, ServiceLayerSettings
 logger = structlog.get_logger(__name__)
 
 _WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
-_SESSION_TTL_SECONDS = 20 * 60      # SAP internal session lifetime
-_SESSION_REFRESH_BUFFER = 30        # renew this many seconds before expiry
+_SESSION_TTL_SECONDS = 20 * 60  # SAP internal session lifetime
+_SESSION_REFRESH_BUFFER = 30  # renew this many seconds before expiry
 
 
 class ServiceLayerError(Exception):
@@ -291,6 +292,7 @@ class ServiceLayerClient:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _extract_cookies(resp: httpx.Response) -> dict[str, str]:
     """Extract B1SESSION and ROUTEID from response cookies."""
