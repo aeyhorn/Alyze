@@ -1,6 +1,6 @@
 # BDX Intelligence – Projektziele
 
-> **Zuletzt abgeglichen:** 2026-11-21 08:20 (UTC+1)
+> **Zuletzt abgeglichen:** 2026-11-23 17:59 (UTC+1)
 > Operativer Stand: `docs/PROJECT_STATUS.md`. Neue Wünsche: `docs/REQUIREMENTS.md`.
 > Dieser erste Abgleich übernimmt den Stand aus `PROJECT_STATUS.md` (Stand 2026-11-07 19:51 UTC+1). IDs bleiben stabil.
 
@@ -10,14 +10,14 @@
 
 - **Status:** in Arbeit
 - **Ziel:** CI/CD, Quality-Gates, Integrationstests und den HOTL-Workflow auf `main` haben, mit Secrets, `prod`-Environment und Branch Protection.
-- **Stand:** Sprint-004-Baum liegt auf `origin/main`. Analytics-Kalendertest ist zeitstabil (R004); Branch Protection / `prod`-Reviewer und Nightly ODBC bleiben offen.
+- **Stand:** Sprint-004-Baum liegt auf `origin/main` (`f59431f`; Produktstand `#190` `71e8726`). CI-Push `44880160970` für `71e8726` grün. `ci.yml` nutzt `--cov-fail-under=68`; ruff und mypy sind `continue-on-error`. Branch-Protection-API HTTP 403, Rulesets leer. Environments `dev`, `prod`, `CURSOR_API_KEY` ohne Protection-Rules. Nightly `45169509387` (2026-11-23) scheitert in „Install ODBC Driver 18“; pytest startet nicht. R004 bleibt erledigt.
 - **Akzeptanz:** Sprint-004-Baum ist committet und gemergt. `CURSOR_API_KEY`, Deploy-Secrets und die nächtlichen Integrations-Secrets sind gesetzt. `prod` hat erforderliche Reviewer. `main` verlangt den Check aus `ci.yml`.
 
 ### G5 – SQL-Login `bdx_readonly`
 
 - **Status:** offen
 - **Ziel:** Read-only SQL-Login auf LDSAP, damit der Collector ohne Windows-Integrated-Auth im Container läuft.
-- **Stand:** Skripte `create_bdx_readonly.sql` / `reset_bdx_readonly.sql` + Automatisierung `scripts/Fix-DevSapAccess.ps1` (R006). Login/CONNECT auf LDSAP war zuletzt fehlgeschlagen (Dashboard-Stand eingefroren); Reset muss einmal als Windows-Admin gegen LDSAP laufen.
+- **Stand:** Skripte `create_bdx_readonly.sql` / `reset_bdx_readonly.sql` + Automatisierung `scripts/Fix-DevSapAccess.ps1` (R006, auf `main`). Das Reset-Skript ändert einen vorhandenen Login und nimmt ein früheres `DENY CONTROL` zurück, das CONNECT blockiert hat. Dieser Abgleich hat LDSAP nicht abgefragt. Reset muss einmal als Windows-Admin gegen LDSAP laufen.
 - **Akzeptanz:** Login angelegt, Collector verbindet sich damit read-only. Kein Schreibrecht auf dem SAP-SQL-Server.
 
 ### G6 – Container-Deploy auf dem Docker-Host
@@ -25,7 +25,7 @@
 - **Status:** in Arbeit
 - **Ziel:** `docker-compose.yml` auf 192.168.82.33 betreiben. Postgres läuft dort bereits.
 - **Abhängigkeit:** G5 ist nicht mehr Voraussetzung für den laufenden DEV-Deploy.
-- **Stand:** DEV-Deploy war grün (2026-11-10). Offen laut R005: Schema head `008`, Q2P-Grants, Quoter ENABLED auf dem Host.
+- **Stand:** Letzter grüner DEV-Deploy: Actions `44880160990` für `71e8726` (2026-11-21). Der Deploy-Guard hat nicht abgebrochen. `.runtime/last-deploy-sha` im Repo steht noch auf `6ccc036` (`cd6440f`, 2026-11-10). Offen laut R005: Schema head `008`, Q2P-Grants, Quoter ENABLED auf dem Host. Host-Env wurde nicht gelesen.
 - **Akzeptanz:** `collector` und `api` laufen im Compose-Stack, `/health/live` ist grün, `SL_DRY_RUN` bleibt auf dem DEV-Host `true`, bis ein Operator es bewusst umstellt.
 
 ### G7 – MQTT- oder Kafka-Broker
